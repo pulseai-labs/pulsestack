@@ -275,6 +275,60 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ["env yash -c 'kill -1'", "env yash -c 'kill 123'"],
   ["ksh -ec 'kill -1'", "ksh -ec 'kill 123'"],
   ["mksh -c -o pipefail 'kill -1'", "mksh -c -o pipefail 'kill 123'"],
+  // each name's own grammar, read for that name only: ksh93's first operand and -o value, mksh's -T and -o values (lksh reads as mksh), yash's cmdline and its value-taking long options
+  ["ksh 'kill -1'", "ksh 'kill 123'"],
+  ["ksh93 -e 'kill -1'", "ksh93 -e 'kill 123'"],
+  ["ksh -- 'kill -1'", "ksh -- 'kill 123'"],
+  ["ksh - 'kill -1'", "ksh - 'kill 123'"],
+  ["ksh + 'kill -1'", "ksh + 'kill 123'"],
+  ["ksh +c 'kill -1'", "ksh +c 'kill 123'"],
+  ["ksh -o -c 'kill -1'", "ksh -o -c 'kill 123'"],
+  ["ksh93 -c -o -o pipefail 'kill -1'", "ksh93 -c -o -o pipefail 'kill 123'"],
+  ["ksh -o - 'kill -1'", "ksh -o - 'kill 123'"],
+  ["ksh -o pipefail 'kill -1'", "ksh -o pipefail 'kill 123'"],
+  ["ksh93 -o -o pipefail -c 'kill -1'", "ksh93 -o -o pipefail -c 'kill 123'"],
+  ["ksh --pipefail 'kill -1'", "ksh --pipefail 'kill 123'"],
+  ["/bin/ksh93 'kill -1'", "/bin/ksh93 'kill 123'"],
+  ["env ksh 'kill -1'", "env ksh 'kill 123'"],
+  ["sudo ksh93 -e 'kill -1'", "sudo ksh93 -e 'kill 123'"],
+  ["mksh -T /dev/tty2 -c 'kill -1'", "mksh -T /dev/tty2 -c 'kill 123'"],
+  ["mksh -cT /dev/tty2 'kill -1'", "mksh -cT /dev/tty2 'kill 123'"],
+  ["mksh -c -T /dev/tty2 'kill -1'", "mksh -c -T /dev/tty2 'kill 123'"],
+  ["mksh -T /dev/tty2 -o pipefail -c 'kill -1'", "mksh -T /dev/tty2 -o pipefail -c 'kill 123'"],
+  ["mksh -o -c 'kill -1'", "mksh -o -c 'kill 123'"],
+  ["mksh -o +c 'kill -1'", "mksh -o +c 'kill 123'"],
+  ["mksh -o '' 'kill -1'", "mksh -o '' 'kill 123'"],
+  ["mksh -c - 'kill -1'", "mksh -c - 'kill 123'"],
+  ["/bin/mksh -o -c 'kill -1'", "/bin/mksh -o -c 'kill 123'"],
+  ["lksh -c 'kill -1'", "lksh -c 'kill 123'"],
+  ["lksh -T /dev/tty2 -c 'kill -1'", "lksh -T /dev/tty2 -c 'kill 123'"],
+  ["lksh -o -c 'kill -1'", "lksh -o -c 'kill 123'"],
+  ["lksh -o '' 'kill -1'", "lksh -o '' 'kill 123'"],
+  ["/system/bin/lksh -cT /dev/tty2 'kill -1'", "/system/bin/lksh -cT /dev/tty2 'kill 123'"],
+  ["yash --profile p -c 'kill -1'", "yash --profile p -c 'kill 123'"],
+  ["yash -c --prof p 'kill -1'", "yash -c --prof p 'kill 123'"],
+  ["yash --rc p -c 'kill -1'", "yash --rc p -c 'kill 123'"],
+  ["yash --rcfile p -c 'kill -1'", "yash --rcfile p -c 'kill 123'"],
+  ["yash -o cmdline 'kill -1'", "yash -o cmdline 'kill 123'"],
+  ["yash -ocmdline 'kill -1'", "yash -ocmdline 'kill 123'"],
+  ["yash --cmd 'kill -1'", "yash --cmd 'kill 123'"],
+  ["yash --cm 'kill -1'", "yash --cm 'kill 123'"],
+  ["yash --CMD_LINE 'kill -1'", "yash --CMD_LINE 'kill 123'"],
+  ["yash +o nocmdline 'kill -1'", "yash +o nocmdline 'kill 123'"],
+  ["yash ++nocmdline 'kill -1'", "yash ++nocmdline 'kill 123'"],
+  ["yash -c --profile p 'kill -1'", "yash -c --profile p 'kill 123'"],
+  ["env yash --cmdline 'kill -1'", "env yash --cmdline 'kill 123'"],
+  // ksh is also mksh (Debian and Ubuntu without ksh93), and mksh-static is the same parser as mksh
+  ["ksh -cT /dev/tty2 'kill -1' x", "ksh -cT /dev/tty2 'kill 123' x"],
+  ["ksh -c -T /dev/tty2 'kill -1'", "ksh -c -T /dev/tty2 'kill 123'"],
+  ["ksh -T /dev/tty2 -c 'kill -1'", "ksh -T /dev/tty2 -c 'kill 123'"],
+  ["ksh -c -T -o 'kill -1' x", "ksh -c -T -o 'kill 123' x"],
+  ["ksh -o '' 'kill -1'", "ksh -o '' 'kill 123'"],
+  ["mksh-static -c 'kill -1'", "mksh-static -c 'kill 123'"],
+  ["mksh-static -T /dev/tty2 -c 'kill -1'", "mksh-static -T /dev/tty2 -c 'kill 123'"],
+  ["mksh-static -o -c 'kill -1'", "mksh-static -o -c 'kill 123'"],
+  ["mksh-static -o '' 'kill -1'", "mksh-static -o '' 'kill 123'"],
+  ["/bin/mksh-static -cT /dev/tty2 'kill -1'", "/bin/mksh-static -cT /dev/tty2 'kill 123'"],
   // busybox runs the applet that follows: a shell, kill, killall, ps, xargs
   ["busybox sh -c 'kill -1'", "busybox sh -c 'kill 123'"],
   ["busybox ash -c 'kill -1'", "busybox ash -c 'kill 123'"],
@@ -329,8 +383,14 @@ const ALLOW: readonly string[] = [
   "zsh -c1 'echo hi'", "zsh --emulate sh -c 'echo hi'", "bash -c + 'echo hi'", "zsh -cb 'echo hi'",
   // zsh runs a word with no -c as a script path, not a string; --emulate after another option is an error in zsh; a long option takes no value, so an option-like word after it is not a string
   "zsh 'kill -1'", "zsh -- 'kill -1'", "zsh -x --emulate sh -c 'kill -1'", "zsh -c --braceccl '-x; kill -1'",
+  // another name keeps its own grammar: ksh93's operand rule, mksh's -T and -o -c and yash's cmdline are not read for it, and no script is a string
+  "bash -T /dev/tty2 -c 'kill -1'", "zsh -o -c 'kill -1'", "dash --cmd 'kill -1'", "bash 'kill -1'", "dash 'kill -1'", "ash 'kill -1'", "rbash 'kill -1'",
+  "bash -o '' 'kill -1'", "dash --profile p -c 'kill -1'", "zsh -o cmdline 'kill -1'", "static-sh -e 'kill -1'", "busybox sh 'kill -1'",
+  // mksh and yash run a first operand with no -c as a script path, not a string
+  "mksh 'kill -1'", "lksh 'kill -1'", "mksh-static 'kill -1'", "yash 'kill -1'", "mksh -e 'kill -1'", "yash -e 'kill -1'", "mksh -o pipefail 'kill -1'",
   // harmless commands under each runner stay allowed
   "ksh -c 'echo ok'", "ksh93 -c 'echo ok'", "mksh -c 'echo ok'", "yash -c 'echo ok'", "rbash -c 'echo ok'", "ash -c 'echo ok'",
+  "lksh -c 'echo ok'", "ksh 'echo ok'", "mksh -T /dev/tty2 -c 'echo ok'", "yash --cmd 'echo ok'", "ksh -o -c 'echo ok'",
   "static-sh -c 'echo ok'", 'busybox ls', 'busybox --list', "busybox sh -c 'echo ok'", "busybox ash -c 'echo ok'",
   'busybox kill 123', "ash -c-o pipefail 'echo ok'", "ash -c- -e 'echo ok'",
   // the narrowed ash reading is only for a cluster with an inner -: zsh runs the first string here, whose $0 is the kill text
@@ -386,19 +446,20 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['pkill --pidfile /tmp/p', 'pkill --pidfile'],
   ['pkill -F /tmp/pidfile', 'pkill -F'],
   ['pkill "$(cat /tmp/name)"', 'a pattern held in a quoted substitution'],
-  // shells and applets outside KILL_SHELLS, and grammar of the shells in it that is known from source only (#1126, #1127)
+  // shells and applets outside KILL_SHELLS, and names the extra readings do not speak for (#1126, #1127)
   ["fish -c 'kill -1'", 'fish is not a shell the rail reads (#1127: -c takes a value; fish syntax differs)'],
   ["rksh -c 'kill -1'", 'rksh (the pdksh line) is not read; unprobed, source not read'],
-  ["lksh -c 'kill -1'", 'lksh (the pdksh line) is not read; unprobed, source not read'],
+  ["rksh93 -c 'kill -1'", 'rksh93 (restricted ksh93) is not read by name; unprobed'],
+  ["rmksh -c 'kill -1'", 'rmksh (restricted mksh) is not read by name; unprobed'],
+  ["rlksh -c 'kill -1'", 'rlksh (restricted lksh) is not read by name; unprobed'],
+  ["sh 'kill -1'", 'sh on a host where sh is ksh93 runs its first operand: the extra readings are keyed on the runner name'],
+  ["sh -T /dev/tty2 -c 'kill -1'", 'sh on a host where sh is mksh (Android) takes -T <value>: keyed on the runner name'],
+  ["env sh -o -c 'kill -1'", 'sh on a host where sh is mksh or ksh93 takes -c as the -o value: keyed on the runner name'],
+  ["sh --profile p -c 'kill -1'", 'sh on a host where sh is yash takes --profile <value>: keyed on the runner name'],
   ["oksh -c 'kill -1'", 'oksh (the pdksh line) is not read; unprobed, source not read'],
   ["pdksh -c 'kill -1'", 'pdksh is not read; unprobed, source not read'],
   ["posh -c 'kill -1'", 'posh is not read; unprobed, source not read'],
   ["toybox sh -c 'kill -1'", 'toybox is not a wrapper the rail reads'],
-  ["ksh -o -c 'kill -1'", 'ksh93 -o with an optional value takes -c as its value or not: from source, unprobed (#1126)'],
-  ["mksh -T /dev/tty2 -c 'kill -1'", 'mksh -T takes a value: from source, unprobed (#1126)'],
-  ["yash --profile p -c 'kill -1'", 'yash --profile takes a value: from source, unprobed (#1126)'],
-  ["yash -c --prof p 'kill -1'", 'yash long options take a value under any unambiguous prefix: from source, unprobed (#1126)'],
-  ["yash --rc p -c 'kill -1'", 'yash --rcfile prefixed: from source, unprobed (#1126)'],
   // round 2 C7, C8, C10
   ['kill 123 $(case x in a) echo 1;; esac) -1', "a case pattern's ) inside $(…) ends the span early"],
   ['kill 123 $(echo ${x:-)}) -1', 'a ) inside ${…} inside $(…) ends the span early'],
@@ -465,7 +526,7 @@ function legacyIndex(args: readonly string[]): number | undefined {
   }
   return undefined
 }
-const GRID_NAMES = ['sh', 'bash', 'zsh', 'dash', 'rbash', 'ash', 'static-sh', 'ksh', 'ksh93', 'mksh', 'yash']
+const GRID_NAMES = ['sh', 'bash', 'zsh', 'dash', 'rbash', 'ash', 'static-sh', 'ksh', 'ksh93', 'mksh', 'lksh', 'mksh-static', 'yash']
 describe('killRule: the grid of option forms never loosens against the 0.14.1 reader', () => {
   const forms: string[][] = []
   const grow = (prefix: string[]): void => {
@@ -534,7 +595,22 @@ describe('killRule: the grid adds no refusal and every name is read alike', () =
     expect(cyrb53(refused.join('\n'))).toBe(DIGEST)
   })
   const base = commands.map(c => refuses(`sh ${c}`))
-  for (const name of [...GRID_NAMES.slice(1), 'busybox sh']) {
+  // A name with its own reading refuses every form sh refuses (a throw is not a refusal) and adds a frozen set of forms:
+  // the count and the digest of the set. Most of the extras are forms where the real shell runs no string at all (an
+  // unknown option or value, -s, -D, -n), a deliberate false stop; the rest are forms whose string the shell runs.
+  const OWN: Readonly<Record<string, readonly [number, number]>> = {
+    ksh: [1283, 4786229330850382], ksh93: [1283, 1105668869864466], mksh: [241, 7812842104486236],
+    lksh: [241, 4915069328647694], 'mksh-static': [241, 8961682949933950], yash: [236, 5489139783732189],
+  }
+  for (const name of Object.keys(OWN)) {
+    test(`${name} refuses every form sh refuses, and its own reading adds the frozen set`, () => {
+      const extra = commands.filter((c, k) => !base[k] && refuses(`${name} ${c}`))
+      const lost = commands.filter((c, k) => base[k] && !refuses(`${name} ${c}`))
+      expect({ lost: lost.length, first: lost.slice(0, 3) }).toEqual({ lost: 0, first: [] })
+      expect({ count: extra.length, hash: cyrb53(extra.map(c => `${name} ${c}`).join('\n')) }).toEqual({ count: OWN[name]![0], hash: OWN[name]![1] })
+    })
+  }
+  for (const name of [...GRID_NAMES.slice(1), 'busybox sh'].filter(n => !Object.hasOwn(OWN, n))) {
     test(`${name} gets the verdict sh gets, for every form`, () => {
       const differ = commands.filter((c, k) => refuses(`${name} ${c}`) !== base[k]).map(c => `${name} ${c}`)
       expect({ differing: differ.length, first: differ.slice(0, 3) }).toEqual({ differing: 0, first: [] })
@@ -575,18 +651,39 @@ describe('killRule: a refusal from one reading survives a throw from another', (
   })
 })
 
-// Deliberate false stops: the shell does not run the string, but a reading that finds it as the string refuses.
-describe('killRule: deliberate false stops of the ksh and yash grammar', () => {
-  test("ksh +c 'kill -1' is refused though ksh turns -c off and runs nothing", () => {
+// ksh93 turns -c off with +c and then runs its first operand as a command, so this is a true refusal, not a false stop.
+describe("killRule: ksh +c runs the string as a command", () => {
+  test("ksh +c 'kill -1' is refused: the first operand is run", () => {
     expect(killRule("ksh +c 'kill -1'")).toContain('kill rail')
-  })
-  test("yash -c + 'kill -1' is refused though yash runs the + as the string", () => {
-    expect(killRule("yash -c + 'kill -1'")).toContain('kill rail')
+    expect(killRule("ksh93 +c 'kill -1'")).toContain('kill rail')
   })
   test('control: the same shapes with a harmless string are allowed', () => {
     expect(killRule("ksh +c 'echo ok'")).toBeUndefined()
+    expect(killRule("ksh93 +c 'kill 123'")).toBeUndefined()
+  })
+})
+
+// Deliberate false stop: yash takes the + after -c as its string and runs nothing else, so the kill text is only $0.
+describe('killRule: deliberate false stop of the yash grammar', () => {
+  test("yash -c + 'kill -1' is refused though yash runs the + as the string", () => {
+    expect(killRule("yash -c + 'kill -1'")).toContain('kill rail')
+  })
+  test('control: the same shape with a harmless string is allowed', () => {
     expect(killRule("yash -c + 'echo ok'")).toBeUndefined()
   })
+})
+
+// A name speaks only for its own grammar: a form another name's reading refuses is not refused under it.
+describe('killRule: an extra reading speaks for its own name only', () => {
+  const forms = ["'kill -1'", "-e 'kill -1'", "-o -c 'kill -1'", "-T /dev/tty2 -c 'kill -1'", "-o '' 'kill -1'", "--profile p -c 'kill -1'", "--cmd 'kill -1'", "-o cmdline 'kill -1'", "+ 'kill -1'"]
+  for (const name of ['sh', 'bash', 'zsh', 'dash', 'ash', 'rbash', 'static-sh'])
+    test(`${name} gets the verdict sh gets for each own-name form`, () => {
+      expect(forms.map(f => `${name} ${f}`).map(c => killRule(c) !== undefined)).toEqual(forms.map(f => killRule(`sh ${f}`) !== undefined))
+    })
+  for (const name of ['lksh', 'mksh-static'])
+    test(`${name} reads as mksh`, () => {
+      for (const f of forms) expect(killRule(`${name} ${f}`) !== undefined).toBe(killRule(`mksh ${f}`) !== undefined)
+    })
 })
 
 // Throw-first forms: a string no reading can finish (an unclosed `$(`) beside a refusal, in either order, under every
@@ -612,6 +709,62 @@ describe('killRule: a throw in a runner string never hides a refusal elsewhere i
     expect(commands.length).toBe(702)
     expect({ refused: refused.length, hash: cyrb53(refused.join('\n')) }).toEqual({ refused: 507, hash: 2828278963702788 })
     expect({ unread: unread.length, hash: cyrb53(unread.join('\n')) }).toEqual({ unread: 195, hash: 2579890534524799 })
+  })
+})
+
+// An unreadable string (an unclosed `$(`) that a name's own reading takes as a string, beside a refusal in a later
+// command: the refusal is found, and with nothing to refuse the call is thrown or allowed, never refused. Every head
+// here throws on its own (checked below), so each row holds a real throw; the second block lists heads that never read
+// the string, where the refusal has no throw to survive.
+const THROWING_HEADS: Readonly<Record<string, readonly string[]>> = {
+  ksh: ['', '-e', '-o -c', '-cT /dev/tty2', '-T /dev/tty2 -c', '-o pipefail -c', '--cmd', '-o cmdline', '+o nocmdline', '--', '-'],
+  ksh93: ['', '-e', '-o -c', '-o pipefail -c', '--cmd', '-o cmdline', '+o nocmdline', '--', '-'],
+  mksh: ['-o -c', '-cT /dev/tty2', '-T /dev/tty2 -c', '-o pipefail -c', '--cmd'],
+  lksh: ['-o -c', '-cT /dev/tty2', '-T /dev/tty2 -c', '-o pipefail -c', '--cmd'],
+  'mksh-static': ['-o -c', '-cT /dev/tty2', '-T /dev/tty2 -c', '-o pipefail -c', '--cmd'],
+  yash: ['-o -c', '-o pipefail -c', '--cmd', '-o cmdline', '--profile p -c', '+o nocmdline'],
+}
+const QUIET_HEADS: Readonly<Record<string, readonly string[]>> = {
+  ksh: ['--profile p -c'], ksh93: ['-cT /dev/tty2', '-T /dev/tty2 -c', '--profile p -c'],
+  mksh: ['', '-e', '-o cmdline', '--profile p -c', '+o nocmdline', '--', '-'], lksh: ['', '-e', '-o cmdline', '--profile p -c', '--'],
+  'mksh-static': ['', '-e', '-o cmdline', '--profile p -c', '--'], yash: ['', '-e', '-cT /dev/tty2', '-T /dev/tty2 -c', '--', '-'],
+}
+const throwRows = (heads: Readonly<Record<string, readonly string[]>>): Array<readonly [string, boolean]> => {
+  const rows: Array<readonly [string, boolean]> = []
+  for (const [n, opts] of Object.entries(heads))
+    for (const o of opts) {
+      const head = `${n} ${o}`.replace(/ +$/, '')
+      for (const t of ['; kill -1', ' && pkill -u dev', '; ps; kill 1']) rows.push([`${head} '$(x'${t}`, true])
+      rows.push([`${head} '$(x'; echo ok`, false], [`${head} '$(x' 'echo ok'`, false])
+    }
+  return rows
+}
+const verdict = (command: string): string => {
+  try { return killRule(command) !== undefined ? 'refused' : 'allowed' } catch { return 'thrown' }
+}
+describe("killRule: a throw never hides a refusal under a name's own reading", () => {
+  const rows = throwRows(THROWING_HEADS)
+  test('every head throws on an unreadable string by itself', () => {
+    const calm = Object.entries(THROWING_HEADS).flatMap(([n, opts]) => opts.map(o => `${n} ${o}`.replace(/ +$/, ''))).filter(h => verdict(`${h} '$(x'`) !== 'thrown')
+    expect(calm).toEqual([])
+  })
+  test('every form with a refusal after the throwing string is refused, and none without one is', () => {
+    const wrong = rows.filter(([command, refusal]) => refusal !== (verdict(command) === 'refused')).map(([command]) => command)
+    expect(wrong).toEqual([])
+    expect(rows.length).toBe(205)
+  })
+  test('control: a form that runs the unreadable string and refuses nothing is thrown', () => {
+    for (const command of ["ksh '$(x'; echo ok", "ksh93 -e '$(x'", "mksh -T /dev/tty2 -c '$(x'", "lksh -o -c '$(x'", "yash --profile p -c '$(x'", "yash -o cmdline '$(x'", "ksh -cT /dev/tty2 '$(x'"])
+      expect(() => killRule(command)).toThrow()
+  })
+})
+describe("killRule: a refusal after a string a name's own reading never takes as a string", () => {
+  test('the heads read nothing unreadable, and the refusal after them is still found', () => {
+    const rows = throwRows(QUIET_HEADS)
+    const thrown = Object.entries(QUIET_HEADS).flatMap(([n, opts]) => opts.map(o => `${n} ${o}`.replace(/ +$/, ''))).filter(h => verdict(`${h} '$(x'`) === 'thrown')
+    expect(thrown).toEqual([])
+    const wrong = rows.filter(([command, refusal]) => refusal !== (verdict(command) === 'refused')).map(([command]) => command)
+    expect(wrong).toEqual([])
   })
 })
 
