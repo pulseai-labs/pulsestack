@@ -127,8 +127,13 @@ test_record_audit_marks_suppressed_findings() {
   assert_eq "false" "$(jq -r '.findings["FUID-markcrit"].suppressed' "$st")" "a listed Critical is not marked" || return 1
   assert_eq "1 0" "$(jq -r '[.audit_history[-1].finding_counts.critical, .audit_history[-1].finding_counts.suppressed] | join(" ")' "$st")" "a listed Critical counts as critical, not suppressed" || return 1
   # An unreadable suppressions file marks nothing and does not stop the write.
+  # A two-document suppressions file, read with the libs sourced, marks nothing and keeps state.json whole.
+  printf '%s\n%s\n' '{"schema_version":1,"suppressions":[{"finding_uid":"FUID-mark0001"}]}' '{"schema_version":1,"suppressions":[]}' \
+    > "$root/.claude/audits/suppressions.json"
+  csa_state_record_audit "$root" 3 ".claude/audits/m3.md" "$findings" 2>/dev/null || { printf '    refused on a two-document suppressions file\n' >&2; return 1; }
+  assert_eq "false 3" "$(jq -r '[.findings["FUID-mark0001"].suppressed, (.audit_history | length)] | join(" ")' "$st")" "two-document file marks nothing; state.json is whole" || return 1
   printf '{ not json' > "$root/.claude/audits/suppressions.json"
-  csa_state_record_audit "$root" 3 ".claude/audits/m2.md" "$findings" || { printf '    refused on a bad suppressions file\n' >&2; return 1; }
+  csa_state_record_audit "$root" 4 ".claude/audits/m2.md" "$findings" || { printf '    refused on a bad suppressions file\n' >&2; return 1; }
   assert_eq "false" "$(jq -r '.findings["FUID-mark0001"].suppressed' "$st")" "bad suppressions file marks nothing" || return 1
 }
 

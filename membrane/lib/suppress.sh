@@ -158,11 +158,8 @@ csa_suppress_filter() {
   local root="$2"
   local sup_file; sup_file="$(csa_suppress_path "$root")"
 
-  # Build set of suppressed finding_uids as a jq-compatible JSON array.
-  local suppressed_uids='[]'
-  if [[ -f "$sup_file" ]]; then
-    suppressed_uids="$(jq '[.suppressions[].finding_uid]' "$sup_file")"
-  fi
+  # The suppressed uids as one JSON array; an unreadable file is [] (it hides nothing).
+  local suppressed_uids; suppressed_uids="$(_csa_suppressed_uid_set "$sup_file")"
 
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue

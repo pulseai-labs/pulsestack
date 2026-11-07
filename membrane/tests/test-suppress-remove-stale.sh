@@ -361,6 +361,26 @@ test_empty_or_multi_document_suppressions_file() {
   assert_eq "FUID-crit0001" "$("$CSA" suppress_filter "$tagged" "$root" | jq -r 'select(.severity == "critical") | .finding_uid')" "a two-document file never hides the Critical" || return 1
 }
 
+test_unreadable_suppressions_file_hides_and_marks_nothing() {
+  _mk_root
+  local sup="$root/.claude/audits/suppressions.json" tagged="$_CSA_TMP/tagged.$_n" st="$root/.claude/audits/state.json" ec bad
+  printf '%s\n' '{"finding_uid":"FUID-crit0001","rule_id":"HOOK-002","severity":"critical","file":"h.sh"}' \
+    '{"finding_uid":"FUID-good0001","rule_id":"PERM-001","severity":"medium","file":"x.json"}' > "$tagged"
+  for bad in 'not json' '{}' 'null' '[1]' '{"suppressions":5}' $'{"schema_version":1,"suppressions":[{"finding_uid":"FUID-good0001"}]}\n{"schema_version":1,"suppressions":[]}'; do
+    printf '%s\n' "$bad" > "$sup"
+    ec=0; "$CSA" suppress_filter "$tagged" "$root" > "$_CSA_TMP/out.$_n" 2>/dev/null || ec=$?
+    assert_eq "0 2" "$ec $(wc -l < "$_CSA_TMP/out.$_n" | tr -d ' ')" "filter on '$bad' shows every line" || return 1
+    rm -f "$st"
+    ec=0; "$CSA" state_record_audit "$root" 1 ".claude/audits/r.md" "$tagged" >/dev/null 2>&1 || ec=$?
+    assert_eq "0" "$ec" "record_audit on '$bad' records the run" || return 1
+    assert_eq "false false 1" "$(jq -r '[.findings["FUID-crit0001"].suppressed, .findings["FUID-good0001"].suppressed, (.audit_history | length)] | join(" ")' "$st")" "record_audit on '$bad' marks nothing" || return 1
+  done
+  printf '{}\n' > "$sup"
+  _seed_reg "$root" FUID-good0001 PERM-001 medium   # first seen long ago, past the race window
+  ec=0; "$CSA" suppress_add "$root" FUID-good0001 n >/dev/null 2>&1 || ec=$?
+  assert_eq "2" "$ec" "add on an object with no suppressions array is exit 2" || return 1
+}
+
 csa_test_run test_remove_keeps_other_entries_byte_for_byte  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_remove_absent_uid_rc1_file_untouched      || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_remove_malformed_file_rc2                 || _csa_failed=$((_csa_failed + 1))
@@ -385,5 +405,6 @@ csa_test_run test_stale_emits_only_the_uid                  || _csa_failed=$((_c
 csa_test_run test_stale_tamper_exclusion_is_exact           || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_suppress_add_malformed_registry_via_dispatcher || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_empty_or_multi_document_suppressions_file  || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_unreadable_suppressions_file_hides_and_marks_nothing || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

@@ -107,6 +107,22 @@ _csa_state_rule_severities() {
   done | jq -R -s 'split("\n") | map(select(length > 0) | split("\t") | {key: .[0], value: .[1]}) | from_entries'
 }
 
+# _csa_suppressed_uid_set <suppressions_file>
+# Print the suppressed uids as one JSON array, always, and exit 0. A missing, empty or
+# whitespace-only file is []. A file that is anything but one object with a suppressions array
+# (not JSON, two documents, {}, null) is also []: an unreadable file suppresses nothing.
+# Entries that are not objects, and uids that are not strings, are skipped.
+_csa_suppressed_uid_set() {
+  local f="$1" set
+  set="$( { [[ -f "$f" ]] && jq -s -c '
+    if length == 0 then []
+    elif length == 1 and (.[0] | type) == "object" and (.[0].suppressions | type) == "array"
+      then [.[0].suppressions[] | objects | .finding_uid | strings]
+    else error("unreadable") end' "$f"; } 2>/dev/null)" || set='[]'
+  [[ "$set" == \[*\] ]] || set='[]'
+  printf '%s\n' "$set"
+}
+
 # csa_state_record_audit <project_root> <run_index> <report_path> <findings_jsonl> [<focus>]
 # Append to audit_history, update last_audit, update findings registry, run GC.
 # findings_jsonl: newline-delimited JSON objects (the content, or the path of a file holding
@@ -131,11 +147,7 @@ csa_state_record_audit() {
   fi
   # The suppression set, read here so the mark never depends on the skill's filter. An unreadable
   # file marks nothing suppressed: the mark is informational and approves nothing.
-  local sup_uids='[]' sup_file; sup_file="$(csa_suppressions_path "$root")"
-  if [[ -f "$sup_file" ]]; then
-    sup_uids="$(jq -c '[.suppressions[]?.finding_uid | strings]' "$sup_file" 2>/dev/null)" || sup_uids='[]'
-    [[ -n "$sup_uids" ]] || sup_uids='[]'
-  fi
+  local sup_uids; sup_uids="$(_csa_suppressed_uid_set "$(csa_suppressions_path "$root")")"
   local counts_suppressed=0
 
   if [[ "$focus" != "all" ]] && ! [[ -n "$focus" && "$focus" != */* && "$focus" != .* \
