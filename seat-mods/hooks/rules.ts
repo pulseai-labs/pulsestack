@@ -1117,7 +1117,9 @@ function fishTexts(args: readonly string[], raw: readonly string[], pieces: read
 // depth. Quotes are read as POSIX reads them; the rest of fish's string grammar is a known limit.
 // A text the blanker cannot read is returned as it is: the plain reading still holds it, and its throw.
 const FISH_PREFIXES: ReadonlySet<string> = new Set(['and', 'or', 'not', 'begin'])
-const FISH_HEAD = String.raw`(^|[;&|\n(]|(?<![^\s;&|(])(?:if|while|else|!|time)[ \t])([ \t]*)`
+// A keyword counts only where it is itself a head (after a head and any keywords before it): `echo time {` is an argument.
+const FISH_KEYWORD = String.raw`(?:if|while|else|!|time)`
+const FISH_HEAD = String.raw`(^|[;&|\n(]|(?<=(?:^|[;&|\n(])[ \t]*(?:${FISH_KEYWORD}[ \t]+)*)${FISH_KEYWORD}[ \t])([ \t]*)`
 function fishHeads(text: string, depth = 0): string {
   let read: { text: string; pieces: string[] }
   try { read = blank(text) } catch { return text }

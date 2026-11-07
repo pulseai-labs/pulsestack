@@ -131,6 +131,8 @@ const REFUSE_HEADS: ReadonlyArray<readonly [string, string]> = [
   ["fish -c 'while {kill -1; break}; end'", "fish -c 'while {kill 123; break}; end'"],
   ["fish -c 'time {kill -1}'", "fish -c 'time {kill 123}'"],
   ["fish -c '! {kill -1}'", "fish -c '! {kill 123}'"],
+  ["fish -c 'if ! {kill -1}; end'", "fish -c 'if ! {kill 123}; end'"],
+  ["fish -c 'true; time {kill -1}'", "fish -c 'true; time {kill 123}'"],
   ["fish -c 'echo ({kill -1})'", "fish -c 'echo ({kill 123})'"],
   ["fish -c 'not {pkill -u dev}'", "fish -c 'not {pkill node}'"],
   ["fish -c 'true && {kill -1}'", "fish -c 'true && {kill 123}'"],
@@ -150,7 +152,10 @@ describe('killRule: fish command prefixes', () => {
   }
   // A prefix word that is an argument (quoted or not), sits inside a quoted string, or is part of a longer word is not a prefix.
   for (const command of ["fish -c 'echo and kill -1'", "fish -c 'echo \"and kill -1\"'", "fish -c \"echo 'not' kill -1\"", "fish -c 'echo $(echo not kill -1)'",
-    "fish -c 'band kill -1'", "fish -c 'echo ok; ornot kill -1'", "fish -c 'notify kill -1'", "fish -c \"'and kill -1'\"", "fish -c 'echo {not,x} kill -1'"])
+    "fish -c 'band kill -1'", "fish -c 'echo ok; ornot kill -1'", "fish -c 'notify kill -1'", "fish -c \"'and kill -1'\"", "fish -c 'echo {not,x} kill -1'",
+    // a keyword that is an argument is not a head, so the { after it is not a block
+    "fish -c 'echo time {kill -1}'", "fish -c 'echo if {kill -1}'", "fish -c 'echo ! {kill -1}'", "fish -c 'echo else {kill -1}'",
+    "fish -c 'echo while {kill -1}'", "fish -c 'string match time { kill -1'", "fish -c 'echo not time {kill -1}'"])
     test(`allows ${JSON.stringify(command)}`, () => { expect(killRule(command)).toBeUndefined() })
   // The prefixes are fish's only: a POSIX shell's string keeps its verdict.
   test('control: sh -c with a fish prefix keeps the verdict it had', () => {
