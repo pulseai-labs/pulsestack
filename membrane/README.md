@@ -120,6 +120,8 @@ Critical findings **cannot be suppressed**; they must be remediated. A Critical 
 
 **Upgrading to 0.7.0.** `csa suppress_add` is `csa suppress_add <root> <id> <note>`; the old four-argument form still runs and its severity is ignored. It refuses an id no recorded audit produced (exit 3) and a missing `state.json` (exit 2), and takes severity from membrane's own registry and rules, so a Critical finding cannot be suppressed by passing another severity. A suppression of a Critical finding made before 0.7.0 (or written by hand) no longer hides it: it shows again, and the entry stays in the file until `/security-audit --unsuppress <FUID>` removes it. A suppressed finding is now recorded in `state.json` on every audit, so it no longer ages out while it fires. See the CHANGELOG.
 
+**Upgrading to 0.7.1.** HOOK-004 (`network-exfiltration`) also reads `ncat`, `netcat`, `nc.openbsd`, `nc.traditional`, `socat`, `sftp`, `ftp`, `tftp`, `telnet`, bash's `/dev/tcp/` and `/dev/udp/`, and a quoted `'nc'`, `"ssh"` or `'scp'` word (the argv form of `spawn('scp', …)`), so it fires on more files. A HOOK-004 finding in a script file gets a new durable id once when the file holds one of these forms, in code or in a comment, that adds a name or a both-line; it reads NEW in the next audit, and the old entry in `.claude/audits/suppressions.json` matches nothing: a full audit lists it, and `/security-audit --unsuppress <FUID>` removes it. A hook command read from JSON keeps its id. Uppercase names (`CURL`, `SSH`) stay silent. See the CHANGELOG.
+
 ## Composition
 
 `membrane` is fully standalone. It runs in any Claude Code project, with or without other plugins. It has no integration with any other plugin in v0.1.
