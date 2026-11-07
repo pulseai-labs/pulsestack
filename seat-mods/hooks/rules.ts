@@ -1117,9 +1117,10 @@ function fishTexts(args: readonly string[], raw: readonly string[], pieces: read
 // depth. Quotes are read as POSIX reads them; the rest of fish's string grammar is a known limit.
 // A text the blanker cannot read is returned as it is: the plain reading still holds it, and its throw.
 const FISH_PREFIXES: ReadonlySet<string> = new Set(['and', 'or', 'not', 'begin'])
-// A keyword counts only where it is itself a head (after a head and any keywords before it): `echo time {` is an argument.
+// A keyword counts only where it is itself a head (after a head and up to 8 keywords before it): `echo time {` is an argument.
+// The bound keeps the lookbehind linear; a longer keyword chain is a known limit.
 const FISH_KEYWORD = String.raw`(?:if|while|else|!|time)`
-const FISH_HEAD = String.raw`(^|[;&|\n(]|(?<=(?:^|[;&|\n(])[ \t]*(?:${FISH_KEYWORD}[ \t]+)*)${FISH_KEYWORD}[ \t])([ \t]*)`
+const FISH_HEAD = String.raw`(^|[;&|\n(]|(?=${FISH_KEYWORD}[ \t])(?<=(?:^|[;&|\n(])[ \t]*(?:${FISH_KEYWORD}[ \t]+){0,8})${FISH_KEYWORD}[ \t])([ \t]*)`
 function fishHeads(text: string, depth = 0): string {
   let read: { text: string; pieces: string[] }
   try { read = blank(text) } catch { return text }
@@ -1141,7 +1142,7 @@ function fishHeads(text: string, depth = 0): string {
     return plain ? out : undefined
   }
   // A keyword head is not taken as the word, so the prefix after it is still found in the same pass.
-  const prefix = new RegExp(FISH_HEAD + String.raw`(?!(?:if|while|else|!|time)[ \t])((?:[^\s;&|(){}\u0000]|\u0000\d+\u0000)+)(?=[ \t;\n&|]|$)`, 'g')
+  const prefix = new RegExp(FISH_HEAD + String.raw`(?!${FISH_KEYWORD}[ \t])((?:[^\s;&|(){}\u0000]|\u0000\d+\u0000)+)(?=[ \t;\n&|]|$)`, 'g')
   const brace = new RegExp(FISH_HEAD + String.raw`\{`, 'g')
   let out = blanked.replace(/(?<=\S)\}/g, ' }')
   for (let before = ''; before !== out;) {
