@@ -36,10 +36,25 @@ source "$_RULE_DIR/hook-entries.sh" 2>/dev/null || true
 # are preceded by the home root group below.
 # Lost on purpose, named in the CHANGELOG: a name after a letter, digit, "_", "." or "-" ("run_curl", "x-curl", "sh.curl(",
 # "${CURL:-curl}", "curlie" and "pycurl" at their ends).
-# ERE only: no \b, \< or [[:<:]], which are not portable. Not run on bash 3.2 or BSD grep (CI is ubuntu).
-_RULE_NETWORK_NAMES=('curl' 'wget' 'nc' 'ssh' 'scp' 'rsync')
+# 0.7.1 adds nc's other binary names (ncat, netcat, nc.openbsd, nc.traditional), the socat relay, sftp, ftp, tftp and
+# telnet; they end at whitespace like nc, so "netcat-openbsd" and "sftp-server" do not name them, and the dot of
+# "nc.openbsd" is escaped. Every whitespace-ended name also fires as a whole quoted word, a quote on both sides
+# ('scp', "ssh", the argv element of spawn, execFile or subprocess), as "curl" and "rsync" already did: "use ssh",
+# "ssh-keygen" and "sshd" do not. A new name that starts with n, t or f (ncat, netcat, nc.openbsd, nc.traditional,
+# tftp, telnet, ftp) takes no bare backslash before it (_RULE_LEAD_NRT): "\ncat", "\telnet" and "\ftp" are an escaped
+# newline, tab or form feed then "cat", "elnet" or "tp", not ncat, telnet or ftp; "\nncat", "\ttelnet" and "\nftp"
+# still fire through the escape branch. nc, ssh and scp keep 0.5.2's lead. "/dev/tcp/" and "/dev/udp/" are bash's own socket call: they need the trailing slash ("/dev/tcp
+# are disabled" does not fire), take no lead, and the uid names them "/dev/tcp" and "/dev/udp".
+# Still silent on purpose, named in the CHANGELOG: an uppercase name or path ("CURL", "SSH", "~/.SSH"), a backtick-quoted
+# name, language network APIs (fetch, requests, http.request), tool CLIs (aws s3 cp, gh gist, rclone, git push),
+# "python -m http.server" and "openssl s_client".
+# ERE only: no \b, \< or [[:<:]], which are not portable. Not run on bash 3.2 or BSD grep (CI is ubuntu). A backslash
+# inside a bracket expression is literal in POSIX ERE, so [^\A-Za-z...] excludes it.
+_RULE_NETWORK_NAMES=('curl' 'wget' 'nc' 'ssh' 'scp' 'rsync' 'ncat' 'netcat' 'nc.openbsd' 'nc.traditional' 'socat' 'sftp' 'ftp'
+  'tftp' 'telnet' '/dev/tcp' '/dev/udp')
 _RULE_SENSITIVE_NAMES=('~/.ssh' '~/.gnupg' '~/.aws' '/etc/passwd')
 _RULE_LEAD='(^|[^A-Za-z0-9_.-]|\\[nrt])'
+_RULE_LEAD_NRT='(^|[^\A-Za-z0-9_.-]|\\[nrt])'
 # The three dot-dirs match under any home root, for any user: "~", "$HOME" and "${HOME}" (each optionally followed by a
 # closing quote, as in "$HOME"/.ssh), "/home/<one segment>", "/Users/<one segment>" and "/root". The names above stay
 # "~/.ssh" etc., so the names part of the uid is unchanged. "/etc/passwd" has no root. The bracket forms [$] and [{]
@@ -49,11 +64,15 @@ _RULE_LEAD='(^|[^A-Za-z0-9_.-]|\\[nrt])'
 _RULE_HOME_ROOT='(~|[$]HOME"?|[$][{]HOME[}]"?|/home/[^/[:space:]]+|/Users/[^/[:space:]]+|/root)'
 _RULE_NETWORK_ALTS=()
 for _n in "${_RULE_NETWORK_NAMES[@]}"; do
+  _e="${_n//./\\.}"
   case "$_n" in
-    nc|ssh|scp) _RULE_NETWORK_ALTS+=("${_RULE_LEAD}${_n}[[:space:]]") ;;
-    *)          _RULE_NETWORK_ALTS+=("${_RULE_LEAD}${_n}([^A-Za-z]|\$)") ;;
+    curl|wget|rsync)           _RULE_NETWORK_ALTS+=("${_RULE_LEAD}${_e}([^A-Za-z]|\$)") ;;
+    /dev/tcp|/dev/udp)         _RULE_NETWORK_ALTS+=("${_e}/") ;;
+    nc|ssh|scp|socat|sftp)     _RULE_NETWORK_ALTS+=("(${_RULE_LEAD}${_e}[[:space:]]|['\"]${_e}['\"])") ;;
+    *)                         _RULE_NETWORK_ALTS+=("(${_RULE_LEAD_NRT}${_e}[[:space:]]|['\"]${_e}['\"])") ;;
   esac
 done
+unset _e
 _RULE_SENSITIVE_ALTS=()
 for _n in "${_RULE_SENSITIVE_NAMES[@]}"; do
   case "$_n" in
