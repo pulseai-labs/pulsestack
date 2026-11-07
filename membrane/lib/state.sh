@@ -96,10 +96,42 @@ _csa_state_rule_aspects() {
   done | jq -R -s 'split("\n") | map(select(length > 0) | split("\t") | {key: .[0], value: .[1]}) | from_entries'
 }
 
+# _csa_state_rule_severities — RULE_ID -> RULE_SEVERITY from the shipped rule files, as one JSON object.
+_csa_state_rule_severities() {
+  local f id sev
+  for f in "$(_csa_state_rules_dir)"/*/*.sh; do
+    [[ -f "$f" ]] || continue
+    id="$(grep -m1 '^RULE_ID=' "$f" 2>/dev/null | sed 's/^RULE_ID=//' | tr -d '"'\')"
+    sev="$(grep -m1 '^RULE_SEVERITY=' "$f" 2>/dev/null | sed 's/^RULE_SEVERITY=//' | tr -d '"'\')"
+    [[ -n "$id" && -n "$sev" ]] && printf '%s\t%s\n' "$id" "$sev"
+  done | jq -R -s 'split("\n") | map(select(length > 0) | split("\t") | {key: .[0], value: .[1]}) | from_entries'
+}
+
+# _csa_suppressed_uid_set <suppressions_file>
+# Print the suppressed uids as one JSON array, always, and exit 0. A missing, empty or
+# whitespace-only file is []. A file that is anything but one object with a suppressions array
+# (not JSON, two documents, {}, null) is also []: an unreadable file suppresses nothing.
+# Entries that are not objects, and uids that are not strings, are skipped.
+_csa_suppressed_uid_set() {
+  local f="$1" set
+  set="$( { [[ -f "$f" ]] && jq -s -c '
+    if length == 0 then []
+    elif length == 1 and (.[0] | type) == "object" and (.[0].suppressions | type) == "array"
+      then [.[0].suppressions[] | objects | .finding_uid | strings]
+    else error("unreadable") end' "$f"; } 2>/dev/null)" || set='[]'
+  [[ "$set" == \[*\] ]] || set='[]'
+  printf '%s\n' "$set"
+}
+
 # csa_state_record_audit <project_root> <run_index> <report_path> <findings_jsonl> [<focus>]
 # Append to audit_history, update last_audit, update findings registry, run GC.
-# findings_jsonl: newline-delimited JSON objects; each must have:
-#   finding_uid, rule_id, severity, file, display_id
+# findings_jsonl: newline-delimited JSON objects (the content, or the path of a file holding
+#   them); each must have: finding_uid, rule_id, severity, file, display_id
+# Every finding it is given is registered with findings[uid].suppressed, which this function
+# computes from suppressions.json (never from the input's state) and which is false for a
+# critical finding, since suppress_filter never hides one; so a suppressed finding that
+# still fires keeps its registry entry current and does not age out. finding_counts counts the
+# findings not marked suppressed, per severity, plus a `suppressed` total.
 # focus: the aspect the run scanned, or `all` (the default) for a full audit.
 # The history entry records it as `focus`; an unknown aspect is refused
 # (exit 2) before any write.
@@ -109,6 +141,14 @@ csa_state_record_audit() {
   local report_path="$3"
   local findings_jsonl="$4"
   local focus="${5-all}"
+  # A path to a findings file is read; anything else is the findings themselves.
+  if [[ -n "$findings_jsonl" && "$findings_jsonl" != "{"* && -f "$findings_jsonl" ]]; then
+    findings_jsonl="$(cat "$findings_jsonl")" || return 5
+  fi
+  # The suppression set, read here so the mark never depends on the skill's filter. An unreadable
+  # file marks nothing suppressed: the mark is informational and approves nothing.
+  local sup_uids; sup_uids="$(_csa_suppressed_uid_set "$(csa_suppressions_path "$root")")"
+  local counts_suppressed=0
 
   if [[ "$focus" != "all" ]] && ! [[ -n "$focus" && "$focus" != */* && "$focus" != .* \
         && -d "$(_csa_state_rules_dir)/$focus" ]]; then
@@ -173,8 +213,13 @@ csa_state_record_audit() {
       display_id="$(printf '%s' "$finding_json" | jq -r '.display_id // empty')"
 
       [[ -z "$fuid" ]] && continue
+      # Marked when suppress_filter would hide it (listed, not critical), whether or not this run
+      # passed --show-suppressed: a listed Critical is always shown, so it is never marked.
+      local is_sup; is_sup="$(jq -n --argjson s "$sup_uids" --arg k "$fuid" --arg sev "$severity" \
+        'any($s[]; . == $k) and $sev != "critical"')"
 
       # Increment counts.
+      if [[ "$is_sup" == "true" ]]; then counts_suppressed=$((counts_suppressed + 1)); else
       case "$severity" in
         critical) counts_critical=$((counts_critical + 1)) ;;
         high)     counts_high=$((counts_high + 1)) ;;
@@ -182,6 +227,7 @@ csa_state_record_audit() {
         low)      counts_low=$((counts_low + 1)) ;;
         info)     counts_info=$((counts_info + 1)) ;;
       esac
+      fi
 
       # Update findings registry entry.
       state="$(printf '%s' "$state" | jq \
@@ -191,12 +237,17 @@ csa_state_record_audit() {
         --arg file "$file" \
         --arg now "$now" \
         --arg display_id "$display_id" \
+        --argjson sup "$is_sup" \
         --argjson run_index "$run_index" '
         if .findings[$fuid] then
+          .findings[$fuid].rule_id = $rule_id |
+          .findings[$fuid].severity = $severity |
+          .findings[$fuid].file = $file |
+          .findings[$fuid].suppressed = $sup |
+          (if $display_id != "" then .findings[$fuid].last_display_id = $display_id else . end) |
           .findings[$fuid].last_seen = $now |
           .findings[$fuid].seen_in_runs = (.findings[$fuid].seen_in_runs + 1) |
-          .findings[$fuid].last_run_index = $run_index |
-          .findings[$fuid].last_display_id = $display_id
+          .findings[$fuid].last_run_index = $run_index
         else
           .findings[$fuid] = {
             rule_id: $rule_id,
@@ -206,7 +257,8 @@ csa_state_record_audit() {
             last_seen: $now,
             seen_in_runs: 1,
             last_run_index: $run_index,
-            last_display_id: $display_id
+            last_display_id: $display_id,
+            suppressed: $sup
           }
         end
       ')"
@@ -220,7 +272,8 @@ csa_state_record_audit() {
     --argjson m "$counts_medium" \
     --argjson l "$counts_low" \
     --argjson i "$counts_info" \
-    '{critical: $c, high: $h, medium: $m, low: $l, info: $i}')"
+    --argjson s "$counts_suppressed" \
+    '{critical: $c, high: $h, medium: $m, low: $l, info: $i, suppressed: $s}')"
 
   # Derive display_id_prefix from report_path (SA-YYYY-MM-DD-NN).
   local report_basename; report_basename="$(basename "$report_path" .md)"

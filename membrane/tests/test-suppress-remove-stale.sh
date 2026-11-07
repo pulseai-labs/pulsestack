@@ -75,6 +75,16 @@ test_remove_no_file_rc1_creates_nothing() {
 
 # ---- stale -----------------------------------------------------------------
 
+# _record_run <root> <findings-file> : records the findings as audit run 1 through the dispatcher,
+# as step 9 does, then backdates every first_seen past the 60 s suppression window.
+_record_run() {
+  local r="$1" f="$_CSA_TMP/state-tmp$_n.json" st="$1/.claude/audits/state.json"
+  [[ -f "$st" ]] || HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" state_init "$r" >/dev/null
+  HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" state_record_audit "$r" 1 ".claude/audits/r.md" "$2" all >/dev/null \
+    || { printf '    state_record_audit failed\n' >&2; return 1; }
+  jq '.findings |= map_values(.first_seen = "2026-01-01T00:00:00Z")' "$st" > "$f" && mv "$f" "$st"
+}
+
 # Copies permissions-issue into $root and sets $live to one uid its full scan reports.
 _perm_project() {
   _mk_root
@@ -150,7 +160,8 @@ test_e2e_uid_move_old_stale_new_is_new() {
   local root live; _perm_project || return 1
   local old; old="$(jq -r 'select(.rule_id == "PERM-001") | .finding_uid' "$_CSA_TMP/raw$_n.jsonl")"
   [[ -n "$old" ]] || { printf '    no PERM-001 in fixture\n' >&2; return 1; }
-  "$CSA" suppress_add "$root" "$old" medium "e2e" || { printf '    suppress_add failed\n' >&2; return 1; }
+  _record_run "$root" "$_CSA_TMP/raw$_n.jsonl" || return 1
+  "$CSA" suppress_add "$root" "$old" "e2e" || { printf '    suppress_add failed\n' >&2; return 1; }
   mv "$root/.claude/settings.json" "$root/.claude/settings.local.json"
   _scan "$root" all > "$_CSA_TMP/rescan$_n.jsonl"
   local new; new="$(jq -r 'select(.rule_id == "PERM-001") | .finding_uid' "$_CSA_TMP/rescan$_n.jsonl")"
@@ -180,16 +191,21 @@ test_documented_csa_calls_run_through_dispatcher() {
     call="${call//\"<finding-id>\"/FUID-aaaaaaaa}"
     call="${call//\"<FUID>\"/FUID-aaaaaaaa}"
     call="${call//\"<id>\"/FUID-aaaaaaaa}"
-    call="${call//\"<severity>\"/medium}"
     call="${call//\"<note>\"/note}"
     call="${call//<run-index>/1}"
     call="${call//<report-path>/$root/.claude/audits/r.md}"
     call="${call//<metadata-json>/\{\}}"
     call="${call//<findings>/$_CSA_TMP/empty$_n.jsonl}"
+    call="${call//<tagged>/$_CSA_TMP/empty$_n.jsonl}"
     call="${call//<raw-file>/$_CSA_TMP/empty$_n.jsonl}"
     [[ "$call" != *"<"* ]] || { printf '    unfilled placeholder in: %s\n' "$call" >&2; return 1; }
-    local out
-    out="$(cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" 2>&1)" || true
+    local out rc=0
+    out="$(cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" 2>&1)" || rc=$?
+    # A call that records a run must succeed and write it: the file argument it documents is read.
+    if [[ "$call" == "csa state_record_audit "* ]]; then
+      [[ "$rc" -eq 0 ]] || { printf '    documented call exits %s: %s -> %s\n' "$rc" "$call" "$out" >&2; return 1; }
+      assert_eq "1" "$(jq '.audit_history | length' "$root/.claude/audits/state.json")" "documented state_record_audit wrote its run" || return 1
+    fi
     [[ "$out" != *"unbound variable"* && "$out" != *"Unknown function"* && "$out" != *"Usage:"* ]] \
       || { printf '    documented call aborts: %s -> %s\n' "$call" "$out" >&2; return 1; }
     ran=$((ran + 1))
@@ -300,6 +316,71 @@ test_stale_tamper_exclusion_is_exact() {
     || { printf '    wrong listing: %s\n' "$out" >&2; return 1; }
 }
 
+# ---- suppress_add and suppress_filter through the dispatcher (0.7.0) --------------------------
+
+# _seed_reg <root> <uid> <rule> <severity>: one registry entry in state.json.
+_seed_reg() {
+  local f="$1/.claude/audits/state.json"
+  [[ -f "$f" ]] || printf '{"schema_version":2,"findings":{},"audit_history":[]}\n' > "$f"
+  jq --arg u "$2" --arg r "$3" --arg s "$4" \
+    '.findings[$u] = {rule_id:$r,severity:$s,file:"x.json",first_seen:"2026-01-01T00:00:00Z",last_seen:"2026-01-01T00:00:00Z",seen_in_runs:1,last_run_index:1}' \
+    "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+}
+
+test_suppress_add_malformed_registry_via_dispatcher() {
+  _mk_root
+  _seed_reg "$root" FUID-good0001 PERM-001 medium
+  _seed_reg "$root" FUID-crit0001 HOOK-002 critical
+  local f="$root/.claude/audits/state.json" ec
+  jq '.findings["FUID-bad00001"] = "x" | .findings["FUID-crit0001"].rule_id = ["HOOK-002"]' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  ec=0; "$CSA" suppress_add "$root" FUID-bad00001 n >/dev/null 2>&1 || ec=$?
+  assert_eq "1" "$ec" "a non-object registry entry is refused with exit 1" || return 1
+  ec=0; "$CSA" suppress_add "$root" FUID-crit0001 n >/dev/null 2>&1 || ec=$?
+  assert_eq "1" "$ec" "a Critical whose rule_id is not a string is refused with exit 1" || return 1
+  ec=0; "$CSA" suppress_add "$root" FUID-good0001 n >/dev/null 2>&1 || ec=$?
+  assert_eq "0" "$ec" "a healthy entry beside a malformed one is suppressed" || return 1
+  ec=0; "$CSA" suppress_add "$root" FUID-deadbeef n >/dev/null 2>&1 || ec=$?
+  assert_eq "3" "$ec" "an unknown id is exit 3 under the dispatcher" || return 1
+}
+
+test_empty_or_multi_document_suppressions_file() {
+  _mk_root
+  _seed_reg "$root" FUID-good0001 PERM-001 medium
+  local sup="$root/.claude/audits/suppressions.json" tagged="$_CSA_TMP/tagged.$_n" ec
+  printf '%s\n' '{"finding_uid":"FUID-crit0001","rule_id":"HOOK-002","severity":"critical","file":"h.sh"}' \
+    '{"finding_uid":"FUID-good0001","rule_id":"PERM-001","severity":"medium","file":"x.json"}' > "$tagged"
+  : > "$sup"
+  assert_eq "2" "$("$CSA" suppress_filter "$tagged" "$root" | wc -l | tr -d ' ')" "an empty suppressions file hides nothing" || return 1
+  "$CSA" suppress_add "$root" FUID-good0001 n || { printf '    add on an empty file failed\n' >&2; return 1; }
+  assert_eq "FUID-good0001" "$(jq -r '.suppressions[0].finding_uid' "$sup")" "add on an empty file stores the entry" || return 1
+  printf '%s\n%s\n' '{"schema_version":1,"suppressions":[]}' '{"schema_version":1,"suppressions":[]}' > "$sup"
+  local before; before="$(cat "$sup")"
+  ec=0; "$CSA" suppress_add "$root" FUID-good0001 n >/dev/null 2>&1 || ec=$?
+  assert_eq "2" "$ec" "add on a two-document file is exit 2" || return 1
+  assert_eq "$before" "$(cat "$sup")" "the two-document file is unchanged" || return 1
+  assert_eq "FUID-crit0001" "$("$CSA" suppress_filter "$tagged" "$root" | jq -r 'select(.severity == "critical") | .finding_uid')" "a two-document file never hides the Critical" || return 1
+}
+
+test_unreadable_suppressions_file_hides_and_marks_nothing() {
+  _mk_root
+  local sup="$root/.claude/audits/suppressions.json" tagged="$_CSA_TMP/tagged.$_n" st="$root/.claude/audits/state.json" ec bad
+  printf '%s\n' '{"finding_uid":"FUID-crit0001","rule_id":"HOOK-002","severity":"critical","file":"h.sh"}' \
+    '{"finding_uid":"FUID-good0001","rule_id":"PERM-001","severity":"medium","file":"x.json"}' > "$tagged"
+  for bad in 'not json' '{}' 'null' '[1]' '{"suppressions":5}' $'{"schema_version":1,"suppressions":[{"finding_uid":"FUID-good0001"}]}\n{"schema_version":1,"suppressions":[]}'; do
+    printf '%s\n' "$bad" > "$sup"
+    ec=0; "$CSA" suppress_filter "$tagged" "$root" > "$_CSA_TMP/out.$_n" 2>/dev/null || ec=$?
+    assert_eq "0 2" "$ec $(wc -l < "$_CSA_TMP/out.$_n" | tr -d ' ')" "filter on '$bad' shows every line" || return 1
+    rm -f "$st"
+    ec=0; "$CSA" state_record_audit "$root" 1 ".claude/audits/r.md" "$tagged" >/dev/null 2>&1 || ec=$?
+    assert_eq "0" "$ec" "record_audit on '$bad' records the run" || return 1
+    assert_eq "false false 1" "$(jq -r '[.findings["FUID-crit0001"].suppressed, .findings["FUID-good0001"].suppressed, (.audit_history | length)] | join(" ")' "$st")" "record_audit on '$bad' marks nothing" || return 1
+  done
+  printf '{}\n' > "$sup"
+  _seed_reg "$root" FUID-good0001 PERM-001 medium   # first seen long ago, past the race window
+  ec=0; "$CSA" suppress_add "$root" FUID-good0001 n >/dev/null 2>&1 || ec=$?
+  assert_eq "2" "$ec" "add on an object with no suppressions array is exit 2" || return 1
+}
+
 csa_test_run test_remove_keeps_other_entries_byte_for_byte  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_remove_absent_uid_rc1_file_untouched      || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_remove_malformed_file_rc2                 || _csa_failed=$((_csa_failed + 1))
@@ -322,5 +403,8 @@ csa_test_run test_stale_provenance_finding_refuses          || _csa_failed=$((_c
 csa_test_run test_remove_write_failure_rc5                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_stale_emits_only_the_uid                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_stale_tamper_exclusion_is_exact           || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_suppress_add_malformed_registry_via_dispatcher || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_empty_or_multi_document_suppressions_file  || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_unreadable_suppressions_file_hides_and_marks_nothing || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1
