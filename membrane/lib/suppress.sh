@@ -50,7 +50,9 @@ csa_suppress_init() {
 #   (legacy: <project_root> <id> <severity> <note>; the severity argument is ignored)
 # The finding must be in state.json's registry (a recorded run produced it); its
 # severity is the higher of the registry's and the shipped rule's RULE_SEVERITY.
-# rc 1 critical, or first_seen < 60s; rc 2 no or unreadable state.json; rc 3 no run produced the id.
+# rc 1 critical, an entry whose severity cannot be read, or first_seen < 60s; rc 2 no or unreadable
+# state.json, or a suppressions.json that is not one object with a suppressions array; rc 3 no run
+# produced the id.
 csa_suppress_add() {
   local root="$1" id_arg="$2" note
   if [[ $# -ge 4 ]]; then note="$4"; else note="${3-}"; fi
@@ -63,7 +65,7 @@ csa_suppress_add() {
   local fuid="$id_arg" resolved=""
   if [[ -n "$id_arg" ]]; then
     resolved="$(printf '%s' "$state_json" | jq -r --arg did "$id_arg" \
-      'first(.findings | to_entries[] | select(.value.last_display_id == $did) | .key) // empty')"
+      'first(.findings | to_entries[] | select((.value | type) == "object" and .value.last_display_id == $did) | .key) // empty')"
   fi
   [[ -n "$resolved" ]] && fuid="$resolved"
   local entry; entry="$(printf '%s' "$state_json" | jq -c --arg k "$fuid" '.findings[$k] // empty')"
@@ -76,7 +78,9 @@ csa_suppress_add() {
     def norm: if type == "string" then ascii_downcase else "" end
       | if . == "high" or . == "medium" or . == "low" or . == "info" then . else "critical" end;
     def rank: {"critical":5,"high":4,"medium":3,"low":2,"info":1}[.];
-    [(.severity | norm), (($m[.rule_id // ""] // "info") | norm)] | max_by(rank)')"
+    if type != "object" then "critical" else
+      [(.severity | norm), ((if (.rule_id | type) == "string" then $m[.rule_id] else null end) // "info" | norm)]
+      | max_by(rank) end')"
   # Only a severity read as one of these four may be suppressed; anything else (critical, or an
   # entry jq could not read) is refused.
   if ! [[ "$severity" =~ ^(high|medium|low|info)$ ]]; then
@@ -100,7 +104,14 @@ csa_suppress_add() {
   fi
 
   local sup_file; sup_file="$(csa_suppress_path "$root")"
-  [[ -f "$sup_file" ]] || csa_suppress_init "$root"
+  # A missing, empty or whitespace-only file holds no suppressions: start it. Anything else must be
+  # one object with a suppressions array, or nothing is written.
+  if [[ ! -f "$sup_file" ]] || ! grep -q '[^[:space:]]' "$sup_file"; then csa_suppress_init "$root"; fi
+  if ! jq -s -e 'length == 1 and (.[0] | type == "object" and (.suppressions | type) == "array")' \
+      "$sup_file" >/dev/null 2>&1; then
+    printf 'csa: %s is not a valid suppressions file; nothing suppressed\n' "$sup_file" >&2
+    return 2
+  fi
   # Idempotent: skip if finding_uid already in suppressions.
   local already; already="$(jq -r --arg k "$fuid" \
     '.suppressions[] | select(.finding_uid == $k) | .finding_uid' "$sup_file" | head -1)"
@@ -166,7 +177,8 @@ csa_suppress_filter() {
         && [[ "$(printf '%s' "$line" | jq -r '.severity // empty')" == "critical" ]]; then
       is_suppressed="false"
     fi
-    if [[ "$is_suppressed" == "false" ]]; then
+    # Only a clear "true" hides a line: an empty or unreadable suppressions file hides nothing.
+    if [[ "$is_suppressed" != "true" ]]; then
       printf '%s\n' "$line"
     fi
   done < "$findings_file"

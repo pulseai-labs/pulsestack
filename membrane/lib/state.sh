@@ -115,7 +115,7 @@ _csa_state_rule_severities() {
 # computes from suppressions.json (never from the input's state) and which is false for a
 # critical finding, since suppress_filter never hides one; so a suppressed finding that
 # still fires keeps its registry entry current and does not age out. finding_counts counts the
-# unsuppressed findings per severity plus a `suppressed` total.
+# findings not marked suppressed, per severity, plus a `suppressed` total.
 # focus: the aspect the run scanned, or `all` (the default) for a full audit.
 # The history entry records it as `focus`; an unknown aspect is refused
 # (exit 2) before any write.
@@ -201,7 +201,8 @@ csa_state_record_audit() {
       display_id="$(printf '%s' "$finding_json" | jq -r '.display_id // empty')"
 
       [[ -z "$fuid" ]] && continue
-      # Marked only when the filter hides it: a listed Critical is still shown (suppress_filter).
+      # Marked when suppress_filter would hide it (listed, not critical), whether or not this run
+      # passed --show-suppressed: a listed Critical is always shown, so it is never marked.
       local is_sup; is_sup="$(jq -n --argjson s "$sup_uids" --arg k "$fuid" --arg sev "$severity" \
         'any($s[]; . == $k) and $sev != "critical"')"
 

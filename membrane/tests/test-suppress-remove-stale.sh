@@ -316,6 +316,51 @@ test_stale_tamper_exclusion_is_exact() {
     || { printf '    wrong listing: %s\n' "$out" >&2; return 1; }
 }
 
+# ---- suppress_add and suppress_filter through the dispatcher (0.7.0) --------------------------
+
+# _seed_reg <root> <uid> <rule> <severity>: one registry entry in state.json.
+_seed_reg() {
+  local f="$1/.claude/audits/state.json"
+  [[ -f "$f" ]] || printf '{"schema_version":2,"findings":{},"audit_history":[]}\n' > "$f"
+  jq --arg u "$2" --arg r "$3" --arg s "$4" \
+    '.findings[$u] = {rule_id:$r,severity:$s,file:"x.json",first_seen:"2026-01-01T00:00:00Z",last_seen:"2026-01-01T00:00:00Z",seen_in_runs:1,last_run_index:1}' \
+    "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+}
+
+test_suppress_add_malformed_registry_via_dispatcher() {
+  _mk_root
+  _seed_reg "$root" FUID-good0001 PERM-001 medium
+  _seed_reg "$root" FUID-crit0001 HOOK-002 critical
+  local f="$root/.claude/audits/state.json" ec
+  jq '.findings["FUID-bad00001"] = "x" | .findings["FUID-crit0001"].rule_id = ["HOOK-002"]' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  ec=0; "$CSA" suppress_add "$root" FUID-bad00001 n >/dev/null 2>&1 || ec=$?
+  assert_eq "1" "$ec" "a non-object registry entry is refused with exit 1" || return 1
+  ec=0; "$CSA" suppress_add "$root" FUID-crit0001 n >/dev/null 2>&1 || ec=$?
+  assert_eq "1" "$ec" "a Critical whose rule_id is not a string is refused with exit 1" || return 1
+  ec=0; "$CSA" suppress_add "$root" FUID-good0001 n >/dev/null 2>&1 || ec=$?
+  assert_eq "0" "$ec" "a healthy entry beside a malformed one is suppressed" || return 1
+  ec=0; "$CSA" suppress_add "$root" FUID-deadbeef n >/dev/null 2>&1 || ec=$?
+  assert_eq "3" "$ec" "an unknown id is exit 3 under the dispatcher" || return 1
+}
+
+test_empty_or_multi_document_suppressions_file() {
+  _mk_root
+  _seed_reg "$root" FUID-good0001 PERM-001 medium
+  local sup="$root/.claude/audits/suppressions.json" tagged="$_CSA_TMP/tagged.$_n" ec
+  printf '%s\n' '{"finding_uid":"FUID-crit0001","rule_id":"HOOK-002","severity":"critical","file":"h.sh"}' \
+    '{"finding_uid":"FUID-good0001","rule_id":"PERM-001","severity":"medium","file":"x.json"}' > "$tagged"
+  : > "$sup"
+  assert_eq "2" "$("$CSA" suppress_filter "$tagged" "$root" | wc -l | tr -d ' ')" "an empty suppressions file hides nothing" || return 1
+  "$CSA" suppress_add "$root" FUID-good0001 n || { printf '    add on an empty file failed\n' >&2; return 1; }
+  assert_eq "FUID-good0001" "$(jq -r '.suppressions[0].finding_uid' "$sup")" "add on an empty file stores the entry" || return 1
+  printf '%s\n%s\n' '{"schema_version":1,"suppressions":[]}' '{"schema_version":1,"suppressions":[]}' > "$sup"
+  local before; before="$(cat "$sup")"
+  ec=0; "$CSA" suppress_add "$root" FUID-good0001 n >/dev/null 2>&1 || ec=$?
+  assert_eq "2" "$ec" "add on a two-document file is exit 2" || return 1
+  assert_eq "$before" "$(cat "$sup")" "the two-document file is unchanged" || return 1
+  assert_eq "FUID-crit0001" "$("$CSA" suppress_filter "$tagged" "$root" | jq -r 'select(.severity == "critical") | .finding_uid')" "a two-document file never hides the Critical" || return 1
+}
+
 csa_test_run test_remove_keeps_other_entries_byte_for_byte  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_remove_absent_uid_rc1_file_untouched      || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_remove_malformed_file_rc2                 || _csa_failed=$((_csa_failed + 1))
@@ -338,5 +383,7 @@ csa_test_run test_stale_provenance_finding_refuses          || _csa_failed=$((_c
 csa_test_run test_remove_write_failure_rc5                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_stale_emits_only_the_uid                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_stale_tamper_exclusion_is_exact           || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_suppress_add_malformed_registry_via_dispatcher || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_empty_or_multi_document_suppressions_file  || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

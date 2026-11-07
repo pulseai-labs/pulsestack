@@ -49,7 +49,7 @@ If any check fails, refuse with the specific message from references/auto-fix-po
 
 ## Suppression mode (`/security-audit --suppress <finding-id>`)
 
-Call `csa suppress_add "$PWD" "<finding-id>" "<note>"`. It reads `.claude/audits/state.json` and the shipped rules, not the caller: the id must be a finding a recorded audit produced (exit 3 otherwise; exit 2 when there is no `state.json`, so run `/security-audit` first), and a finding whose severity is Critical is refused (exit 1; the severity is the higher of the registry's and the rule's). Refuses if finding_uid was first_seen < 60s ago (exit 1; race-window protection per references/auto-fix-policy.md §tamper).
+Call `csa suppress_add "$PWD" "<finding-id>" "<note>"`. It reads `.claude/audits/state.json` and the shipped rules, not the caller: the id must be a finding a recorded audit produced (exit 3 otherwise; exit 2 when there is no `state.json`, so run `/security-audit` first, or when `suppressions.json` is not a valid suppressions file), and a finding whose severity is Critical is refused (exit 1; the severity is the higher of the registry's and the rule's). Refuses if finding_uid was first_seen < 60s ago (exit 1; race-window protection per references/auto-fix-policy.md §tamper).
 
 ## Unsuppress mode (`/security-audit --unsuppress <FUID>`)
 
