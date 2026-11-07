@@ -447,7 +447,12 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['pkill -F /tmp/pidfile', 'pkill -F'],
   ['pkill "$(cat /tmp/name)"', 'a pattern held in a quoted substitution'],
   // shells and applets outside KILL_SHELLS, and names the extra readings do not speak for (#1126, #1127)
-  ["fish -c 'kill -1'", 'fish is not a shell the rail reads (#1127: -c takes a value; fish syntax differs)'],
+  // fish's string grammar past its command prefixes: a fish string is read as POSIX text
+  ["fish -c 'kill 123 (echo x) -1'", 'fish: an unquoted (…) substitution cuts the command'],
+  ["fish -c 'kill \\x2d1'", 'fish: an escape outside quotes spells the operand'],
+  ['fish -c "echo \'x\\\\\' \'; kill -1; echo \'\'"', "fish: a single quote takes \\' and runs on"],
+  ["fish -c 'kill {,-1}'", 'fish: brace expansion, as under sh'],
+  ["fish -c 'kill (echo -1)'", "fish: a substitution's value, as under sh"],
   ["rksh -c 'kill -1'", 'rksh (the pdksh line) is not read; unprobed, source not read'],
   ["rksh93 -c 'kill -1'", 'rksh93 (restricted ksh93) is not read by name; unprobed'],
   ["rmksh -c 'kill -1'", 'rmksh (restricted mksh) is not read by name; unprobed'],

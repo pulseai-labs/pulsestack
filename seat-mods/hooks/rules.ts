@@ -953,7 +953,7 @@ export function invalidText(value: string): string {
 // wherever each sits in the call, substitutions included; (b) kill with -1, 0, or a negative operand that holds a
 // `$`; (c) pkill and killall by user, with no pattern, or with a pattern that matches every name of a fixed probe
 // set; (d) killall5, and the session-wide systemctl and loginctl verbs. It reads a literal `eval '…'` or
-// `sh|bash|rbash|zsh|dash|ash|static-sh|ksh|ksh93|mksh|lksh|mksh-static|yash -c '…'` string once, as a command (a shell's options read as bash reads them, as zsh reads them and, for a cluster with an inner `-`, as Debian busybox ash reads them, refused if any string is; ksh, ksh93, mksh, lksh, mksh-static and yash also get a reading of their own grammar, for that name only; ksh gets ksh93's and mksh's), reads `busybox` as its applet, removes quotes from a command word, and skips the wrappers
+// `sh|bash|rbash|zsh|dash|ash|static-sh|ksh|ksh93|mksh|lksh|mksh-static|yash -c '…'` string once, as a command (a shell's options read as bash reads them, as zsh reads them and, for a cluster with an inner `-`, as Debian busybox ash reads them, refused if any string is; ksh, ksh93, mksh, lksh, mksh-static and yash also get a reading of their own grammar, for that name only; ksh gets ksh93's and mksh's), and every `fish -c`/`-C` string as POSIX text with fish's command prefixes dropped, reads `busybox` as its applet, removes quotes from a command word, and skips the wrappers
 // below. Everything else it does not read is a known limit, listed in the README and pinned by tests/kill.test.ts.
 // ---------------------------------------------------------------------------------------------------------
 
@@ -1056,14 +1056,100 @@ function killLiteral(token: string, pieces: readonly string[]): string {
 
 // The strings a literal runner may be given: eval's words joined, or for a shell the word after its -c as bash reads
 // the options and as zsh reads them. The shells disagree, and a name is not a closed input (sh is dash, bash or zsh on the hosts probed, and busybox ash
-// elsewhere), so every name in KILL_SHELLS gets all three readings and the rail refuses if any string is refused. ksh, ksh93, mksh, lksh, mksh-static and yash get a fourth (ksh a fourth and a fifth: ksh93's and mksh's), for their own grammar, keyed on the name: `sh` on a host where it is mksh or ksh93 does not get it.
+// elsewhere), so every name in KILL_SHELLS gets all three readings and the rail refuses if any string is refused. ksh, ksh93, mksh, lksh, mksh-static and yash get a fourth (ksh a fourth and a fifth: ksh93's and mksh's), for their own grammar, keyed on the name: `sh` on a host where it is mksh or ksh93 does not get it. fish gets its own reading only (fishTexts).
 function runnerTexts(name: string, args: readonly string[], raw: readonly string[], pieces: readonly string[]): string[] {
   if (name === 'eval') return [(args[0] === '--' ? raw.slice(1) : raw).map(token => killLiteral(token, pieces)).join(' ')]
+  if (name === 'fish') return [...new Set(fishTexts(args, raw, pieces).flatMap(text => [text, fishHeads(text)]))]
   if (!KILL_SHELLS.has(name)) return []
   const texts = [bashText(args, raw, pieces), zshText(args, raw, pieces), ashText(args, raw, pieces)]
   // Further readings for a name whose own grammar the three miss (#1126); they speak only for that name.
   for (const own of KILL_OWN_READINGS[name] ?? []) texts.push(own(args, raw, pieces))
   return [...new Set(texts.filter((text): text is string => text !== undefined))]
+}
+
+// fish's reading (probed on fish 4.2.1, #1127). fish is not a POSIX shell, so it gets this reading only, not the three, and
+// each string it finds is read as POSIX text. Its options are getopt_long over its own table, with no permutation: `--`,
+// a bare `-` and the first word that is not an option end them. -c and -C take the rest of the cluster or else the next
+// word, whatever it is, and every value runs (-c repeats, -C runs first); p, d, f, D and o take a value too. A long name
+// is any prefix of one (--comm, --init), with =value or the next word; an ambiguous prefix takes a value if any name it
+// could be takes one. A value is read even where fish then runs nothing (-n, -v, an unknown option): a deliberate false stop.
+const FISH_LONG: Readonly<Record<string, 'string' | 'value' | 'flag'>> = {
+  command: 'string', 'init-command': 'string', debug: 'value', 'debug-output': 'value', 'debug-stack-frames': 'value',
+  features: 'value', profile: 'value', 'profile-startup': 'value', interactive: 'flag', login: 'flag', 'no-config': 'flag',
+  'no-execute': 'flag', 'print-rusage-self': 'flag', 'print-debug-categories': 'flag', private: 'flag', help: 'flag', version: 'flag',
+}
+function fishTexts(args: readonly string[], raw: readonly string[], pieces: readonly string[]): string[] {
+  const texts: string[] = []
+  // A value attached to its option word: the raw word past the option's own `from` characters, when those are unquoted.
+  const attached = (k: number, from: number): string => {
+    const whole = expand(raw[k]!, pieces)
+    return whole.slice(0, from) === args[k]!.slice(0, from) ? killLiteral(whole.slice(from), []) : args[k]!.slice(from)
+  }
+  for (let k = 0; k < args.length; k++) {
+    const arg = args[k]!
+    if (arg === '--' || arg === '-' || !arg.startsWith('-')) break
+    if (arg.startsWith('--')) {
+      const eq = arg.indexOf('=')
+      const name = eq < 0 ? arg.slice(2) : arg.slice(2, eq)
+      const kinds = Object.hasOwn(FISH_LONG, name) ? [FISH_LONG[name]!] : Object.keys(FISH_LONG).filter(n => n.startsWith(name)).map(n => FISH_LONG[n]!)
+      if (kinds.every(kind => kind === 'flag')) continue
+      if (eq >= 0) { if (kinds.includes('string')) texts.push(attached(k, eq + 1)); continue }
+      k += 1
+      if (kinds.includes('string') && k < args.length) texts.push(killLiteral(raw[k]!, pieces))
+      continue
+    }
+    for (let j = 1; j < arg.length; j++) {
+      if (!'cCpdfDo'.includes(arg[j]!)) continue
+      const string = arg[j] === 'c' || arg[j] === 'C'
+      if (j < arg.length - 1) { if (string) texts.push(attached(k, j + 1)) }
+      else if (++k < args.length && string) texts.push(killLiteral(raw[k]!, pieces))
+      break
+    }
+  }
+  return texts
+}
+
+// fish's command prefixes (probed on fish 4.2.1, #1127), read beside the plain string. At the head of a command (the
+// start, after ; & | or a newline, after a substitution's `(`, and after if, while, else, ! or time), and, or, not and
+// begin are dropped, quoted or not (fish reads `'not'` and `n""ot` as `not`), and a block's `{` becomes a separator, so
+// the POSIX reader names the command after them. The two repeat, so a `{` after a dropped prefix is cut too. A `$(…)`
+// inside double quotes is one piece of the blanked text: its own text gets the same reading, to the rail's substitution
+// depth. Quotes are read as POSIX reads them; the rest of fish's string grammar is a known limit.
+// A text the blanker cannot read is returned as it is: the plain reading still holds it, and its throw.
+const FISH_PREFIXES: ReadonlySet<string> = new Set(['and', 'or', 'not', 'begin'])
+// A keyword counts only where it is itself a head (after a head and up to 8 keywords before it): `echo time {` is an argument.
+// The bound keeps the lookbehind linear; a longer keyword chain is a known limit.
+const FISH_KEYWORD = String.raw`(?:if|while|else|!|time)`
+const FISH_HEAD = String.raw`(^|[;&|\n(]|(?=${FISH_KEYWORD}[ \t])(?<=(?:^|[;&|\n(])[ \t]*(?:${FISH_KEYWORD}[ \t]+){0,8})${FISH_KEYWORD}[ \t])([ \t]*)`
+function fishHeads(text: string, depth = 0): string {
+  let read: { text: string; pieces: string[] }
+  try { read = blank(text) } catch { return text }
+  const { text: blanked } = read
+  const pieces = [...read.pieces]
+  for (let i = 0; i < pieces.length && depth < 8; i++) {
+    const piece = pieces[i]!
+    if (piece.startsWith('$(') && !piece.startsWith('$((') && piece.endsWith(')')) pieces[i] = `$(${fishHeads(piece.slice(2, -1), depth + 1)})`
+  }
+  // A head word with its quotes taken off, or undefined if it holds anything but plain text and quoted text.
+  const unquoted = (word: string): string | undefined => {
+    let plain = true
+    const out = word.replace(MARKER, (_, i: string) => {
+      const piece = read.pieces[Number(i)] ?? ''
+      if (piece.length >= 2 && (/^'[^']*'$/.test(piece) || /^"[^"\\$`\u0000]*"$/.test(piece))) return piece.slice(1, -1)
+      plain = false
+      return ''
+    })
+    return plain ? out : undefined
+  }
+  // A keyword head is not taken as the word, so the prefix after it is still found in the same pass.
+  const prefix = new RegExp(FISH_HEAD + String.raw`(?!${FISH_KEYWORD}[ \t])((?:[^\s;&|(){}\u0000]|\u0000\d+\u0000)+)(?=[ \t;\n&|]|$)`, 'g')
+  const brace = new RegExp(FISH_HEAD + String.raw`\{`, 'g')
+  let out = blanked.replace(/(?<=\S)\}/g, ' }')
+  for (let before = ''; before !== out;) {
+    before = out
+    out = out.replace(brace, '$1$2;').replace(prefix, (all, head: string, blanks: string, word: string) => FISH_PREFIXES.has(unquoted(word) ?? '') ? head + blanks : all)
+  }
+  try { return expand(out, pieces) } catch { return text }
 }
 
 // mksh's reading (probed on mksh R59c): o and T take the rest of their cluster or else the next word, whatever it is;
@@ -1394,7 +1480,7 @@ function killScan(command: string, scan: KillScan, runners: boolean): void {
       // Each level maps every word again: a chain past 8 is unread, not walked (fails closed in the glues).
       if (depth >= 8) throw new Error('xargs nested more than 8 deep')
       if (at < args.length) visit(rest.slice(at), depth + 1)
-    } else if (runners && (name === 'eval' || KILL_SHELLS.has(name))) {
+    } else if (runners && (name === 'eval' || name === 'fish' || KILL_SHELLS.has(name))) {
       // killRead holds its own throws; this hold only keeps a future throw in runnerTexts from escaping.
       for (const inner of runnerTexts(name, args, rest, pieces)) deferred(scan, () => killRead(inner, scan, false))
     }

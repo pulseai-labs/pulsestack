@@ -2,6 +2,19 @@
 
 All notable changes to the `seat-mods` plugin.
 
+## 0.15.3 — 2026-11-08
+
+The kill rail reads `fish` (#1127). fish was a name the rail did not read, so `fish -c 'kill -1'` went to the model as if the rail were absent. fish 4.2.1 was probed with harmless strings only.
+
+- `fish` gets a reading of its own, used only for that name, and not the three POSIX readings. Its options are read as fish reads them, with no permutation: `--`, a bare `-` or the first operand ends them. `-c` and `-C`/`--init-command` take the rest of the cluster or else the next word, and every value is read, since fish runs every one (`fish -c 'echo ok' -c 'kill -1'`, `fish -C 'kill -1'`). A long name is any unique prefix, with `=value` or the next word (`fish --command='kill -1'`, `fish --comm 'kill -1'`, `fish --init 'kill -1'`). `p`, `d`, `f`, `D` and `o` take a value, so `fish -p -c 'kill -1'` runs nothing and is allowed.
+- Each fish string is read as POSIX text, and again with fish's command prefixes taken off: `and`, `or`, `not` and `begin`, quoted or not, since fish reads `'not'` and `n""ot` as `not`, and a block's `{`. They are taken off at the head of a command: the start, after `;`, `&`, `|` or a newline, after a block's `{`, after a substitution's `(` or `$(` (inside double quotes too), and after `if`, `while`, `else`, `!` or `time`, so a `{` after a prefix is taken off too (`fish -c 'true; and kill -1'`, `fish -c 'not kill -1'`, `fish -c 'begin kill -1; end'`, `fish -c '{kill -1}'`, `fish -c 'not {kill -1}'`, `fish -c 'echo (not kill -1)'`, `fish -c "'not' kill -1"`).
+- On the probe's option grids the rail missed every string fish runs (2105, 6736 and 53) and now misses none. On its string grid it missed all 8640 kill forms fish runs; it now reads every naturally spelled one, in a POSIX-shaped context or behind a fish prefix, and the 6930 it still misses are the known limits below.
+- Deliberate false stops: a `-c` or `-C` value is read even where fish then runs nothing (after `-n`/`--no-execute`, beside `-v` or an unknown option such as `-e`, after an ambiguous prefix such as `--i`, or when a value-taking option is left with no value): 4448 forms of the option grids, none where fish runs the other string. Text fish quotes and POSIX does not is read as code: ``fish -c 'echo `kill -1`'`` is refused, though fish has no backticks.
+- A fish string the rail cannot read (`fish -c '$(x'`) is unread, as under sh, and does not hide a refusal elsewhere in the call.
+- Known limits. fish's string grammar past the prefixes is read as POSIX text, so a single quote that takes `\'`, an escape outside quotes (fish decodes `kill \x2d1` to `kill -1`) and an unquoted `(…)` among the operands (`kill 123 (echo x) -1`) are misses. Brace expansion and a substitution's value are misses as under sh (`fish -c 'kill {,-1}'`, `fish -c 'kill (echo -1)'`).
+- Other names change on nothing: every other runner name keeps its verdicts, on 1,235,520 fuzzed commands, and the suite pins the verdicts of eighteen of them on its 3762-form fish grid.
+- The omp-roles floor stays at seat-mods 0.14.0. Claude Code and OMP both read the same `killRule`, and omp needs no change.
+
 ## 0.15.2 — 2026-11-07
 
 The kill rail reads the grammar of ksh93, mksh and yash that its three readings missed (#1126). 0.15.1 read those names from source and listed three points as misses; they were probed this time, on the binaries (ksh93u+m 1.0.10, mksh R59c with its `lksh`, yash 2.55) and on macOS's ksh 93u+, with harmless strings only. The probe found more than the three points. A name it did not read is a miss: the call goes to the model as if the rail were absent.
