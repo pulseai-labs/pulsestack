@@ -76,6 +76,76 @@ test_record_audit_updates_findings_registry() {
 }
 
 # ---------------------------------------------------------------------------
+# record_audit reads a findings file, marks suppressed findings from suppressions.json,
+# counts them apart, refreshes what a sighting carries and keeps a display id the input lacks
+# ---------------------------------------------------------------------------
+test_record_audit_reads_a_findings_file() {
+  local root="$_CSA_TMP/t-file"
+  mkdir -p "$root/.claude/audits"
+  csa_state_init "$root"
+  local f="$_CSA_TMP/findings-file.jsonl"
+  printf '%s\n' \
+    '{"finding_uid":"FUID-file0001","rule_id":"PERM-001","severity":"medium","file":"a.json","display_id":"SA-F-001"}' \
+    '{"finding_uid":"FUID-file0002","rule_id":"PERM-002","severity":"high","file":"b.json","display_id":"SA-F-002"}' > "$f"
+  csa_state_record_audit "$root" 1 ".claude/audits/f.md" "$f" || { printf '    file form failed\n' >&2; return 1; }
+  assert_eq "2" "$(jq '.findings | length' "$(csa_state_path "$root")")" "both findings in the file are registered" || return 1
+  # Control: the content form records the same.
+  local root2="$_CSA_TMP/t-file2"; mkdir -p "$root2/.claude/audits"; csa_state_init "$root2"
+  csa_state_record_audit "$root2" 1 ".claude/audits/f.md" "$(cat "$f")" || return 1
+  assert_eq "2" "$(jq '.findings | length' "$(csa_state_path "$root2")")" "the content form still records both" || return 1
+  # An unreadable findings file is refused; no empty run is recorded.
+  local runs_before; runs_before="$(jq '.audit_history | length' "$(csa_state_path "$root")")"
+  chmod 000 "$f"
+  local ec=0; csa_state_record_audit "$root" 2 ".claude/audits/f2.md" "$f" >/dev/null 2>&1 || ec=$?
+  chmod 644 "$f"
+  [[ "$ec" -ne 0 ]] || { printf '    an unreadable findings file recorded a run\n' >&2; return 1; }
+  assert_eq "$runs_before" "$(jq '.audit_history | length' "$(csa_state_path "$root")")" "no run recorded from an unreadable file" || return 1
+}
+
+test_record_audit_marks_suppressed_findings() {
+  local root="$_CSA_TMP/t-mark"
+  mkdir -p "$root/.claude/audits"
+  csa_state_init "$root"
+  printf '%s\n' '{"schema_version":1,"suppressions":[{"finding_uid":"FUID-mark0001","suppressed_by":"t","suppressed_at":"2026-01-01T00:00:00Z","note":"n"}]}' \
+    > "$root/.claude/audits/suppressions.json"
+  # The input carries no suppression state of its own: the mark comes from suppressions.json.
+  local findings
+  findings="$(printf '%s\n' \
+    '{"finding_uid":"FUID-mark0001","rule_id":"PERM-001","severity":"medium","file":"a.json","state":"NEW"}' \
+    '{"finding_uid":"FUID-mark0002","rule_id":"PERM-001","severity":"medium","file":"b.json","state":"NEW"}' \
+    '{"finding_uid":"FUID-mark0003","rule_id":"PERM-002","severity":"high","file":"c.json","state":"NEW"}')"
+  csa_state_record_audit "$root" 1 ".claude/audits/m.md" "$findings" || return 1
+  local st; st="$(csa_state_path "$root")"
+  assert_eq "true" "$(jq -r '.findings["FUID-mark0001"].suppressed' "$st")" "listed uid is marked" || return 1
+  assert_eq "false" "$(jq -r '.findings["FUID-mark0002"].suppressed' "$st")" "unlisted uid is not marked" || return 1
+  assert_eq "1 1 1" "$(jq -r '[.audit_history[-1].finding_counts.medium, .audit_history[-1].finding_counts.high, .audit_history[-1].finding_counts.suppressed] | join(" ")' "$st")" "buckets exclude the suppressed finding, which is counted apart" || return 1
+  # A listed Critical is not hidden (suppress_filter shows it), so it is not marked and counts as critical.
+  printf '%s\n' '{"schema_version":1,"suppressions":[{"finding_uid":"FUID-markcrit","suppressed_by":"t","suppressed_at":"2026-01-01T00:00:00Z","note":"n"}]}' \
+    > "$root/.claude/audits/suppressions.json"
+  csa_state_record_audit "$root" 2 ".claude/audits/m1.md" \
+    '{"finding_uid":"FUID-markcrit","rule_id":"HOOK-002","severity":"critical","file":"h.sh","state":"NEW"}' || return 1
+  assert_eq "false" "$(jq -r '.findings["FUID-markcrit"].suppressed' "$st")" "a listed Critical is not marked" || return 1
+  assert_eq "1 0" "$(jq -r '[.audit_history[-1].finding_counts.critical, .audit_history[-1].finding_counts.suppressed] | join(" ")' "$st")" "a listed Critical counts as critical, not suppressed" || return 1
+  # An unreadable suppressions file marks nothing and does not stop the write.
+  printf '{ not json' > "$root/.claude/audits/suppressions.json"
+  csa_state_record_audit "$root" 3 ".claude/audits/m2.md" "$findings" || { printf '    refused on a bad suppressions file\n' >&2; return 1; }
+  assert_eq "false" "$(jq -r '.findings["FUID-mark0001"].suppressed' "$st")" "bad suppressions file marks nothing" || return 1
+}
+
+test_record_audit_refreshes_a_sighting_and_keeps_the_display_id() {
+  local root="$_CSA_TMP/t-refresh"
+  mkdir -p "$root/.claude/audits"
+  csa_state_init "$root"
+  csa_state_record_audit "$root" 1 ".claude/audits/r1.md" \
+    '{"finding_uid":"FUID-refr0001","rule_id":"PERM-001","severity":"medium","file":"a.json","display_id":"SA-R-001"}' || return 1
+  # Second sighting: severity and file changed, and no display id (a suppressed finding gets none).
+  csa_state_record_audit "$root" 2 ".claude/audits/r2.md" \
+    '{"finding_uid":"FUID-refr0001","rule_id":"PERM-001","severity":"high","file":"b.json"}' || return 1
+  local e; e="$(jq -c '.findings["FUID-refr0001"]' "$(csa_state_path "$root")")"
+  assert_eq "high b.json SA-R-001 2" "$(jq -r '[.severity, .file, .last_display_id, .last_run_index] | join(" ")' <<<"$e")" "severity and file refreshed, display id kept" || return 1
+}
+
+# ---------------------------------------------------------------------------
 # 5. record_applied_fix appends to applied_fixes
 # ---------------------------------------------------------------------------
 test_record_applied_fix_appends() {
@@ -446,6 +516,9 @@ csa_test_run test_init_creates_schema_v2                          || _csa_failed
 csa_test_run test_read_missing_returns_empty_object               || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_record_audit_appends_to_history                 || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_record_audit_updates_findings_registry          || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_record_audit_reads_a_findings_file                || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_record_audit_marks_suppressed_findings            || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_record_audit_refreshes_a_sighting_and_keeps_the_display_id || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_record_applied_fix_appends                      || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_gc_evicts_after_10_run_absence                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_gc_keeps_within_10_run_window                   || _csa_failed=$((_csa_failed + 1))

@@ -63,9 +63,7 @@ test_e2e_suppress_medium_disappears_next_run() {
     "$state_file" > "$scratch/state_patched.json" \
     && mv "$scratch/state_patched.json" "$state_file"
 
-  local sev; sev="$(printf '%s\n' "$findings1" | jq -r --arg k "$medium_fuid" 'select(.finding_uid == $k) | .severity' | head -1)"
-
-  csa_suppress_add "$project" "$medium_fuid" "$sev" "e2e test suppression" 2>/dev/null
+  csa_suppress_add "$project" "$medium_fuid" "e2e test suppression" 2>/dev/null
   local sup_ec=$?
   [[ "$sup_ec" -eq 0 ]] || { printf '    csa_suppress_add failed ec=%d\n' "$sup_ec" >&2; return 1; }
 
@@ -83,7 +81,8 @@ test_e2e_suppress_medium_disappears_next_run() {
 
 # ---------------------------------------------------------------------------
 # test_e2e_suppress_critical_refused
-# Try to suppress a Critical finding → non-zero exit, "critical" in stderr.
+# Record a run that holds a Critical finding, then try to suppress it, naming no severity and
+# then naming medium → rc 1 each time, "critical" in stderr, nothing written.
 # ---------------------------------------------------------------------------
 test_e2e_suppress_critical_refused() {
   _next_scratch; local scratch="$_CSA_TMP/t$_test_n"
@@ -97,13 +96,61 @@ test_e2e_suppress_critical_refused() {
 
   local critical_fuid; critical_fuid="$(jq -r 'select(.severity == "critical") | .finding_uid' "$scratch/raw.jsonl" | head -1)"
   [[ -n "$critical_fuid" ]] || { printf '    no critical finding in secrets-issue\n' >&2; return 1; }
+  HOME=/nonexistent csa_audit_harness "$project" all >/dev/null 2>&1
+  [[ "$(jq -r --arg k "$critical_fuid" '.findings[$k].severity // empty' "$(csa_state_path "$project")")" == "critical" ]] \
+    || { printf '    the recorded run does not hold the Critical finding; setup is vacuous\n' >&2; return 1; }
 
-  local stderr_out; stderr_out="$(csa_suppress_add "$project" "$critical_fuid" "critical" "should fail" 2>&1 >/dev/null)"
-  local ec=$?
-
-  [[ "$ec" -ne 0 ]] || { printf '    expected non-zero exit from suppress_add for critical\n' >&2; return 1; }
+  local stderr_out ec=0
+  stderr_out="$(csa_suppress_add "$project" "$critical_fuid" "should fail" 2>&1 >/dev/null)" || ec=$?
+  assert_eq "1" "$ec" "a recorded Critical finding is refused" || return 1
   local lower_err; lower_err="$(printf '%s' "$stderr_out" | tr '[:upper:]' '[:lower:]')"
   assert_contains "$lower_err" "critical" "error should mention critical" || return 1
+  ec=0; csa_suppress_add "$project" "$critical_fuid" "medium" "claims medium" >/dev/null 2>&1 || ec=$?
+  assert_eq "1" "$ec" "the same finding passed as medium is refused too" || return 1
+  assert_eq "0" "$(csa_suppress_list "$project" | wc -l | tr -d ' ')" "nothing was written" || return 1
+}
+
+# ---------------------------------------------------------------------------
+# test_e2e_suppressed_finding_stays_current_in_registry
+# A suppressed finding that still fires keeps updating its registry entry through 12 runs
+# (it does not age out), is marked suppressed and counted apart from the severity buckets, and
+# once unsuppressed reads PERSISTED with the first_seen it had before it was suppressed.
+# ---------------------------------------------------------------------------
+test_e2e_suppressed_finding_stays_current_in_registry() {
+  _next_scratch; local scratch="$_CSA_TMP/t$_test_n"
+  local project="$scratch/project"
+  cp -R "$CSA_FIXTURES_DIR/issues/permissions-issue/." "$project/"
+  mkdir -p "$project/.claude/audits" "$scratch/home/.claude"
+  export CSA_PROJECT_ROOT="$project"
+  export HOME="$scratch/home"
+  csa_state_init "$project"
+  local state_file; state_file="$(csa_state_path "$project")"
+
+  csa_audit_harness "$project" all > "$scratch/out1.jsonl" 2>/dev/null
+  local uid; uid="$(jq -r 'select(.severity == "medium") | .finding_uid' "$scratch/out1.jsonl" | head -1)"
+  [[ -n "$uid" ]] || { printf '    no medium finding in permissions-issue\n' >&2; return 1; }
+  local before; before="$(jq -r '.audit_history[-1].finding_counts.medium' "$state_file")"
+  local first="2026-01-01T00:00:00Z"
+  jq --arg u "$uid" --arg t "$first" '.findings[$u].first_seen = $t' "$state_file" > "$scratch/s.json" && mv "$scratch/s.json" "$state_file"
+  csa_suppress_add "$project" "$uid" "e2e" || { printf '    suppress_add refused\n' >&2; return 1; }
+
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    csa_audit_harness "$project" all > "$scratch/out-r$i.jsonl" 2>/dev/null
+  done
+  assert_eq "0" "$(jq -r --arg u "$uid" 'select(.finding_uid == $u)' "$scratch/out-r12.jsonl" | grep -c . || true)" "the report output still hides it" || return 1
+  assert_eq "13" "$(jq -r --arg u "$uid" '.findings[$u].last_run_index // "evicted"' "$state_file")" "registry entry is current after 12 more runs" || return 1
+  assert_eq "true" "$(jq -r --arg u "$uid" '.findings[$u].suppressed' "$state_file")" "entry is marked suppressed" || return 1
+  assert_eq "$first" "$(jq -r --arg u "$uid" '.findings[$u].first_seen' "$state_file")" "first_seen kept" || return 1
+  assert_eq "$((before - 1))" "$(jq -r '.audit_history[-1].finding_counts.medium' "$state_file")" "severity bucket excludes it" || return 1
+  assert_eq "1" "$(jq -r '.audit_history[-1].finding_counts.suppressed' "$state_file")" "suppressed total counts it" || return 1
+
+  csa_suppress_remove "$project" "$uid" || { printf '    suppress_remove failed\n' >&2; return 1; }
+  csa_audit_harness "$project" all > "$scratch/out-after.jsonl" 2>/dev/null
+  local row; row="$(jq -c --arg u "$uid" 'select(.finding_uid == $u)' "$scratch/out-after.jsonl")"
+  assert_eq "PERSISTED" "$(jq -r '.state' <<<"$row")" "unsuppressed finding reads PERSISTED, not NEW" || return 1
+  assert_eq "$first" "$(jq -r '.first_seen' <<<"$row")" "with its original first_seen" || return 1
+  assert_eq "false" "$(jq -r --arg u "$uid" '.findings[$u].suppressed' "$state_file")" "mark cleared once unsuppressed" || return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -143,6 +190,7 @@ test_e2e_suppress_race_window_refused() {
 
 csa_test_run test_e2e_suppress_medium_disappears_next_run || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_e2e_suppress_critical_refused           || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_e2e_suppressed_finding_stays_current_in_registry || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_e2e_suppress_race_window_refused        || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

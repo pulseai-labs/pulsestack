@@ -2,6 +2,42 @@
 
 Named `claude-security-audit` through 0.3.1.
 
+## 0.7.0 (2026-11-07)
+
+#1123 (a suppressed finding was never recorded in `state.json`, so it aged out while it still fired) and #1124 (`suppress_add` took the finding's severity from its caller). Recording a finding, marking it, and reading a severity from membrane's own files are mechanical work on closed input (skill-first question 2); the step order in SKILL.md is prose.
+
+### Changed
+- **`csa suppress_add <root> <id> <note>`** (was `<root> <id> <severity> <note>`). The finding must be in `.claude/audits/state.json`'s registry, so a recorded audit produced it; its severity is the higher of the registry's value and the shipped rule's `RULE_SEVERITY`, and a missing or unrecognised severity counts as critical. Nothing the caller passes decides it, and neither does a fresh scan. The id is still a `FUID-` or a display id. Exit codes: 1 a Critical finding, a registry entry whose severity cannot be read, or a finding first seen under 60 s ago (the first and last as before); 2 no readable `state.json` (run `/security-audit` first); 3 no recorded run produced the id (nothing is written, no file is created). The old four-argument form still runs; its severity argument is ignored and its fourth argument is the note.
+- **`csa suppress_filter` never drops a Critical finding.** A line whose `severity` is `critical` is emitted whatever `suppressions.json` lists.
+- **SKILL.md step 9 records step 6's tagged output, not step 7's filtered set.** The steps now name their files: step 6 writes `<tagged>`, step 7 reads `<tagged>` and writes `<findings>`, step 9 passes `<tagged>`. Reports and chat still render the filtered `<findings>`, so suppressed findings stay hidden unless `--show-suppressed`. Before, a run with `--show-suppressed` recorded the suppressed findings and a run without it did not, so the registry depended on a display flag.
+- **`csa state_record_audit` marks every finding it records `suppressed: true|false`**, computed from `suppressions.json` (membrane's own file and uids), never from the input. A listed Critical is marked `false` and counted as critical, because `suppress_filter` still shows it: the mark means hidden this run. `schema_version` stays 2; readers treat a missing mark as false. An unreadable suppressions file marks nothing. `finding_counts` counts the unsuppressed findings per severity, as a default run always recorded, and adds `suppressed: N`. Each sighting now also refreshes `rule_id`, `severity` and `file`; a sighting without a display id keeps the earlier `last_display_id`.
+- **`csa state_record_audit`'s fourth argument may be the path of a findings file** as well as the findings themselves. A file it cannot read is exit 5, and no run is recorded.
+
+### Fixed
+- **A suppressed finding that still fires keeps its registry entry.** It counts as seen: `last_run_index` advances, so the 10-run GC does not evict it while it fires. When it stops firing it ages out like any other finding. Unsuppress it and it reads PERSISTED with its original `first_seen` (it read NEW once more than 10 runs had passed, and its entry was re-created with `first_seen` = now, which also blocked re-suppressing it for 60 s).
+- **A Critical finding could be suppressed by passing another severity.** `suppress_add "$PWD" <critical-uid> medium` returned 0 and the next audit hid it. It is refused now, and so is a registry edited down to `medium` for a Critical rule (the rule's severity wins). An unknown id (`FUID-deadbeef`, `not-a-uid at all`) was accepted and is now exit 3.
+- **The documented step-9 call aborted.** SKILL.md passed a findings *file* to `state_record_audit`, which took content, so the call exited 5 and wrote nothing. The function takes either, and the documented-call test now requires the call to exit 0 and record its run.
+
+### Migration
+- **Critical findings suppressed before 0.7.0 show again.** An entry in `.claude/audits/suppressions.json` for a Critical finding (made by the old `suppress_add` with a false severity, or edited in by hand) no longer hides it. The entry stays in the file; remove it with `/security-audit --unsuppress <FUID>` if you want it gone.
+- **`suppress_add` takes three arguments.** The documented call is `csa suppress_add "$PWD" "<finding-id>" "<note>"`. A script that still passes `<root> <id> <severity> <note>` keeps working and its severity is ignored; a script that passed only three arguments aborted before and now works. A suppression right after upgrading needs one audit first (exit 2 or 3), because the registry is where the id is checked.
+- On the first 0.7.0 audit, entries that 0.6.x had frozen for suppressed findings resume, and those it had already evicted are re-created (hidden by the filter; `first_seen` is that run).
+
+### Known limits
+- **The tamper uids (`FUID-tamper01` to `FUID-tamper03`) can no longer be suppressed**: they are never in the registry, so `suppress_add` answers exit 3. A suppression already stored for one is left alone.
+- A re-created entry's `first_seen` is the upgrade date, not the original.
+- History entries recorded before 0.7.0 have no `finding_counts.suppressed`.
+- `--show-suppressed` still renders suppressed findings as NEW or PERSISTED: nothing produces the SUPPRESSED state the renderer supports. Not changed here.
+- The unmatched-suppressions line keeps 0.6.0's rule: it is computed from the current full scan, because `audit_history` does not record whether a stored run was partial.
+- Anyone who can write `state.json` can get `suppress_add` to accept a Critical: a `rule_id` with no shipped `RULE_SEVERITY` (relabelled, or deleted) leaves the registry's severity alone to decide. Editing `suppressions.json` directly also stores an entry. Neither hides a Critical, because `suppress_filter` shows every finding the scan rates critical. The tamper rules are not wired into a scan.
+- **`--suppress SA-…` does not work: it exits 3** (#1133). Nothing in the skill flow assigns display ids, so the registry never holds one; before 0.7.0 the same call stored an entry that suppressed nothing. Use the `FUID-`.
+- SKILL.md step 8 passes a findings file to `report_render_markdown` and `report_render_chat`, which take content (#1132). Not changed here.
+
+### Tests
+- Rows red on 0.6.1 and green now: a suppressed finding keeps `last_run_index` through 12 more runs, is marked, and is counted apart from the severity buckets; unsuppress reads PERSISTED with the original `first_seen`; a Critical passed as `medium` is refused; a registry edited to `medium` still refuses a Critical; unknown id and garbage string exit 3; no `state.json` exits 2; the four-argument form works; `suppress_filter` shows a Critical despite a suppression; `state_record_audit` reads a file, refuses an unreadable one, marks from `suppressions.json` but never marks a Critical, refreshes a sighting and keeps the display id; an unknown id in the four-argument form exits 3; a registry entry whose severity cannot be read is refused; the documented-call test fails on a documented call that exits non-zero for `state_record_audit`.
+- Seven existing rows now record a run before they suppress, since `suppress_add` checks the registry: five in `test-suppress.sh`, `test_e2e_suppress_critical_refused` and `test_e2e_uid_move_old_stale_new_is_new`. The test harness records step 6's output, as the skill does.
+- Mutation-checked, each killed: the harness recording step 7's output; the mark dropped; the caller's severity trusted; the registry's severity alone; an unknown id accepted; `suppress_filter` hiding a Critical; `state_record_audit` ignoring a findings file.
+
 ## 0.6.1 (2026-11-07)
 
 #1118: HOOK-004 read `~/.ssh`, `~/.gnupg` and `~/.aws` only in the tilde spelling. Both modes (a script file and a hook command read from JSON) test the same two patterns, and a sensitive path written with `$HOME` or an absolute home path is now read as the same name. A widening: it only adds stops, and what it still misses goes to the model's judgment exactly as if the check were absent (skill-first question 3).

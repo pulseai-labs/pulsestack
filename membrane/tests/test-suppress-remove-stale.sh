@@ -75,6 +75,16 @@ test_remove_no_file_rc1_creates_nothing() {
 
 # ---- stale -----------------------------------------------------------------
 
+# _record_run <root> <findings-file> : records the findings as audit run 1 through the dispatcher,
+# as step 9 does, then backdates every first_seen past the 60 s suppression window.
+_record_run() {
+  local r="$1" f="$_CSA_TMP/state-tmp$_n.json" st="$1/.claude/audits/state.json"
+  [[ -f "$st" ]] || HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" state_init "$r" >/dev/null
+  HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" state_record_audit "$r" 1 ".claude/audits/r.md" "$2" all >/dev/null \
+    || { printf '    state_record_audit failed\n' >&2; return 1; }
+  jq '.findings |= map_values(.first_seen = "2026-01-01T00:00:00Z")' "$st" > "$f" && mv "$f" "$st"
+}
+
 # Copies permissions-issue into $root and sets $live to one uid its full scan reports.
 _perm_project() {
   _mk_root
@@ -150,7 +160,8 @@ test_e2e_uid_move_old_stale_new_is_new() {
   local root live; _perm_project || return 1
   local old; old="$(jq -r 'select(.rule_id == "PERM-001") | .finding_uid' "$_CSA_TMP/raw$_n.jsonl")"
   [[ -n "$old" ]] || { printf '    no PERM-001 in fixture\n' >&2; return 1; }
-  "$CSA" suppress_add "$root" "$old" medium "e2e" || { printf '    suppress_add failed\n' >&2; return 1; }
+  _record_run "$root" "$_CSA_TMP/raw$_n.jsonl" || return 1
+  "$CSA" suppress_add "$root" "$old" "e2e" || { printf '    suppress_add failed\n' >&2; return 1; }
   mv "$root/.claude/settings.json" "$root/.claude/settings.local.json"
   _scan "$root" all > "$_CSA_TMP/rescan$_n.jsonl"
   local new; new="$(jq -r 'select(.rule_id == "PERM-001") | .finding_uid' "$_CSA_TMP/rescan$_n.jsonl")"
@@ -180,16 +191,21 @@ test_documented_csa_calls_run_through_dispatcher() {
     call="${call//\"<finding-id>\"/FUID-aaaaaaaa}"
     call="${call//\"<FUID>\"/FUID-aaaaaaaa}"
     call="${call//\"<id>\"/FUID-aaaaaaaa}"
-    call="${call//\"<severity>\"/medium}"
     call="${call//\"<note>\"/note}"
     call="${call//<run-index>/1}"
     call="${call//<report-path>/$root/.claude/audits/r.md}"
     call="${call//<metadata-json>/\{\}}"
     call="${call//<findings>/$_CSA_TMP/empty$_n.jsonl}"
+    call="${call//<tagged>/$_CSA_TMP/empty$_n.jsonl}"
     call="${call//<raw-file>/$_CSA_TMP/empty$_n.jsonl}"
     [[ "$call" != *"<"* ]] || { printf '    unfilled placeholder in: %s\n' "$call" >&2; return 1; }
-    local out
-    out="$(cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" 2>&1)" || true
+    local out rc=0
+    out="$(cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" 2>&1)" || rc=$?
+    # A call that records a run must succeed and write it: the file argument it documents is read.
+    if [[ "$call" == "csa state_record_audit "* ]]; then
+      [[ "$rc" -eq 0 ]] || { printf '    documented call exits %s: %s -> %s\n' "$rc" "$call" "$out" >&2; return 1; }
+      assert_eq "1" "$(jq '.audit_history | length' "$root/.claude/audits/state.json")" "documented state_record_audit wrote its run" || return 1
+    fi
     [[ "$out" != *"unbound variable"* && "$out" != *"Unknown function"* && "$out" != *"Usage:"* ]] \
       || { printf '    documented call aborts: %s -> %s\n' "$call" "$out" >&2; return 1; }
     ran=$((ran + 1))

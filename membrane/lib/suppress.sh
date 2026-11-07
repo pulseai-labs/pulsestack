@@ -46,47 +46,46 @@ csa_suppress_init() {
 # Add
 # ---------------------------------------------------------------------------
 
-# csa_suppress_add <project_root> <finding_uid_or_display_id> <rule_severity> <note>
-# Refuse if severity == "critical" (exit non-zero, message to stderr).
-# Refuse if state has findings[finding_uid].first_seen < 60s ago (race window).
-# Resolve display_id → finding_uid via state.findings[*].last_display_id lookup.
-# If finding_uid already in suppressions, skip (idempotent).
-# Else append entry; suppressed_by from $USER or "unknown".
+# csa_suppress_add <project_root> <finding_uid_or_display_id> <note>
+#   (legacy: <project_root> <id> <severity> <note>; the severity argument is ignored)
+# The finding must be in state.json's registry (a recorded run produced it); its
+# severity is the higher of the registry's and the shipped rule's RULE_SEVERITY.
+# rc 1 critical, or first_seen < 60s; rc 2 no or unreadable state.json; rc 3 no run produced the id.
 csa_suppress_add() {
-  local root="$1"
-  local id_arg="$2"
-  local severity="$3"
-  local note="$4"
-
-  # Refuse Critical.
-  local severity_lower; severity_lower="$(printf '%s' "$severity" | tr '[:upper:]' '[:lower:]')"
-  if [[ "$severity_lower" == "critical" ]]; then
+  local root="$1" id_arg="$2" note
+  if [[ $# -ge 4 ]]; then note="$4"; else note="${3-}"; fi
+  local state_file; state_file="$(csa_state_path "$root")"
+  local state_json
+  state_json="$(jq -c 'if (.findings | type) == "object" then . else error("no registry") end' "$state_file" 2>/dev/null)" || {
+    printf 'csa: no readable audit state at %s; run /security-audit first\n' "$state_file" >&2
+    return 2
+  }
+  local fuid="$id_arg" resolved=""
+  if [[ -n "$id_arg" ]]; then
+    resolved="$(printf '%s' "$state_json" | jq -r --arg did "$id_arg" \
+      'first(.findings | to_entries[] | select(.value.last_display_id == $did) | .key) // empty')"
+  fi
+  [[ -n "$resolved" ]] && fuid="$resolved"
+  local entry; entry="$(printf '%s' "$state_json" | jq -c --arg k "$fuid" '.findings[$k] // empty')"
+  if [[ -z "$entry" ]]; then
+    printf 'csa: %s is not a finding any recorded audit produced; nothing suppressed\n' "$id_arg" >&2
+    return 3
+  fi
+  local sevmap; sevmap="$(_csa_state_rule_severities)"
+  local severity; severity="$(printf '%s' "$entry" | jq -r --argjson m "$sevmap" '
+    def norm: if type == "string" then ascii_downcase else "" end
+      | if . == "high" or . == "medium" or . == "low" or . == "info" then . else "critical" end;
+    def rank: {"critical":5,"high":4,"medium":3,"low":2,"info":1}[.];
+    [(.severity | norm), (($m[.rule_id // ""] // "info") | norm)] | max_by(rank)')"
+  # Only a severity read as one of these four may be suppressed; anything else (critical, or an
+  # entry jq could not read) is refused.
+  if ! [[ "$severity" =~ ^(high|medium|low|info)$ ]]; then
     printf 'ERROR: Cannot suppress a critical-severity finding.\n' >&2
     return 1
   fi
 
-  local sup_file; sup_file="$(csa_suppress_path "$root")"
-
-  # Init if missing.
-  if [[ ! -f "$sup_file" ]]; then
-    csa_suppress_init "$root"
-  fi
-
-  # Resolve display_id → finding_uid if needed.
-  # If id_arg is found as a last_display_id in state.findings, use the corresponding key.
-  local fuid="$id_arg"
-  local state_json; state_json="$(csa_state_read "$root")"
-
-  local resolved; resolved="$(printf '%s' "$state_json" | jq -r \
-    --arg did "$id_arg" \
-    '(.findings // {}) | to_entries[] | select(.value.last_display_id == $did) | .key' 2>/dev/null | head -1)"
-  if [[ -n "$resolved" ]]; then
-    fuid="$resolved"
-  fi
-
   # Race-window check: refuse if first_seen < 60s ago.
-  local first_seen; first_seen="$(printf '%s' "$state_json" | jq -r \
-    --arg k "$fuid" '.findings[$k].first_seen // empty' 2>/dev/null)"
+  local first_seen; first_seen="$(printf '%s' "$entry" | jq -r '.first_seen // empty')"
   if [[ -n "$first_seen" ]]; then
     local fs_epoch; fs_epoch="$(_csa_iso_to_epoch "$first_seen")"
     local now_epoch; now_epoch="$(date -u +%s)"
@@ -100,6 +99,8 @@ csa_suppress_add() {
     fi
   fi
 
+  local sup_file; sup_file="$(csa_suppress_path "$root")"
+  [[ -f "$sup_file" ]] || csa_suppress_init "$root"
   # Idempotent: skip if finding_uid already in suppressions.
   local already; already="$(jq -r --arg k "$fuid" \
     '.suppressions[] | select(.finding_uid == $k) | .finding_uid' "$sup_file" | head -1)"
@@ -139,7 +140,8 @@ csa_suppress_list() {
 # ---------------------------------------------------------------------------
 
 # csa_suppress_filter <findings_jsonl_file> <project_root>
-# Emit only findings whose finding_uid is NOT in suppressions.json.
+# Emit only findings whose finding_uid is NOT in suppressions.json. A finding whose severity
+# is critical is always emitted, whatever suppressions.json says.
 csa_suppress_filter() {
   local findings_file="$1"
   local root="$2"
@@ -160,6 +162,10 @@ csa_suppress_filter() {
     fi
     local is_suppressed; is_suppressed="$(printf '%s' "$suppressed_uids" | jq \
       --arg k "$fuid" 'any(.[]; . == $k)')"
+    if [[ "$is_suppressed" == "true" ]] \
+        && [[ "$(printf '%s' "$line" | jq -r '.severity // empty')" == "critical" ]]; then
+      is_suppressed="false"
+    fi
     if [[ "$is_suppressed" == "false" ]]; then
       printf '%s\n' "$line"
     fi

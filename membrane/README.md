@@ -57,7 +57,7 @@ codex plugin marketplace add github:pulseai-labs/pulsestack
 /security-audit --focus secrets           # one aspect
 /security-audit --verbose                 # show Info findings
 /security-audit --show-suppressed         # also show suppressed
-/security-audit --suppress SA-2026-...    # dismiss a finding (refuses Critical)
+/security-audit --suppress FUID-a3f9b21c   # dismiss a finding (refuses Critical, and an id no audit produced)
 /security-audit --unsuppress FUID-a3f9b21c  # remove one suppression
 /secrets-scan                             # alias for --focus secrets
 /permissions-review                       # alias for --focus permissions
@@ -104,7 +104,7 @@ The **first audit run** adds `.claude/audits/` to your `.gitignore` automaticall
 
 Scanner failures are findings too, not a clean read: SCANNER-001 (a rule failed to load, High), SCANNER-002 (a rule's check failed on a target, for example a `settings.json` or `mcp.json` that is not JSON, High) and SCANNER-003 (the scan could not read a target, Medium; one per target). A malformed `settings.json` gives four SCANNER-002, one per permissions rule that reads it, or five when a `settings.local.json` sits beside it; that alone trips the "⚠ 4 rule(s) failed during scan" banner.
 
-Critical findings **cannot be suppressed**; they must be remediated.
+Critical findings **cannot be suppressed**; they must be remediated. A Critical finding is shown even if `suppressions.json` lists it. `--suppress` takes the id of a finding an earlier audit recorded (it reads `.claude/audits/state.json` and the shipped rules, never the caller), so run an audit first. A suppressed finding that still fires stays in `state.json`, marked `"suppressed": true`, and keeps its `first_seen`; unsuppress it and it reads PERSISTED, not NEW.
 
 **What chat lists.** Findings in an enabled plugin's `fixtures/` or `tests/` directory and in the project's `.dagr/scratch/` are scanned like any other, but chat shows them as one line, `N findings in plugin fixtures/tests and agent scratch copies (C critical, H high, M medium); listed in the report`, and not one by one. The totals and the severity table count them, and the report lists each at full severity under a `Group:` line. `--verbose` lists them in chat. A project's own `tests/` is not in the group.
 
@@ -117,6 +117,8 @@ Critical findings **cannot be suppressed**; they must be remediated.
 **Upgrading to 0.5.2.** HOOK-004 (`network-exfiltration`) fires on fewer files: `async`, `sync`, `curly`, `.curlrc`, `chmod 700 ~/.ssh` and the like no longer count as a network command or as a name. A finding in a script file whose names or both-lines came from such a token (a script with `rsync `, a JS or TS hook with `async `, a Go `func `, `openssh `, or a `.ssh ` as in `chmod 700 ~/.ssh `) usually gets a new durable id once, and so does a file with `nc` then an em space when audited under a UTF-8 locale; it reads NEW in the next audit and must be suppressed again, and the old entry in `.claude/audits/suppressions.json` matches nothing; a full audit lists it, and `/security-audit --unsuppress <FUID>` removes it. A finding that stops firing leaves its old suppression the same way. An id whose names and lines are unchanged keeps it, including a file that still has a real `nc `, `ssh ` or `curl`. See the CHANGELOG.
 
 **Upgrading to 0.6.1.** HOOK-004 (`network-exfiltration`) also reads `~/.ssh`, `~/.gnupg` and `~/.aws` written as `$HOME/...`, `"$HOME"/...`, `${HOME}/...`, `/home/<user>/...`, `/Users/<user>/...` and `/root/...`, so it fires on more files. A HOOK-004 finding in a script file gets a new durable id once when such a path adds a both-line or a name it did not fire on before; it reads NEW in the next audit, and the old entry in `.claude/audits/suppressions.json` matches nothing: a full audit lists it, and `/security-audit --unsuppress <FUID>` removes it. A hook command read from JSON keeps its id. `${HOME:-x}/.ssh` and `~user/.ssh` stay silent. See the CHANGELOG.
+
+**Upgrading to 0.7.0.** `csa suppress_add` is `csa suppress_add <root> <id> <note>`; the old four-argument form still runs and its severity is ignored. It refuses an id no recorded audit produced (exit 3) and a missing `state.json` (exit 2), and takes severity from membrane's own registry and rules, so a Critical finding cannot be suppressed by passing another severity. A suppression of a Critical finding made before 0.7.0 (or written by hand) no longer hides it: it shows again, and the entry stays in the file until `/security-audit --unsuppress <FUID>` removes it. A suppressed finding is now recorded in `state.json` on every audit, so it no longer ages out while it fires. See the CHANGELOG.
 
 ## Composition
 
