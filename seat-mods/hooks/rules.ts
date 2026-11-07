@@ -953,7 +953,7 @@ export function invalidText(value: string): string {
 // wherever each sits in the call, substitutions included; (b) kill with -1, 0, or a negative operand that holds a
 // `$`; (c) pkill and killall by user, with no pattern, or with a pattern that matches every name of a fixed probe
 // set; (d) killall5, and the session-wide systemctl and loginctl verbs. It reads a literal `eval '…'` or
-// `sh|bash|rbash|zsh|dash|ash|static-sh|ksh|ksh93|mksh|yash -c '…'` string once, as a command (a shell's options read as bash reads them, as zsh reads them and, for a cluster with an inner `-`, as Debian busybox ash reads them, refused if any string is), reads `busybox` as its applet, removes quotes from a command word, and skips the wrappers
+// `sh|bash|rbash|zsh|dash|ash|static-sh|ksh|ksh93|mksh|lksh|mksh-static|yash -c '…'` string once, as a command (a shell's options read as bash reads them, as zsh reads them and, for a cluster with an inner `-`, as Debian busybox ash reads them, refused if any string is; ksh, ksh93, mksh, lksh, mksh-static and yash also get a reading of their own grammar, for that name only; ksh gets ksh93's and mksh's), reads `busybox` as its applet, removes quotes from a command word, and skips the wrappers
 // below. Everything else it does not read is a known limit, listed in the README and pinned by tests/kill.test.ts.
 // ---------------------------------------------------------------------------------------------------------
 
@@ -984,7 +984,14 @@ const KILL_WRAPPER_SHAPES: Readonly<Record<string, { val: string; long: readonly
   // busybox runs its applet: the next word, path stripped (busybox /bin/sh runs sh)
   busybox: { val: '', long: [], pos: 0 },
 }
-const KILL_SHELLS = new Set(['sh', 'bash', 'rbash', 'zsh', 'dash', 'ash', 'static-sh', 'ksh', 'ksh93', 'mksh', 'yash'])
+type KillReading = (args: readonly string[], raw: readonly string[], pieces: readonly string[]) => string | undefined
+// `ksh` is both: ksh93 where it is installed, and mksh on Debian and Ubuntu without it (/bin/ksh is an alternative of mksh and mksh-static).
+const KILL_OWN_READINGS: Readonly<Record<string, readonly KillReading[]>> = {
+  ksh: [(a, r, p) => kshText(a, r, p), (a, r, p) => mkshText(a, r, p)], ksh93: [(a, r, p) => kshText(a, r, p)],
+  mksh: [(a, r, p) => mkshText(a, r, p)], lksh: [(a, r, p) => mkshText(a, r, p)], 'mksh-static': [(a, r, p) => mkshText(a, r, p)],
+  yash: [(a, r, p) => yashText(a, r, p)],
+}
+const KILL_SHELLS = new Set(['sh', 'bash', 'rbash', 'zsh', 'dash', 'ash', 'static-sh', 'ksh', 'ksh93', 'mksh', 'lksh', 'mksh-static', 'yash'])
 const KILL_SIGNAL = /^-(?:SIG)?(?:HUP|INT|QUIT|ILL|TRAP|ABRT|IOT|BUS|FPE|KILL|USR1|SEGV|USR2|PIPE|ALRM|TERM|STKFLT|CHLD|CLD|CONT|STOP|TSTP|TTIN|TTOU|URG|XCPU|XFSZ|VTALRM|PROF|WINCH|IO|POLL|PWR|SYS|RTMIN(?:\+\d+)?|RTMAX(?:-\d+)?)$/
 const KILL_PROBES = ['systemd', 'bash', 'node', 'x']
 // ASCII reading of the POSIX bracket classes, so a pattern such as [[:alpha:]] tests as pkill reads it.
@@ -1049,12 +1056,90 @@ function killLiteral(token: string, pieces: readonly string[]): string {
 
 // The strings a literal runner may be given: eval's words joined, or for a shell the word after its -c as bash reads
 // the options and as zsh reads them. The shells disagree, and a name is not a closed input (sh is dash, bash or zsh on the hosts probed, and busybox ash
-// elsewhere), so every name in KILL_SHELLS gets all three readings and the rail refuses if any string is refused.
+// elsewhere), so every name in KILL_SHELLS gets all three readings and the rail refuses if any string is refused. ksh, ksh93, mksh, lksh, mksh-static and yash get a fourth (ksh a fourth and a fifth: ksh93's and mksh's), for their own grammar, keyed on the name: `sh` on a host where it is mksh or ksh93 does not get it.
 function runnerTexts(name: string, args: readonly string[], raw: readonly string[], pieces: readonly string[]): string[] {
   if (name === 'eval') return [(args[0] === '--' ? raw.slice(1) : raw).map(token => killLiteral(token, pieces)).join(' ')]
   if (!KILL_SHELLS.has(name)) return []
   const texts = [bashText(args, raw, pieces), zshText(args, raw, pieces), ashText(args, raw, pieces)]
+  // Further readings for a name whose own grammar the three miss (#1126); they speak only for that name.
+  for (const own of KILL_OWN_READINGS[name] ?? []) texts.push(own(args, raw, pieces))
   return [...new Set(texts.filter((text): text is string => text !== undefined))]
+}
+
+// mksh's reading (probed on mksh R59c): o and T take the rest of their cluster or else the next word, whatever it is;
+// an o value of -c, +c or the empty name sets -c (`mksh -o -c S`); a bare `-`, `+` or `--` ends the options and is skipped.
+function mkshText(args: readonly string[], raw: readonly string[], pieces: readonly string[]): string | undefined {
+  let seenC = false
+  for (let k = 0; k < args.length; k++) {
+    const arg = args[k]!
+    if (arg === '-' || arg === '--' || arg === '+') return seenC && k + 1 < args.length ? killLiteral(raw[k + 1]!, pieces) : undefined
+    if (/^[-+]./.test(arg)) {
+      for (let j = 1; j < arg.length; j++) {
+        if (arg[j] === 'c') seenC = true
+        if (arg[j] !== 'o' && arg[j] !== 'T') continue
+        const value = j < arg.length - 1 ? arg.slice(j + 1) : args[++k]
+        if (arg[j] === 'o' && (value === '' || value === '-c' || value === '+c')) seenC = true
+        break
+      }
+      continue
+    }
+    return seenC ? killLiteral(raw[k]!, pieces) : undefined
+  }
+  return undefined
+}
+
+// yash's reading (probed on yash 2.55): o takes the rest of its cluster or else the next word and ends the cluster;
+// -c is also the option cmdline, named by any prefix, any case and any punctuation, with or without no (-o cmdline,
+// --cmd, ++nocmdline); --profile and --rcfile take the next word under any prefix; a bare `-` or `--` ends the
+// options and is skipped, a bare `+` or `++` ends them and is the first operand.
+function yashText(args: readonly string[], raw: readonly string[], pieces: readonly string[]): string | undefined {
+  const cmdline = (name: string): boolean => {
+    const bare = name.replace(/[^A-Za-z0-9]/g, '').toLowerCase()
+    return [bare, bare.replace(/^no/, '')].some(n => n !== '' && 'cmdline'.startsWith(n))
+  }
+  let seenC = false
+  const at = (k: number): string | undefined => (seenC && k < args.length ? killLiteral(raw[k]!, pieces) : undefined)
+  for (let k = 0; k < args.length; k++) {
+    const arg = args[k]!
+    if (arg === '-' || arg === '--') return at(k + 1)
+    if (arg === '+' || arg === '++') return at(k)
+    if (/^(?:--|\+\+)./.test(arg)) {
+      const name = arg.slice(2)
+      if (cmdline(name.replace(/=.*/, ''))) seenC = true
+      else if (arg.startsWith('--') && !name.includes('=') && ['profile', 'rcfile'].some(o => o.startsWith(name))) k += 1
+      continue
+    }
+    if (/^[-+]./.test(arg)) {
+      for (let j = 1; j < arg.length; j++) {
+        if (arg[j] === 'c') seenC = true
+        if (arg[j] !== 'o') continue
+        if (cmdline(j < arg.length - 1 ? arg.slice(j + 1) : (args[++k] ?? ''))) seenC = true
+        break
+      }
+      continue
+    }
+    return at(k)
+  }
+  return undefined
+}
+
+// ksh93's reading (probed on ksh93u+m 1.0.10 and macOS ksh 93u+ 2012-08-01): the first operand, with -c or without,
+// since ksh93 runs a first operand that names no file as a command (`ksh 'kill -1'`). o takes the rest of its cluster,
+// or else the next word unless that word is an option (`-o -c S` sets -c); a long option takes no value; a bare `-`,
+// `--` or `+` ends the options and is skipped.
+function kshText(args: readonly string[], raw: readonly string[], pieces: readonly string[]): string | undefined {
+  for (let k = 0; k < args.length; k++) {
+    const arg = args[k]!
+    if (arg === '-' || arg === '--' || arg === '+') return k + 1 < args.length ? killLiteral(raw[k + 1]!, pieces) : undefined
+    if (arg.startsWith('--')) continue
+    if (/^[-+]./.test(arg)) {
+      const o = arg.indexOf('o', 1)
+      if (o === arg.length - 1 && k + 1 < args.length && !/^[-+]./.test(args[k + 1]!)) k += 1
+      continue
+    }
+    return killLiteral(raw[k]!, pieces)
+  }
+  return undefined
 }
 
 // bash's reading (dash's too, but for -O; probed on dash, bash and zsh only): the word after -c.
