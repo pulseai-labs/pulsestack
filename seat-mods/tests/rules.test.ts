@@ -1087,8 +1087,14 @@ describe('batch 5: substitutions', () => {
     expect(bashRules(nest(8, 'true'))).toEqual([])
     expect(rmTargets(nest(8, 'true'))).toEqual([])
     expect(bashRules(nest(8, RULED))).toContain('force-push')
-    // far deeper than the walk follows: still read as too deep, with no stack overflow
-    const deeper = 'echo "' + '$('.repeat(20000) + 'true' + ')'.repeat(20000) + '"'
+    // far deeper than the walk follows: still read as too deep, with no stack overflow. The span walk
+    // stops at 64 levels; without that bound it overflows at about 15,000, so 20,000 levels pin it,
+    // through substitutionsOf, which costs about the same at any depth past 64.
+    const deepest = 'echo "' + '$('.repeat(20000) + 'true' + ')'.repeat(20000) + '"'
+    expect(substitutionsOf(deepest)).toContain(SUBSTITUTION_TOO_DEEP)
+    // the whole rule set on a deep string: its readers are linear in depth, and 20,000 levels ran past
+    // the kit's fixed 5 s test timeout on a CI runner, so this call nests 10,000
+    const deeper = 'echo "' + '$('.repeat(10000) + 'true' + ')'.repeat(10000) + '"'
     expect(bashRules(deeper)).toContain('force-push')
   })
   test('Ruling 2: a relative rm operand in a substitution is unread when the command changes directory', () => {
