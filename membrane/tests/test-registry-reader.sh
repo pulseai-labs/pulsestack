@@ -278,7 +278,9 @@ test_every_id_a_shared_uid_was_printed_with_resolves() {
   local uid ids id rc out
   uid="$(jq -r 'select(.rule_id == "PERM-001") | .finding_uid' "$root/tagged" | sort -u)"
   ids="$(jq -r 'select(.rule_id == "PERM-001") | .display_id' "$root/tagged" | tr '\n' ' ' | sed 's/ $//')"
-  assert_eq "SA-2026-01-02-01-002 SA-2026-01-02-01-003" "$ids" "two PERM-001 lines, two ids" || return 1
+  # The ordinals depend on what else the scan finds on this host, so read them from the run's file.
+  [[ "$ids" =~ ^SA-2026-01-02-01-[0-9]{3}\ SA-2026-01-02-01-[0-9]{3}$ && "${ids%% *}" != "${ids##* }" ]] \
+    || { printf '    two PERM-001 lines, two ids: got %s\n' "$ids" >&2; return 1; }
   [[ "$uid" == FUID-* && "$uid" != *$'\n'* ]] || { printf '    the two lines do not share one uid: %s\n' "$uid" >&2; return 1; }
   for id in $ids; do
     assert_eq "$uid" "$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" "apply_resolve_id $id" || return 1
@@ -291,16 +293,19 @@ test_every_id_a_shared_uid_was_printed_with_resolves() {
   # Run 2 renumbers: its ids resolve, run 1's do not, even the one run 2 also gives that uid's line.
   rm -f "$root/.claude/audits/suppressions.json"
   _scan_record "$root" 2026-01-02-02 2 || { printf '    run 2 failed\n' >&2; return 1; }
-  for id in SA-2026-01-02-02-002 SA-2026-01-02-02-003; do
+  local ids2
+  ids2="$(jq -r 'select(.rule_id == "PERM-001") | .display_id' "$root/tagged" | tr '\n' ' ' | sed 's/ $//')"
+  [[ "$ids2" =~ ^SA-2026-01-02-02-[0-9]{3}\ SA-2026-01-02-02-[0-9]{3}$ ]] || { printf '    run 2 ids: got %s\n' "$ids2" >&2; return 1; }
+  for id in $ids2; do
     assert_eq "$uid" "$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" "run 2: apply_resolve_id $id" || return 1
   done
-  for id in SA-2026-01-02-01-002 SA-2026-01-02-01-003; do
+  for id in $ids; do
     rc=0; out="$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" || rc=$?
     assert_eq "1 " "$rc $out" "run 2: run 1's $id is refused by apply_resolve_id" || return 1
     rc=0; _c suppress_add "$root" "$id" n >/dev/null 2>&1 || rc=$?
     assert_eq 3 "$rc" "run 2: run 1's $id is refused by suppress_add" || return 1
   done
-  assert_eq '["SA-2026-01-02-02-002","SA-2026-01-02-02-003"]' "$(jq -c --arg u "$uid" '.findings[$u].last_display_ids' "$st")" "the entry lists run 2's ids only" || return 1
+  assert_eq "$(printf '%s\n' $ids2 | jq -R . | jq -sc .)" "$(jq -c --arg u "$uid" '.findings[$u].last_display_ids' "$st")" "the entry lists run 2's ids only" || return 1
 }
 
 # Three Critical lines sharing one uid: each of the three ids resolves, and --suppress refuses each
