@@ -150,6 +150,9 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ['time -p ! kill -1', 'time -p ! kill 123'],
   ['time -- ! kill -1', 'time -- ! kill 123'],
   ['time -p -- ! kill -1', 'time -p -- ! kill 123'],
+  ['time { kill -1; }', 'time { kill 123; }'],
+  ['time until kill -1; do :; done', 'time until kill 123; do :; done'],
+  ['time ! ! kill -1', 'time ! ! kill 123'],
   ['time time ! kill -1', 'time time ! kill 123'],
   ['time ! time ! kill -1', 'time ! time ! kill 123'],
   // the other kill rules are read behind it too
@@ -398,6 +401,8 @@ const ALLOW: readonly string[] = [
   'A=1 time ! kill -1', 'nohup ! kill -1', "'time' ! kill -1", 'time -p -p ! kill -1', 'xargs time ! kill -1',
   // `--` ends time's options, so a `-p` after it is the program's name
   'time -- -p ! kill -1',
+  // one `--` only, and only the reserved word itself: a second `--`, or the time program by path, names a program
+  'time -- -- ! kill -1', '/usr/bin/time ! kill -1', 'TIME ! kill -1',
   // a harmless command behind the reserved `time`, and the time program's own options before one
   'time ! true', 'time -f %e ! kill 123',
   // 0.14.2 (#1109): the same shapes with a harmless string; and after a bare - the next word is the string in every shell
@@ -703,7 +708,9 @@ describe('killRule: deliberate false stop of the yash grammar', () => {
 
 // Deliberate false stops of the reserved `time`: each form runs nothing in the shell named, and is refused. `\time` reads
 // as `time` (the shell runs the time program, which runs a program named `!`); `then` after `time` is a syntax error;
-// zsh and fish take no `-p` or `--` after `time`; dash's `time` is not reserved, so it runs the time program.
+// zsh and fish take no `-p` or `--` after `time`; dash's `time` is not reserved, so it runs the time program; a
+// redirection is dropped before the head words are read; zsh and fish take no `time` after `time`; bash and fish reserve
+// `time` only at a pipeline's start.
 describe('killRule: deliberate false stops of the reserved time', () => {
   const rows: ReadonlyArray<readonly [string, string]> = [
     ['\\time ! kill -1', '\\time ! kill 123'],
@@ -711,6 +718,11 @@ describe('killRule: deliberate false stops of the reserved time', () => {
     ["zsh -c 'time -p ! kill -1'", "zsh -c 'time -p ! kill 123'"],
     ["fish -c 'time -- ! kill -1'", "fish -c 'time -- ! kill 123'"],
     ["dash -c 'time ! kill -1'", "dash -c 'time ! kill 123'"],
+    ['time >/dev/null ! kill -1', 'time >/dev/null ! kill 123'],
+    ['>/dev/null time ! kill -1', '>/dev/null time ! kill 123'],
+    ['time \\-p ! kill -1', 'time \\-p ! kill 123'],
+    ["zsh -c 'time time ! kill -1'", "zsh -c 'time time ! kill 123'"],
+    ["bash -c 'true | time ! kill -1'", "bash -c 'true | time ! kill 123'"],
   ]
   for (const [command, control] of rows) {
     test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
