@@ -60,19 +60,23 @@ csa_enum_opencode_project_targets() {
 }
 
 # _csa_enum_unlisted_hook_handlers <project-root>
-# Emit every executable regular file under .claude/hooks/ whose suffix the main
-# pass below does not list (extensionless, hidden, or an unlisted dotted suffix
-# such as `preflight.tool`, #426), or reject newline-containing ones. Listed
+# Emit every regular file under .claude/hooks/ whose suffix the main pass below
+# does not list and that is either executable (extensionless, hidden, or an
+# unlisted dotted suffix such as `preflight.tool`, #426) or handler code by its
+# suffix whatever its mode (.mjs .cjs .tsx .jsx .mts .cts, which settings run as
+# `node .claude/hooks/x.mjs`), or reject newline-containing ones. Listed
 # suffixes are skipped here so the main pass emits them exactly once: keep this
 # case list equal to its -name list.
 _csa_enum_unlisted_hook_handlers() {
-  local root="$1" hooks="$1/.claude/hooks"
+  local root="$1" hooks="$1/.claude/hooks" code
   [[ -d "$hooks" ]] || return 0
 
   find "$hooks" -type f -print0 2>/dev/null | while IFS= read -r -d '' handler; do
     case "${handler##*/}" in
       *.md|*.json|*.sh|*.py|*.js|*.ts) : ;;
-      *) if [[ -x "$handler" ]]; then
+      *) code=0
+         case "${handler##*/}" in *.mjs|*.cjs|*.tsx|*.jsx|*.mts|*.cts) code=1 ;; esac
+         if [[ "$code" -eq 1 || -x "$handler" ]]; then
            if [[ "$handler" == *$'\n'* || "$handler" == *$'\t'* ]]; then
              printf 'refusing newline-or-tab-containing executable hook handler\n' >&2
              return 2

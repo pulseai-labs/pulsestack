@@ -45,12 +45,13 @@ csa_rule_run_one() {
   )
 }
 
-# _csa_hook_target_mode <target> — print `wrapped` or `plugin-manifest` when the
-# target is a JSON file whose hook entries are read structurally (#427); print
-# nothing otherwise. EXACT matches only: the project's own .claude/settings.json
-# and .claude/settings.local.json by full path (never a nested copy), and an
-# enabled plugin's hooks/hooks.json or .claude-plugin/plugin.json by normalized
-# id. A plugin's fixtures/ or tests/ copy, or a layout that does not normalize to
+# _csa_hook_target_mode <target> — print `wrapped`, `plugin-hooks` or
+# `plugin-manifest` when the target is a JSON file whose hook entries are read
+# structurally (#427); print nothing otherwise. EXACT matches only: the project's
+# own .claude/settings.json and .claude/settings.local.json by full path (never a
+# nested copy), and an enabled plugin's hooks/hooks.json (whose `modules` list is
+# read too) or .claude-plugin/plugin.json by normalized id. A plugin's fixtures/
+# or tests/ copy, or a layout that does not normalize to
 # @plugin:<plugin>@<marketplace>: (a local/ plugin, an installPath outside the
 # cache), is not walked.
 _csa_hook_target_mode() {
@@ -68,7 +69,7 @@ _csa_hook_target_mode() {
   local re_h='^@plugin:[^:/]+@[^:/]+:hooks/hooks\.json$'
   local re_m='^@plugin:[^:/]+@[^:/]+:\.claude-plugin/plugin\.json$'
   if [[ "$n" =~ $re_h ]]; then
-    printf 'wrapped'
+    printf 'plugin-hooks'
   elif [[ "$n" =~ $re_m ]]; then
     printf 'plugin-manifest'
   fi
@@ -258,6 +259,9 @@ _csa_target_matches_aspect() {
         return 0
       fi
       [[ "$target" == */.claude/hooks/* && -x "$target" ]] && return 0
+      # Hook handler code under a plugin's hooks/ or the project's .claude/hooks/, and an executable plugin
+      # hooks/ file with no code suffix (lib/hook-entries.sh, csa_hook_handler_file).
+      csa_hook_handler_file "$target" && return 0
       # Hook entries declared in JSON: settings, a plugin's hooks.json / plugin.json (#427).
       [[ -n "$(_csa_hook_target_mode "$target")" ]] && return 0
       return 1
@@ -343,7 +347,7 @@ _csa_enum_stderr_to_findings() {
 }
 
 # _csa_hook_coverage_line <cache_dir> <findings_file>
-# Prints `csa: hook-coverage checked=N flagged=N not-inspected=N unreadable=N` on stderr.
+# Prints `csa: hook-coverage checked=N flagged=N not-inspected=N unreadable=N modules=N` on stderr.
 # checked: command entries read and matched against the HOOK patterns by every
 # rule; flagged: those of them with at least one finding; not-inspected: entries
 # of another type; unreadable: entries (or files) that could not be read, plus
@@ -351,6 +355,9 @@ _csa_enum_stderr_to_findings() {
 # json_path), which are not checked. flagged is a subset of checked (#1072 C5,
 # orchestrator ruling): an entry one rule flags and another rule fails on counts
 # as unreadable, so it is not flagged either, though its finding still prints.
+# modules: a plugin hooks/hooks.json's `modules` paths that resolved to handler
+# code inside its hooks/ dir (each module file is read as a target of its own);
+# a modules path that did not resolve is an inconclusive line, so unreadable.
 # A clean count cannot come from the
 # findings, so it travels as this line and the skill hands it to the report header.
 _csa_hook_coverage_line() {
@@ -371,8 +378,9 @@ _csa_hook_coverage_line() {
       | [$cmd[] | select($failed[.file + "\u001f" + .json_path] | not)] as $ok
       | "csa: hook-coverage checked=\($ok | length)"
         + " flagged=\([$ok[] | select($flagged[.file + "\u001f" + .json_path])] | length)"
-        + " not-inspected=\([$e[] | select(has("inconclusive") | not) | select(.type != "command")] | length)"
-        + " unreadable=\([$e[] | select(has("inconclusive"))] | length + ($cmd | length) - ($ok | length))"' >&2 2>/dev/null; then
+        + " not-inspected=\([$e[] | select(has("inconclusive") | not) | select(has("module") | not) | select(.type != "command")] | length)"
+        + " unreadable=\([$e[] | select(has("inconclusive"))] | length + ($cmd | length) - ($ok | length))"
+        + " modules=\([$e[] | select(has("inconclusive") | not) | select(has("module"))] | length)"' >&2 2>/dev/null; then
     printf 'csa: hook-coverage unavailable\n' >&2
   fi
   rm -f "$all"

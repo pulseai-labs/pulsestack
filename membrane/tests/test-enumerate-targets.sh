@@ -168,6 +168,30 @@ test_enum_dotted_executable_hook_handler() {
   return "$rc"
 }
 
+# 9c. Handler code under .claude/hooks/ is a target whatever its mode: .mjs, .cjs, .tsx, .jsx, .mts and .cts, at any
+# depth, each exactly once (an executable one too); a file with one of those suffixes elsewhere under .claude/ and a
+# non-executable file with another suffix stay out.
+test_enum_hook_code_suffixes_whatever_the_mode() {
+  local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-hooks.XXXXXX")"
+  local hooks="$fixture/.claude/hooks" s f n rc=0
+  mkdir -p "$hooks/sub"
+  for s in mjs cjs tsx jsx mts cts; do printf 'x\n' > "$hooks/h.$s"; done
+  printf 'x\n' > "$hooks/sub/deep.mjs"
+  printf 'x\n' > "$hooks/run.mjs"; chmod u+x "$hooks/run.mjs"
+  printf 'x\n' > "$fixture/.claude/other.mjs"
+  printf 'x\n' > "$hooks/notes.txt"
+  local out; out="$(csa_enum_project_targets "$fixture" 2>/dev/null)"
+  for f in "$hooks"/h.mjs "$hooks"/h.cjs "$hooks"/h.tsx "$hooks"/h.jsx "$hooks"/h.mts "$hooks"/h.cts \
+           "$hooks/sub/deep.mjs" "$hooks/run.mjs"; do
+    n="$(printf '%s\n' "$out" | awk -v p="$f" '$0 == p { c++ } END { print c + 0 }')"
+    assert_eq "1" "$n" "$f is enumerated exactly once" || rc=1
+  done
+  [[ "$out" != *"$fixture/.claude/other.mjs"* ]] || { printf '    a .mjs outside .claude/hooks/ was enumerated\n' >&2; rc=1; }
+  [[ "$out" != *"$hooks/notes.txt"* ]] || { printf '    a non-executable .txt was enumerated\n' >&2; rc=1; }
+  rm -rf "$fixture"
+  return "$rc"
+}
+
 # 10. Paranoid-candidate membership stays exact under pipefail with a REAL
 # enabled-plugin array over Linux's 131072-byte single-argument limit (#424):
 # the production transport, not a mock, must deliver every enabled name.
@@ -426,6 +450,7 @@ csa_test_run test_enum_symlink_in_target_dir              || _csa_failed=$((_csa
 csa_test_run test_enum_gitignored_target_still_scanned    || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_extensionless_executable_hook_handler || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_dotted_executable_hook_handler || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_enum_hook_code_suffixes_whatever_the_mode || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_paranoid_candidates_exact_membership_under_pipefail || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_enabled_plugins_transport          || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_unreadable_settings_fail_explicitly || _csa_failed=$((_csa_failed + 1))

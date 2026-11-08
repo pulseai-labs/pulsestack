@@ -29,10 +29,11 @@ RULE_PATTERN='eval[[:space:]]+"?\$'
 detect() {
   local target_file="$1"
   [[ -r "$target_file" ]] || return 0
-  # Only scan known hook handler and wrapper script surfaces.
+  # Only scan known hook handler and wrapper script surfaces, and hook handler code (csa_hook_handler_file).
   if [[ "$target_file" != */.claude/hooks* && "$target_file" != *.sh \
         && "$target_file" != */.opencode/bin/* && "$target_file" != */.opencode/*.js \
-        && "$target_file" != */.opencode/*.ts && "$target_file" != */.opencode/*.mjs ]]; then
+        && "$target_file" != */.opencode/*.ts && "$target_file" != */.opencode/*.mjs ]] \
+        && ! csa_hook_handler_file "$target_file"; then
     return 0
   fi
   # grep rc 1 is no match; rc 2 or more is a read error: rc 2 here (a SCANNER-002 in the engine, not a

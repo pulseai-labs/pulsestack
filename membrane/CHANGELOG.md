@@ -2,6 +2,76 @@
 
 Named `claude-security-audit` through 0.3.1.
 
+## 0.8.0 (2026-11-08)
+
+**Hook handler code is now audited (#1136).** HOOK-001 to HOOK-004 read shell only: a script, an executable `.claude/hooks/` file, OpenCode code, a hook command declared in JSON. An enabled plugin's hooks module (`hooks/hooks.json` naming `{"modules": ["./register.ts"]}`) and the node or python handlers kept in its `hooks/` were never read, and a `hooks.json` that holds only `modules` read as no hooks at all: no finding and no count. Expect new findings, on first-party plugins too, the first time you audit after upgrading.
+
+Skill-first (`docs/conventions/skill-first.md`): the handler-file test is question 3, a path test on open input (file names) that can only add a stop. The `modules` read is question 2: a JSON manifest's paths resolved by our own rule, and a path it cannot place is a HOOK-005 stop, never a pass. The four patterns are unchanged and stay question 3. A file this does not read goes to your own reading exactly as before.
+
+### Added
+- **HOOK-001 to HOOK-004 read hook handler code** (`csa_hook_handler_file`, `lib/hook-entries.sh`):
+  - every `.ts .tsx .jsx .js .mjs .cjs .mts .cts .py` file under an enabled plugin's `hooks/`: a Claude Code hooks module, everything it imports from there, and node or python handlers a hook command runs from there. Not a `.d.ts`, `*.test.*` or `*.spec.*` file, and nothing below `hooks/` under `tests/`, `test/`, `fixtures/` or `node_modules/`;
+  - an executable regular file under a plugin's `hooks/` with no code suffix (superpowers' `hooks/session-start` and `hooks/run-hook.cmd`), as an executable `.claude/hooks/` file has been read since 0.1.6. A symlink is not read;
+  - code with those suffixes under the project's own `.claude/hooks/`, whatever its mode: a `python3 .claude/hooks/x.py` handler that is not executable was enumerated but never read. `.mjs .cjs .tsx .jsx .mts .cts` there are now enumerated too.
+  - The rules' detect bodies, their patterns, HOOK-004's `LC_ALL=C` matching and 0.5.2's boundaries are unchanged. Only the surface that each rule's path gate and the hooks aspect gate accept is wider. A plugin file is judged by the plugin layout alone, so a plugin's `fixtures/` copy of a `.claude/hooks/` is not read in any mode it was not read in before.
+- **A plugin's `hooks/hooks.json` `modules` list is read.** Each path resolves relative to the file with the physical containment check a `plugin.json` hooks path gets. A path that resolves to handler code inside `hooks/` is counted, and the module file is read as a target of its own. A path outside `hooks/`, absolute, missing, a symlink, not a string, holding a control character, under `hooks/tests/` or not a code file is a High HOOK-005 finding naming `modules[i]`; a `modules` value that is not a list is one HOOK-005 on `modules`. A `modules` key beside `hooks` leaves the hooks walk as it was. `modules` is read only in a plugin's `hooks/hooks.json`, never in settings or `plugin.json`.
+- **The coverage line counts modules:** `csa: hook-coverage checked=N flagged=N not-inspected=N unreadable=N modules=N`. A modules path that did not resolve counts as unreadable. Neither HOOK-006 nor `not-inspected` counts a module.
+
+### Migration
+- **No existing finding changes its uid.** Every target read before is read exactly as before, by the same detect body. A new finding reads NEW and is suppressed as usual. A plugin finding's uid holds no version (`@plugin:<plugin>@<marketplace>:hooks/x.ts`), so it survives a plugin update.
+- A project `.claude/hooks/x.py` that was executable keeps its uid; one that was not is a new finding.
+- Measured on this host:
+  - The existing hook surface (1668 files: the Claude Code and OMP plugin caches, the marketplace clones and every cached membrane copy) gives the same 966 findings, identical in rule, file, line and uid.
+  - The new handler files an audit reads gives **0 new findings**. That corpus is the 40 code files under a cached plugin's `hooks/` (enabled seat-mods 0.15.3 and molt 0.5.0 among them) plus superpowers 7.0.0's two suffix-less handlers, and the handler-file test reads all 42.
+  - A hooks scan of the three enabled plugins prints `modules=2` and gives no finding.
+  - The four patterns over all 121 code copies under a `hooks/` (both caches and the clones) hit 1 file: security-guidance's `hooks/llm.py`, a review prompt naming `/etc/passwd`, curl and ssh. It is a false positive in a clone that is not installed.
+
+### Known limits
+- **Code-shaped forms stay silent; they need judgment, not a pattern.** These are `fetch`, `requests` or `$.http.fetch` sending a file read, a path built with `homedir()`, `expanduser` or concatenation, an argv `rm` (`$.process.run(['rm', '-rf', '/'])`), `fs.rmSync` and `shutil.rmtree`, `eval(`, `exec(` and `new Function`, and a command name split across strings. The rules read a command written as a string, or as quoted argv words for HOOK-004.
+- **A guard, a prompt or a comment that names the danger it looks for fires**, as a comment in a script already does. Examples: `const DENY = ['~/.ssh']` beside a quoted `'ssh'`, a review prompt naming `/etc/passwd`, `// never curl … | sh`, and test data inside a handler (`{command: "rm -rf /tmp/x"}`).
+- **A handler outside `hooks/` is not read**, such as codex's `scripts/*.mjs`; the command that runs it is still checked. A file a module imports from outside `hooks/` is not read either, while a module path outside `hooks/` is HOOK-005.
+- `tests/`, `test/`, `fixtures/` and `node_modules/` below a plugin's `hooks/` or the project's `.claude/hooks/` are not read as code. An executable file under the project's `.claude/hooks/` is still read wherever it sits, as before.
+- OMP extensions (`package.json` `omp.extensions`) are not audited: membrane audits Claude Code, Codex and OpenCode.
+- HOOK-001's `| sh` has no end boundary, so `curl … | shasum` fires, in a script as in code (#1140).
+- The secrets rules still do not scan `.mjs .cjs .tsx .jsx .mts .cts` files (#1141).
+- A `local/` plugin, or one installed outside the cache layout, does not normalize to `@plugin:<plugin>@<marketplace>:`, so its `hooks/` code is not read, as its JSON hooks are not.
+
+### Tests
+- `tests/test-rules-hooks.sh`, through each rule's real `detect()` on files under a fake `cache/<marketplace>/<plugin>/<version>/hooks/`, red on 0.7.1:
+  - 13 fires: embedded command strings and quoted argv in `.ts .tsx .jsx .js .mjs .cjs .mts .cts .py`;
+  - 9 fires on purpose (comment, guard, prompt, test data, `| shasum`) with a silent regex-literal row;
+  - 11 out-of-layout rows that stay silent (`hooks/tests/`, `hooks/test/`, `*.test.*`, `*.spec.*`, `.d.ts`, `scripts/`, `lib/`, `hooks/node_modules/`, a `.json.txt`, `hooks/fixtures/` at two depths), beside two adjacent fires;
+  - an executable `hooks/session-start` and `hooks/run-hook.cmd` that fire, with four silent controls: not executable, under `hooks/tests/`, under `scripts/`, a symlink;
+  - 12 code-shaped rows that stay silent (the known limits), green on 0.7.1 too.
+- `tests/test-hook-entries.sh`, through the engine, red on 0.7.1:
+  - plugin `hooks/` code read and `scripts/` code not;
+  - project `.claude/hooks/q1.py` and `q2.mjs` read whatever their mode, `.claude/x.py` and `.claude/hooks/tests/t.py` not;
+  - an executable suffix-less plugin handler read and a non-executable one not;
+  - a resolved module counted (`modules=1`) and its code read;
+  - twelve `modules` values that are HOOK-005: outside `hooks/`, absolute, a number, missing, a symlink, not a list, under `hooks/tests/`, empty, `.txt`, a directory, a control character, and the second of two;
+  - `modules` beside `hooks`.
+- Controls, green on 0.7.1:
+  - a local/ plugin's `.claude/hooks/q.py` stays unread;
+  - a module is not a HOOK-006 type;
+  - `modules` in settings or `plugin.json` is not read;
+  - a literal uid for an existing plugin `hooks/legacy.sh` finding, beside a literal uid for a new `hooks/p4.mjs` finding. Both are computed with `sha256sum` outside the lib.
+- `tests/test-enumerate-targets.sh`: the six code suffixes under `.claude/hooks/` are each enumerated once whatever their mode, an executable one once too, and a `.mjs` elsewhere under `.claude/` is not. Red on 0.7.1.
+- Mutation-checked, each killed by a behaviour row:
+  - the `tests/`/`fixtures/` exclusion dropped;
+  - `.py` dropped;
+  - the `.d.ts` exclusion dropped;
+  - any plugin dir accepted in place of `hooks/`;
+  - the modules resolve skipped;
+  - a symlinked module let through;
+  - a module that is not code let through;
+  - the suffix-less read dropped;
+  - the project branch matching any `.claude/hooks/`;
+  - the enumerator's code suffixes dropped;
+  - HOOK-006 counting modules;
+  - the aspect-gate line dropped;
+  - one rule's gate line dropped;
+  - plugin `hooks.json` left in `wrapped` mode.
+
 ## 0.7.2 (2026-11-08)
 
 #1132 (SKILL.md step 8 passed a findings file to two renderers that took content), #1133 (nothing in the skill flow assigned display ids, so `--suppress SA-…` and `/apply-fix SA-…` never resolved) and #1135 (one registry entry that is not an object aborted four readers, and GC never ran again). One batch: the three share SKILL.md steps 6 to 8, the report functions, the registry readers and the documented-call test. Reading membrane's own findings files and state file, and numbering the ids it mints, is mechanical work on closed input (skill-first question 2); the step order in SKILL.md is prose.
