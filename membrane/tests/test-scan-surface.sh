@@ -244,6 +244,71 @@ test_version_named_plugin_hooks_are_read() {
   return "$rc"
 }
 
+# --- 6. an install record path holding `\`, and a file grep would call binary -------------------------------------
+
+# _record_case <home> <mkt> <scope> <project> — HOME <home> and project <project> for one test, an enabled p@<mkt>
+# installed at cache/<mkt>/p/1.0.0/ with hooks/h.sh, and an install record naming that dir under <scope> (with the
+# project as projectPath unless the scope is user). A local or project scope also gets a second cached version, so
+# the cache layout alone cannot place the plugin. Sets _D to the install dir.
+_record_case() {
+  _n=$((_n + 1)); _H="$_T/$_n/$1"; _P="$_T/$_n/$4"
+  mkdir -p "$_H/.claude/plugins/cache" "$_P/.claude"
+  printf '{}\n' > "$_H/.claude/settings.json"
+  _D="$(_plugin p "$2")"; printf '#!/bin/sh\necho hi\n' > "$_D/hooks/h.sh"
+  [[ "$3" == user ]] || mkdir -p "$_H/.claude/plugins/cache/$2/p/0.9.0"
+  jq -n --arg k "p@$2" --arg ip "$_D" --arg sc "$3" --arg pp "$_P" \
+    '{version: 2, plugins: {($k): [{scope: $sc, installPath: $ip} + (if $sc == "user" then {} else {projectPath: $pp} end)]}}' \
+    > "$_H/.claude/plugins/installed_plugins.json"
+}
+
+# A plugin whose install record path holds `\` (in HOME, as `\` before a letter that would read as an escape, in
+# the marketplace name, and in the projectPath of a local or project entry) resolves through the record to its
+# install dir, and its hook file is listed. Controls: the same cases with no `\`.
+test_record_path_with_a_backslash_resolves() {
+  local row home mkt scope proj out rc=0
+  for row in 'home mk user proj' 'ho\me mk user proj' 'ho\tme mk user proj' 'home m\k user proj' \
+    'home mk local proj' 'home mk local pr\oj' 'home mk project pr\oj'; do
+    read -r home mkt scope proj <<< "$row"
+    _record_case "$home" "$mkt" "$scope" "$proj"
+    out="$(cd "$_P" && HOME="$_H" "$_CSA" enum_resolve_plugin_path "p@$mkt" "$_P" 2>&1)" \
+      || { printf '    %s: no resolve: %s\n' "$row" "$out" >&2; rc=1; continue; }
+    assert_eq "$_D" "$out" "$row: resolves to the recorded dir" || rc=1
+    assert_eq "0" "$(_enum)" "$row: enumeration rc" || rc=1
+    assert_eq "@plugin:p@$mkt:hooks/h.sh"$'\t'"$_D/hooks/h.sh" "$(grep -F "@plugin:p@$mkt:hooks/h.sh" "$_T/eout")" \
+      "$row: the hook file is listed" || rc=1
+  done
+  return "$rc"
+}
+
+# An installPath holding a newline or a tab is not read as a shorter path or as extra fields: the plugin is a
+# PROVENANCE-002 and nothing of it is listed, even when the part before the newline is the real install dir.
+test_record_path_with_a_newline_or_tab_never_resolves() {
+  local sep out rc=0
+  for sep in $'\n' $'\t'; do
+    _record_case home mk user proj
+    jq --arg ip "$_D${sep}x" '.plugins["p@mk"][0].installPath = $ip' "$_H/.claude/plugins/installed_plugins.json" > "$_H/r.tmp" \
+      && mv "$_H/r.tmp" "$_H/.claude/plugins/installed_plugins.json"
+    out="$(cd "$_P" && HOME="$_H" "$_CSA" enum_resolve_plugin_path p@mk "$_P" 2>&1)" \
+      && { printf '    %q: resolved to %s\n' "$sep" "$out" >&2; rc=1; }
+    assert_eq "0" "$(_enum)" "$(printf %q "$sep"): enumeration rc" || rc=1
+    [[ "$(cat "$_T/eout")" != *"hooks/h.sh"* ]] || { printf '    %q: the hook file was listed\n' "$sep" >&2; rc=1; }
+    assert_contains "$(cat "$_T/eerr")" "PROVENANCE-002" "$(printf %q "$sep"): a PROVENANCE-002" || rc=1
+  done
+  return "$rc"
+}
+
+# Through the engine, SECRETS-001 reports a key in a .claude/ JSON file whose earlier line holds a NUL byte, and a
+# key on a .claude/ Markdown line that also holds Latin-1 text (`café` with \xe9).
+test_secrets_read_a_file_grep_calls_binary_through_the_engine() {
+  _mk
+  printf '{}\n' > "$_P/.claude/settings.json"
+  printf '{"a": "\000",\n "k": "AKIAABCDEFGHIJKLMNOP"}\n' > "$_P/.claude/nul.json"
+  printf 'caf\351 AKIAABCDEFGHIJKLMNOP\n' > "$_P/.claude/latin1.md"
+  local out; out="$(_scan secrets)" || return 1
+  assert_eq "critical $_P/.claude/latin1.md,critical $_P/.claude/nul.json" "$(_files "$out" SECRETS-001)" \
+    "one SECRETS-001 in each file" || return 1
+}
+
 csa_test_run test_secrets_read_module_code_suffixes            || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_glob_bearing_root_keeps_its_exclusions       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_glob_bearing_home_resolves_a_plugin || _csa_failed=$((_csa_failed + 1))
@@ -251,5 +316,9 @@ csa_test_run test_unreadable_plugin_dir_is_scanner003          || _csa_failed=$(
 csa_test_run test_unreadable_project_claude_dir_is_scanner003  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_node_modules_symlinks_below_hooks_are_not_stops || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_version_named_plugin_hooks_are_read   || _csa_failed=$((_csa_failed + 1))
+
+csa_test_run test_record_path_with_a_backslash_resolves || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_record_path_with_a_newline_or_tab_never_resolves || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_secrets_read_a_file_grep_calls_binary_through_the_engine || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

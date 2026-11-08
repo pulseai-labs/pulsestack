@@ -580,6 +580,161 @@ test_absolute_target_under_a_glob_bearing_root_applies() {
 }
 
 # ---------------------------------------------------------------------------
+# 13. Through bin/csa (set -euo pipefail): a fix() that fails is reported and its entry marked failed; an audit trail
+# that is not a list, or that cannot be written, refuses before fix() runs.
+# ---------------------------------------------------------------------------
+
+# _bin_fixture <tmp> <fix-body> — a rule TEST-901 under <tmp>/rules with both flags true and `fix() { <fix-body>; }`,
+# a project with an empty .gitignore, and a registry entry FUID-test1234 (SA-X-001) for it. fix() sees $MARK, a
+# marker file under <tmp>.
+_bin_fixture() {
+  mkdir -p "$1/rules/test" "$1/project" "$1/home"
+  printf '%s\n' 'RULE_ID="TEST-901"' 'RULE_AUTO_FIXABLE="true"' 'RULE_MECHANICALLY_FIXABLE="true"' \
+    "fix() { $2; }" > "$1/rules/test/bin-rule.sh"
+  : > "$1/project/.gitignore"
+  _seed_entry "$1/project" FUID-test1234 '{"rule_id":"TEST-901","file":".gitignore"}'
+}
+
+# _bin_apply <tmp> — bin/csa apply_run FUID-test1234 on <tmp>/project; sets _out (stdout and stderr) and _rc.
+_bin_apply() {
+  _rc=0
+  _out="$(cd "$1/project" && HOME="$1/home" MARK="$1/marker" CSA_RULES_DIR="$1/rules" \
+    "$CSA_PLUGIN_ROOT/bin/csa" apply_run "$1/project" FUID-test1234 2>&1)" || _rc=$?
+}
+
+# _trail <tmp> — the statuses of applied_fixes as a JSON list, or applied_fixes itself when it is not a list.
+_trail() { jq -c '.applied_fixes | if type == "array" then map(.status) else . end' "$(csa_state_path "$1/project")"; }
+
+# _ran <tmp> — how many times fix() wrote the marker.
+_ran() { if [[ -f "$1/marker" ]]; then wc -l < "$1/marker" | tr -d ' '; else printf '0'; fi; }
+
+# _tmpfiles <tmp> — how many state.json.tmp.* files are left in .claude/audits/.
+_tmpfiles() { find "$1/project/.claude/audits" -name 'state.json.tmp.*' | wc -l | tr -d ' '; }
+
+# A fix() that returns 1 is reported, exit 1, and its entry is marked failed; a second apply_run is not refused as
+# already applied: fix() runs again and a second failed entry is added.
+test_bin_failing_fix_is_reported_and_marked_failed() {
+  local tmp="$_CSA_TMP/t18"
+  _bin_fixture "$tmp" 'printf "ran\n" >> "$MARK"; return 1'
+  _bin_apply "$tmp"
+  assert_eq "1" "$_rc" "exit 1: $_out" || return 1
+  assert_contains "$_out" "ERROR: fix() failed for SA-X-001 (FUID-test1234)" "the failure is reported" || return 1
+  assert_eq '["failed"]' "$(_trail "$tmp")" "the entry is marked failed" || return 1
+  _bin_apply "$tmp"
+  assert_eq "1" "$_rc" "retry: exit 1: $_out" || return 1
+  [[ "$_out" != *"already been applied"* ]] || { printf '    the retry was refused as already applied\n' >&2; return 1; }
+  assert_eq "2" "$(_ran "$tmp")" "fix() ran on the retry" || return 1
+  assert_eq '["failed","failed"]' "$(_trail "$tmp")" "the retry adds a failed entry" || return 1
+}
+
+# A fix() whose first command fails stops there: the command after it does not run, exit 1, the entry is failed.
+test_bin_fix_stops_at_its_first_failing_command() {
+  local tmp="$_CSA_TMP/t19"
+  _bin_fixture "$tmp" 'false; printf "after\n" >> "$MARK"; return 0'
+  _bin_apply "$tmp"
+  assert_eq "1" "$_rc" "exit 1: $_out" || return 1
+  assert_contains "$_out" "ERROR: fix() failed for SA-X-001" "the failure is reported" || return 1
+  assert_eq "0" "$(_ran "$tmp")" "nothing after the failing command ran" || return 1
+  assert_eq '["failed"]' "$(_trail "$tmp")" "the entry is marked failed" || return 1
+}
+
+# Control: a fix() that succeeds applies, exit 0, one applied entry, no tmp file left.
+test_bin_succeeding_fix_applies() {
+  local tmp="$_CSA_TMP/t20"
+  _bin_fixture "$tmp" 'printf "ran\n" >> "$MARK"; return 0'
+  _bin_apply "$tmp"
+  assert_eq "0" "$_rc" "exit 0: $_out" || return 1
+  assert_contains "$_out" "Applied SA-X-001 (FUID-test1234)" "applied" || return 1
+  assert_eq "1" "$(_ran "$tmp")" "fix() ran once" || return 1
+  assert_eq '["applied"]' "$(_trail "$tmp")" "one applied entry" || return 1
+  assert_eq "0" "$(_tmpfiles "$tmp")" "no tmp file left" || return 1
+}
+
+# applied_fixes that is an object or a string is refused before fix() runs: exit 1, the refusal names it, fix() does
+# not run, applied_fixes is unchanged and no tmp file is left. Absent or null reads as an empty list and applies.
+test_bin_applied_fixes_not_a_list_is_refused() {
+  local tmp af n=0 sp
+  for af in '{}' '"x"' 'null' 'absent'; do
+    n=$((n + 1)); tmp="$_CSA_TMP/t21-$n"
+    _bin_fixture "$tmp" 'printf "ran\n" >> "$MARK"; return 0'
+    sp="$(csa_state_path "$tmp/project")"
+    if [[ "$af" == absent ]]; then jq 'del(.applied_fixes)' "$sp" > "$sp.t"
+    else jq --argjson af "$af" '.applied_fixes = $af' "$sp" > "$sp.t"; fi
+    mv "$sp.t" "$sp"
+    _bin_apply "$tmp"
+    case "$af" in
+      null|absent)
+        assert_eq "0" "$_rc" "applied_fixes $af: applies: $_out" || return 1
+        assert_eq '["applied"]' "$(_trail "$tmp")" "applied_fixes $af: one applied entry" || return 1 ;;
+      *)
+        assert_eq "1" "$_rc" "applied_fixes $af: exit 1: $_out" || return 1
+        assert_contains "$_out" "applied_fixes is not a list" "applied_fixes $af: the refusal names it" || return 1
+        assert_eq "0" "$(_ran "$tmp")" "applied_fixes $af: fix() did not run" || return 1
+        assert_eq "$af" "$(_trail "$tmp")" "applied_fixes $af: unchanged" || return 1
+        assert_eq "0" "$(_tmpfiles "$tmp")" "applied_fixes $af: no tmp file left" || return 1 ;;
+    esac
+  done
+}
+
+# _skip_as_root — rc 0 (and a note) when run as root, where every directory is writable.
+_skip_as_root() { [[ "$(id -u)" -eq 0 ]] && { printf '    skipped: root writes every directory\n'; return 0; }; return 1; }
+
+# When the audit-trail entry cannot be written (.claude/audits/ is not writable), apply_run refuses before fix()
+# runs: exit 1, the refusal says so, and the target is untouched.
+test_bin_unwritable_audit_trail_refuses_before_fix() {
+  _skip_as_root && return 0
+  local tmp="$_CSA_TMP/t22" rc=0
+  _bin_fixture "$tmp" 'printf "ran\n" >> "$MARK"; printf "FIXED\n" > "$1"; return 0'
+  chmod a-w "$tmp/project/.claude/audits"
+  _bin_apply "$tmp"
+  chmod u+w "$tmp/project/.claude/audits"
+  assert_eq "1" "$_rc" "exit 1: $_out" || rc=1
+  assert_contains "$_out" "could not write the audit-trail entry for FUID-test1234" "the refusal says why" || rc=1
+  assert_eq "0" "$(_ran "$tmp")" "fix() did not run" || rc=1
+  assert_eq "" "$(cat "$tmp/project/.gitignore")" "the target is untouched" || rc=1
+  assert_eq "[]" "$(_trail "$tmp")" "nothing is logged" || rc=1
+  return "$rc"
+}
+
+# A fix() that fails after .claude/audits/ stops being writable: exit 1, and the message says the entry could not be
+# marked failed (it stays applied).
+test_bin_failed_mark_that_cannot_be_written_is_reported() {
+  _skip_as_root && return 0
+  local tmp="$_CSA_TMP/t23" rc=0
+  _bin_fixture "$tmp" 'chmod a-w "${1%/*}/.claude/audits"; return 1'
+  _bin_apply "$tmp"
+  chmod u+w "$tmp/project/.claude/audits"
+  assert_eq "1" "$_rc" "exit 1: $_out" || rc=1
+  assert_contains "$_out" "fix() failed for SA-X-001 (FUID-test1234), and its audit-trail entry could not be marked failed" \
+    "the message names both failures" || rc=1
+  assert_eq '["applied"]' "$(_trail "$tmp")" "the entry is still applied" || rc=1
+  return "$rc"
+}
+
+# csa_apply_run gives its caller back the errexit setting it had. Called with `set -e`: errexit is still on after a
+# fix() that succeeds, and a fix() that fails ends the caller at the call (nothing after it runs). Called without:
+# errexit is still off after either.
+test_apply_run_restores_the_callers_errexit() {
+  local tmp="$_CSA_TMP/t24" body flag got want
+  for body in 'return 0' 'return 1'; do
+    for flag in -e +e; do
+      rm -rf "$tmp"; _bin_fixture "$tmp" "$body"
+      got="$(cd "$tmp/project" && CSA_RULES_DIR="$tmp/rules" bash -c '
+        source "$1/helpers.sh"; source "$1/state.sh"; source "$1/apply-fix.sh"
+        set '"$flag"'
+        csa_apply_run "$2" FUID-test1234 >/dev/null 2>&1
+        [[ $- == *e* ]] && echo on || echo off' _ "$CSA_LIB_DIR" "$tmp/project" 2>/dev/null)"
+      case "$flag $body" in
+        "-e return 0") want=on ;;
+        "-e return 1") want="" ;;
+        *) want=off ;;
+      esac
+      assert_eq "$want" "$got" "fix() '$body', caller set $flag" || return 1
+    done
+  done
+}
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 csa_test_run test_success                              || _csa_failed=$((_csa_failed + 1))
@@ -599,5 +754,13 @@ csa_test_run test_rule_id_glob_or_prefix_is_refused     || _csa_failed=$((_csa_f
 csa_test_run test_slug_named_two_segment_rule_resolves  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_duplicate_or_symlinked_rule_is_refused || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_absolute_target_under_a_glob_bearing_root_applies || _csa_failed=$((_csa_failed + 1))
+
+csa_test_run test_bin_failing_fix_is_reported_and_marked_failed || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bin_fix_stops_at_its_first_failing_command || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bin_succeeding_fix_applies || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bin_applied_fixes_not_a_list_is_refused || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bin_unwritable_audit_trail_refuses_before_fix || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bin_failed_mark_that_cannot_be_written_is_reported || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_apply_run_restores_the_callers_errexit || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

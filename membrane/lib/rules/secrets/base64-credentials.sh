@@ -29,7 +29,7 @@ RULE_REFERENCES=""
 # Each shape is pinned beside a control it must not skip (tests/test-rules-secrets.sh). The filter fails open: if awk
 # cannot run, the unfiltered hits are reported.
 _csa_b64_drop_skipped_lines() {
-  awk '
+  LC_ALL=C awk '
     function is_path(m,   n, p, i) {
       n = split(m, p, "/")
       if (n < 3) return 0
@@ -68,16 +68,20 @@ detect() {
   [[ -r "$target_file" ]] || return 0
   # grep rc 1 is no match; rc 2 or more is a read error: rc 2 (SCANNER-002) unless a match is already in hand,
   # which is emitted, since the engine drops a detector's stdout on rc 2 (#1089). Skill-first question 3.
+  # LC_ALL=C grep -a reads the file byte by byte in every locale, as HOOK-004 does: a NUL or a byte that is not
+  # UTF-8 does not make grep call the file binary and print no line. The checksum filter and the awk pass read the
+  # same bytes the same way, so they cannot drop such a line either.
   local hits grc=0
-  hits="$(grep -nE '[A-Za-z0-9+/]{40,}={0,2}' "$target_file" 2>/dev/null)" || grc=$?
+  hits="$(LC_ALL=C grep -anE '[A-Za-z0-9+/]{40,}={0,2}' "$target_file" 2>/dev/null)" || grc=$?
   [[ "$grc" -le 1 ]] || [[ -n "$hits" ]] || return 2
   [[ -n "$hits" ]] || return 0
   local kept filtered
-  filtered="$(printf '%s\n' "$hits" | grep -vE '(sha256:|sha1:|md5:)')" || true
+  filtered="$(printf '%s\n' "$hits" | LC_ALL=C grep -avE '(sha256:|sha1:|md5:)')" || true
   kept="$(printf '%s\n' "$filtered" | _csa_b64_drop_skipped_lines)" || kept="$filtered"
   [[ -n "$kept" ]] || return 0
+  # LC_ALL=C on read only: in a UTF-8 locale, bash 5.2 joins a line that ends in an invalid byte to the next.
   printf '%s\n' "$kept" \
-    | while IFS=: read -r line_no match; do
+    | while LC_ALL=C IFS=: read -r line_no match; do
         local preview; preview="$(csa_redact "$match")"
         local fuid; fuid="$(csa_finding_uid_raw "$RULE_ID" "$target_file" "$match")"
         jq -nc \

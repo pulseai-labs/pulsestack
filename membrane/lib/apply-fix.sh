@@ -216,10 +216,17 @@ csa_apply_run() {
   local display_id; display_id="$(printf '%s' "$finding_json" | jq -r '.last_display_id // empty')"
   local target_rel; target_rel="$(printf '%s' "$finding_json" | jq -r '.file // empty')"
 
+  # The audit trail must be a list (absent, null or false reads as empty), or no entry can be written: refuse before the
+  # double-apply guard reads it and before fix() can run (#1156).
+  if ! printf '%s' "$state_json" | jq -e '(.applied_fixes // []) | type == "array"' >/dev/null 2>&1; then
+    printf 'ERROR: state.json applied_fixes is not a list; refusing, because the audit trail cannot be written\n' >&2
+    return 1
+  fi
+
   # 7-double-apply guard: scan applied_fixes for a prior success entry.
   local prior_success; prior_success="$(printf '%s' "$state_json" | jq -r \
     --arg fuid "$fuid" \
-    '[.applied_fixes[] | select(.finding_uid == $fuid and (.status == null or .status != "failed"))] | length' \
+    '[(.applied_fixes // [])[] | select(.finding_uid == $fuid and (.status == null or .status != "failed"))] | length' \
     2>/dev/null)"
   if [[ -n "$prior_success" && "$prior_success" -gt 0 ]]; then
     printf 'ERROR: Finding %s has already been applied (status != failed). Refusing duplicate apply.\n' "$fuid" >&2
@@ -261,7 +268,7 @@ csa_apply_run() {
   local applied_by="${USER:-unknown}"
   local now; now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-  # Append a pending entry; we will mark failed if fix() returns non-zero.
+  # Append a pending entry; we will mark failed if fix() returns non-zero. If it cannot be written, fix() never runs.
   local tmp; tmp="$(dirname "$state_file")/state.json.tmp.$$"
   jq \
     --arg fuid "$fuid" \
@@ -270,7 +277,7 @@ csa_apply_run() {
     --arg by "$applied_by" \
     --arg summary "$rule_summary" \
     --arg now "$now" \
-    '.applied_fixes += [{
+    '.applied_fixes = ((.applied_fixes // []) + [{
       finding_uid: $fuid,
       display_id_at_apply: $did,
       rule_id: $rid,
@@ -278,13 +285,24 @@ csa_apply_run() {
       applied_by: $by,
       summary: $summary,
       status: "applied"
-    }]' \
-    "$state_file" > "$tmp" && mv "$tmp" "$state_file"
+    }])' \
+    "$state_file" > "$tmp" && mv "$tmp" "$state_file" || {
+    rm -f "$tmp"
+    printf 'ERROR: could not write the audit-trail entry for %s; refusing to run fix()\n' "$fuid" >&2
+    return 1
+  }
 
   # 9. Re-source rule; call fix() function.
-  # We source the rule in a subshell that calls fix() and captures exit code.
-  local fix_ec=0
+  # We source the rule in a subshell that calls fix() and captures exit code. errexit is off around the subshell, so
+  # a failing fix() under bin/csa's `set -e` reaches the failed mark below, and on inside it, so fix() stops at its
+  # first failing command. Not `if ( … )`: bash ignores `set -e` inside a condition, subshell included. The caller's
+  # errexit is restored after. Limit: a caller that runs csa_apply_run itself inside an `if`, `while` or `until`
+  # condition, after `!`, or before `||` or `&&` still turns errexit off inside fix(); bin/csa and the skill do not.
+  local fix_ec=0 _had_e=0
+  [[ $- == *e* ]] && _had_e=1
+  set +e
   (
+    set -e
     # shellcheck disable=SC1090
     source "$rule_path" 2>/dev/null
     if ! declare -f fix >/dev/null 2>&1; then
@@ -294,6 +312,7 @@ csa_apply_run() {
     fix "$target_abs" "$finding_json"
   )
   fix_ec=$?
+  [[ "$_had_e" -eq 1 ]] && set -e
 
   if [[ "$fix_ec" -ne 0 ]]; then
     # Update the applied_fixes entry we just wrote to status="failed".
@@ -308,7 +327,11 @@ csa_apply_run() {
         else . end
       )) as $fixed |
       .applied_fixes = $fixed' \
-      "$state_file2" > "$tmp2" && mv "$tmp2" "$state_file2"
+      "$state_file2" > "$tmp2" && mv "$tmp2" "$state_file2" || {
+      rm -f "$tmp2"
+      printf 'ERROR: fix() failed for %s (%s), and its audit-trail entry could not be marked failed\n' "$display_id" "$fuid" >&2
+      return 1
+    }
     printf 'ERROR: fix() failed for %s (%s)\n' "$display_id" "$fuid" >&2
     return 1
   fi

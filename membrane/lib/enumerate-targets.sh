@@ -2,14 +2,6 @@
 # lib/enumerate-targets.sh — scan target enumeration per SPEC §6.3 (T2-J pin).
 # Requires: lib/helpers.sh.
 
-CSA_GLOB_SECRETS="${CSA_GLOB_SECRETS:-*.md *.json *.sh *.py *.js *.ts}"
-CSA_GLOB_PERMISSIONS="${CSA_GLOB_PERMISSIONS:-settings.json settings.local.json}"
-CSA_GLOB_HOOKS="${CSA_GLOB_HOOKS:-*.sh *.json}"
-CSA_GLOB_MCP="${CSA_GLOB_MCP:-*.json}"
-CSA_GLOB_CLAUDE_MD="${CSA_GLOB_CLAUDE_MD:-CLAUDE.md}"
-CSA_GLOB_PROMPT_INJECTION="${CSA_GLOB_PROMPT_INJECTION:-*.md}"
-CSA_GLOB_MARKETPLACE="${CSA_GLOB_MARKETPLACE:-marketplace.json}"
-
 csa_enum_codex_project_targets() {
   local root="$1"
   local has_codex_surface=0
@@ -320,7 +312,11 @@ _csa_enum_record_lookup() {
     printf 'csa: cannot read %s; where plugins are installed is unknown\n' "$rec" >&2
     return 2
   fi
-  # `input` (not `.`) so an empty file is an error, not an empty answer.
+  # `input` (not `.`) so an empty file is an error, not an empty answer. A row is its three fields joined by a tab,
+  # raw, so a `\` in a path survives (`@tsv` writes it `\\`). A row whose field holds a tab, newline or CR keeps
+  # `@tsv`'s escaped form, so it cannot split into extra rows or fields; its path then names the directory with that
+  # escaped name (`\t` as two characters), as before, and is refused when none exists. _csa_enum_guard_dir refuses a
+  # real tab or newline in any case.
   rows="$(jq -n -r --arg k "$key" 'input |
     if (.plugins | type) != "object" then error("no plugins object")
     elif ((.plugins[$k] // []) | type) != "array" then error("entry is not a list")
@@ -330,7 +326,7 @@ _csa_enum_record_lookup() {
         | {scope, installPath, projectPath: (if (.projectPath | type) == "string" and (.projectPath | length) > 0 then .projectPath else "-" end)}
         | select(.scope == "user" or .projectPath != "-") ]
       | (map(select(.scope == "local")) + map(select(.scope == "project")) + map(select(.scope == "user")))[]
-      | [.scope, .projectPath, .installPath] | @tsv
+      | [.scope, .projectPath, .installPath] | if any(.[]; test("[\t\n\r]")) then @tsv else join("\t") end
     end' "$rec" 2>/dev/null)" || {
     printf 'csa: %s is not the expected installed-plugins record (JSON with a plugins object of lists); where plugins are installed is unknown\n' "$rec" >&2
     return 2

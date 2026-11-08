@@ -115,6 +115,30 @@ test_env_var_leak_negative_env_ref() {
   [[ -z "$out" ]] || return 1
 }
 
+# _utf8_locale — the name of an installed UTF-8 locale (C.UTF-8, en_US.UTF-8 or en_GB.UTF-8), or nothing.
+_utf8_locale() {
+  locale -a 2>/dev/null | awk '{ l = tolower($0); gsub(/-/, "", l) } l == "c.utf8" || l == "en_us.utf8" || l == "en_gb.utf8" { print; exit }'
+}
+
+# _lines_under <locale> <rule> <file> — the lines a rule's detect() reports in <file> under LC_ALL=<locale>, sorted
+# and comma-joined; "-" when it reports none.
+_lines_under() {
+  local got
+  got="$( (export LC_ALL="$1"; source "$2"; detect "$3") 2>/dev/null | jq -r '.line' | sort -n | paste -sd, -)"
+  printf '%s' "${got:--}"
+}
+
+# MCP-001 reports an http:// url on line 2 of a .mcp.json whose line 1 holds a NUL byte, in a UTF-8 locale and in C.
+test_untrusted_endpoint_reads_a_file_grep_calls_binary() {
+  local loc u rc=0 f="$_tmp/nul/.mcp.json"
+  u="$(_utf8_locale)"; mkdir -p "${f%/*}"
+  printf '{"a": "\000",\n "mcpServers": {"bad": {"url": "http://untrusted.example.com/mcp"}}}\n' > "$f"
+  for loc in ${u:+"$u"} C; do
+    assert_eq "2" "$(_lines_under "$loc" "$CSA_RULES_DIR/mcp/untrusted-endpoint.sh" "$f")" "$loc: MCP-001" || rc=1
+  done
+  return "$rc"
+}
+
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
@@ -125,5 +149,6 @@ csa_test_run test_missing_auth_negative_with_auth_header   || _csa_failed=$((_cs
 csa_test_run test_env_var_leak_detects_literal_token       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_env_var_leak_detects_large_literal_token_under_pipefail || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_env_var_leak_negative_env_ref            || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_untrusted_endpoint_reads_a_file_grep_calls_binary || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

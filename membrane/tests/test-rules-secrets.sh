@@ -170,6 +170,66 @@ test_base64_filter_failure_keeps_the_finding() {
 }
 
 # ---------------------------------------------------------------------------
+# A file grep would call binary: a NUL byte, or a byte that is not UTF-8 (Latin-1 text)
+# ---------------------------------------------------------------------------
+
+# _utf8_locale — the name of an installed UTF-8 locale (C.UTF-8, en_US.UTF-8 or en_GB.UTF-8), or nothing.
+_utf8_locale() {
+  locale -a 2>/dev/null | awk '{ l = tolower($0); gsub(/-/, "", l) } l == "c.utf8" || l == "en_us.utf8" || l == "en_gb.utf8" { print; exit }'
+}
+
+# _lines_under <locale> <rule> <file> — the lines a rule's detect() reports in <file> under LC_ALL=<locale>, sorted
+# and comma-joined; "-" when it reports none.
+_lines_under() {
+  local got
+  got="$( (export LC_ALL="$1"; source "$2"; detect "$3") 2>/dev/null | jq -r '.line' | sort -n | paste -sd, -)"
+  printf '%s' "${got:--}"
+}
+
+# Each secrets rule reports its secret on line 2 of a file whose line 1 holds a NUL byte, and SECRETS-001, SECRETS-003
+# and SECRETS-004 report a secret on a line that also holds Latin-1 text (`café` with \xe9), in a UTF-8 locale and in C
+# alike. Matching is byte-wise: a UTF-8 em space between a name and `=` is not a space, so SECRETS-003 does not fire
+# on it in any locale (it fired only in a UTF-8 locale before), beside the same line with an ASCII space, which does.
+# SECRETS-003 counts a non-ASCII byte as a value byte: a UTF-8 or Latin-1 `Müllerpass1234` and an em space after
+# `= ` fire, and two CJK letters (6 bytes) stay under the 12-byte floor. SECRETS-004 keeps a hex-only run only beside
+# an ASCII credential word: `TOKEN=` keeps it, and `TO<Kelvin sign>EN=` does not, in a UTF-8 locale too.
+test_secrets_read_a_file_grep_calls_binary() {
+  local loc rc=0 d="$_tmp/binary-bytes" u row rule f want got
+  u="$(_utf8_locale)"
+  [[ -n "$u" ]] || printf '    note: no UTF-8 locale installed; checked under C only\n'
+  mkdir -p "$d"
+  printf '{"a": "\000"}\n{"k": "AKIAABCDEFGHIJKLMNOP"}\n'                                  > "$d/key-nul.json"
+  printf 'caf\351 AKIAABCDEFGHIJKLMNOP\n'                                                  > "$d/key-latin1.md"
+  printf '# \000\nauth: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c\n' > "$d/jwt-nul.md"
+  printf '# \000\nAPI_KEY=abcdefghijklmnopqrstuvwxyz123456\n'                              > "$d/env-nul.sh"
+  printf 'API_KEY=abcdefghijklmnopqrstuvwxyz123456 # caf\351\n'                            > "$d/env-latin1.sh"
+  printf 'TOKEN\342\200\203=abcdefghijklmnop\n'                                            > "$d/env-emspace.sh"
+  printf 'TOKEN =\342\200\203abcdefghijklmnop\n'                                           > "$d/env-emspace-value.sh"
+  printf 'PASSWORD=M\303\274llerpass1234\n'                                                 > "$d/env-utf8-value.sh"
+  printf 'PASSWORD=M\374llerpass123\n'                                                       > "$d/env-latin1-value.sh"
+  printf 'TOKEN=\346\227\245\346\234\254\n'                                                    > "$d/env-short-utf8.sh"
+  printf 'TO\342\204\252EN=0123456789abcdef0123456789abcdef0123456789abcdef\n'               > "$d/b64-kelvin.txt"
+  printf 'TOKEN=0123456789abcdef0123456789abcdef0123456789abcdef\n'                         > "$d/b64-token-hex.txt"
+  printf 'TOKEN = abcdefghijklmnop\n'                                                      > "$d/env-space.sh"
+  printf '# \000\ncredential=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY\n'                > "$d/b64-nul.txt"
+  printf 'caf\351 credential=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY\n'                > "$d/b64-latin1.txt"
+  printf 'caf\351 credential=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY\ncredential=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY\n' > "$d/b64-latin1-first.txt"
+  for loc in ${u:+"$u"} C; do
+    for row in 'api-keys key-nul.json 2' 'api-keys key-latin1.md 1' 'jwt jwt-nul.md 2' 'env-var-leak env-nul.sh 2' \
+      'env-var-leak env-latin1.sh 1' 'env-var-leak env-emspace.sh -' 'env-var-leak env-space.sh 1' \
+      'env-var-leak env-emspace-value.sh 1' 'env-var-leak env-utf8-value.sh 1' 'env-var-leak env-latin1-value.sh 1' \
+      'env-var-leak env-short-utf8.sh -' 'base64-credentials b64-kelvin.txt -' 'base64-credentials b64-token-hex.txt 1' \
+      'base64-credentials b64-nul.txt 2' 'base64-credentials b64-latin1.txt 1' \
+      'base64-credentials b64-latin1-first.txt 1,2'; do
+      read -r rule f want <<< "$row"
+      got="$(_lines_under "$loc" "$CSA_RULES_DIR/secrets/$rule.sh" "$d/$f")"
+      assert_eq "$want" "$got" "$loc: $rule on $f" || rc=1
+    done
+  done
+  return "$rc"
+}
+
+# ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
 csa_test_run test_api_keys_detects_anthropic      || _csa_failed=$((_csa_failed + 1))
@@ -187,4 +247,5 @@ csa_test_run test_base64_path_controls_still_match       || _csa_failed=$((_csa_
 csa_test_run test_base64_filter_failure_keeps_the_finding || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_base64_hex_on_a_credential_line_is_reported || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_base64_path_skip_controls_for_capitals || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_secrets_read_a_file_grep_calls_binary || _csa_failed=$((_csa_failed + 1))
 [[ "$_csa_failed" -eq 0 ]] || exit 1

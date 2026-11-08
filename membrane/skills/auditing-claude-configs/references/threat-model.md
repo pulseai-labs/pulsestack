@@ -26,6 +26,12 @@ The patterns are the same common-pattern regexes as for scripts. In code HOOK-00
 
 `.claude/audits/state.json` is editable by someone other than membrane (the tamper checks treat it so), so `/apply-fix` takes nothing from it that it would run. It reads the finding's `rule_id` and `file`, finds the rule by comparing that id whole against the `RULE_ID=` line of each shipped rule file, read as text (one regular file, not a symlink; none or two is a refusal), and only then sources that shipped file to check both flags and call its `fix`. A path in the entry (`rule_path`, which membrane never writes) is never sourced or run, and the skill says not to source one either; `file` goes only through the allowlist, symlink and traversal checks before it is written (skill-first question 2: ids membrane mints, against its own rules dir).
 
+A failing `fix()` is reported and its audit-trail entry marked `failed`, so the user can run it again (a mark that cannot be written is reported, and the entry stays `applied`); an entry that cannot be written, or an `applied_fixes` that is not a list, refuses before `fix()` runs, so no fix runs unrecorded. `fix()` runs with errexit on and stops at its first failing command.
+
+## git config of the audited project
+
+The tamper checks' tracked-status read (TAMPER-003, through `csa state_update_self_integrity` and `csa state_check_tamper`, which `/security-audit` does not call today) is the only place membrane runs git, and it runs inside the audited project, so git reads that project's config. A checkout can name a command there that a read of the index runs: `core.fsmonitor`, set in `.git/config`, through `include.path` or `includeIf`, or in the gitdir a `.git` file points at. membrane passes `-c core.fsmonitor=` on every git call, which beats every config file, and redirects git's output (no pager). Measured on git 2.53, no other key runs a command on that read (hooks, filters, textconv, `diff.external`, pager, credential and ssh helpers, aliases, `trace2`). Not stopped: an `include.path` naming a FIFO hangs the read, and a repository git calls of dubious ownership reads as untracked. The skill never runs git in the audited project itself.
+
 ## Secondary threats — the realistic v0.1 primary value
 
 1. **Malicious teammate PR** that isn't trying hard to hide (plain-text hook with `rm -rf`, agent definition with literal "send my data to attacker.com")

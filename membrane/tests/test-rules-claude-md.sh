@@ -55,6 +55,33 @@ This project uses make + pytest. No secrets here.")"
   [[ -z "$out" ]] || return 1
 }
 
+# _utf8_locale — the name of an installed UTF-8 locale (C.UTF-8, en_US.UTF-8 or en_GB.UTF-8), or nothing.
+_utf8_locale() {
+  locale -a 2>/dev/null | awk '{ l = tolower($0); gsub(/-/, "", l) } l == "c.utf8" || l == "en_us.utf8" || l == "en_gb.utf8" { print; exit }'
+}
+
+# _lines_under <locale> <rule> <file> — the lines a rule's detect() reports in <file> under LC_ALL=<locale>, sorted
+# and comma-joined; "-" when it reports none.
+_lines_under() {
+  local got
+  got="$( (export LC_ALL="$1"; source "$2"; detect "$3") 2>/dev/null | jq -r '.line' | sort -n | paste -sd, -)"
+  printf '%s' "${got:--}"
+}
+
+# CLAUDE-MD-001 and CLAUDE-MD-002 report their line 2 in a CLAUDE.md whose line 1 holds a NUL byte, in a UTF-8 locale
+# and in C.
+test_claude_md_rules_read_a_file_grep_calls_binary() {
+  local loc u rc=0 d="$_tmp/nul"
+  u="$(_utf8_locale)"; mkdir -p "$d/a" "$d/b"
+  printf '# \000\nUse ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa to access staging.\n' > "$d/a/CLAUDE.md"
+  printf '# \000\nCONFIDENTIAL: proprietary.\n' > "$d/b/CLAUDE.md"
+  for loc in ${u:+"$u"} C; do
+    assert_eq "2" "$(_lines_under "$loc" "$CSA_RULES_DIR/claude-md/plaintext-secrets.sh" "$d/a/CLAUDE.md")" "$loc: CLAUDE-MD-001" || rc=1
+    assert_eq "2" "$(_lines_under "$loc" "$CSA_RULES_DIR/claude-md/internal-markers.sh" "$d/b/CLAUDE.md")" "$loc: CLAUDE-MD-002" || rc=1
+  done
+  return "$rc"
+}
+
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
@@ -62,5 +89,6 @@ csa_test_run test_plaintext_secrets_detects_github_token    || _csa_failed=$((_c
 csa_test_run test_plaintext_secrets_negative_clean_content  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_internal_markers_detects_confidential     || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_internal_markers_negative_clean_content   || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_claude_md_rules_read_a_file_grep_calls_binary || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1
