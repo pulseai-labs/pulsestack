@@ -94,7 +94,6 @@ test_e2e_apply_fix_records_in_state() {
   printf '# My project\nCSA_E2E_SENTINEL remove me\n' > "$project/CLAUDE.md"
 
   _write_synthetic_rule "$rules_dir"
-  local rule_path="$rules_dir/test/TEST-AUTO.sh"
 
   export CSA_PROJECT_ROOT="$project"
   csa_state_init "$project"
@@ -114,13 +113,9 @@ test_e2e_apply_fix_records_in_state() {
 
   csa_state_record_audit "$project" 1 ".claude/audits/run-1.md" "$findings_content" >/dev/null 2>&1
 
-  # Patch state to embed rule_path so apply-fix can locate the synthetic rule.
+  # apply-fix finds the synthetic rule by its RULE_ID in the same rules dir the scan used.
   local state_file; state_file="$(csa_state_path "$project")"
-  jq --arg fuid "$fuid" --arg rp "$rule_path" \
-    '.findings[$fuid].rule_path = $rp' \
-    "$state_file" > "$scratch/state_patched.json" && mv "$scratch/state_patched.json" "$state_file"
-
-  csa_apply_run "$project" "$fuid" >/dev/null 2>&1
+  CSA_RULES_DIR="$rules_dir" csa_apply_run "$project" "$fuid" >/dev/null 2>&1
   local apply_ec=$?
   [[ "$apply_ec" -eq 0 ]] || { printf '    csa_apply_run failed with ec=%d\n' "$apply_ec" >&2; return 1; }
 

@@ -13,7 +13,8 @@ trap 'rm -rf "$_CSA_TMP"' EXIT
 # ---------------------------------------------------------------------------
 # Helper: set up a tmp project with a rule and a finding in state.
 # _setup_apply_fixture <tmp> <rule_id> <auto> <mech> <target_rel>
-# Sets FIXTURE_FUID and FIXTURE_RULE_PATH in caller scope (via stdout trick).
+# Sets FIXTURE_FUID and FIXTURE_RULE_PATH in caller scope. The rule is found by its RULE_ID under <tmp>/rules
+# (_apply); the registry entry holds no rule path, as membrane writes it.
 # ---------------------------------------------------------------------------
 _setup_apply_fixture() {
   local tmp="$1"; local rule_id="$2"; local auto="$3"; local mech="$4"; local target_rel="$5"
@@ -57,7 +58,6 @@ RULEEOF
     --arg rid "$rule_id" \
     --arg f "$target_rel" \
     --arg disp "SA-X-001" \
-    --arg rp "$tmp/rules/test/${rule_id}.sh" \
     '.findings[$fuid] = {
       rule_id: $rid,
       severity: "low",
@@ -66,8 +66,7 @@ RULEEOF
       last_seen: "2026-01-01T00:00:00Z",
       seen_in_runs: 1,
       last_run_index: 1,
-      last_display_id: $disp,
-      rule_path: $rp
+      last_display_id: $disp
     } | .audit_history = [{run_index: 1, focus: "all"}]' \
     "$state_path" > "$state_path.tmp" && mv "$state_path.tmp" "$state_path"
 
@@ -75,6 +74,9 @@ RULEEOF
   FIXTURE_FUID="$fuid"
   FIXTURE_RULE_PATH="$tmp/rules/test/${rule_id}.sh"
 }
+
+# _apply <tmp> <id> — csa_apply_run on <tmp>/project with <tmp>/rules as the shipped rules dir.
+_apply() { CSA_RULES_DIR="$1/rules" csa_apply_run "$1/project" "$2"; }
 
 # ---------------------------------------------------------------------------
 # 1. success — valid rule, both flags true, fix() writes FIXED
@@ -85,7 +87,7 @@ test_success() {
   _setup_apply_fixture "$tmp" "TEST-001" "true" "true" ".gitignore"
 
   local out
-  out="$(csa_apply_run "$tmp/project" "FUID-test1234" 2>&1)"
+  out="$(_apply "$tmp" "FUID-test1234" 2>&1)"
   local ec=$?
 
   [[ "$ec" -eq 0 ]] || { printf '    expected exit 0, got %d. out=%s\n' "$ec" "$out" >&2; return 1; }
@@ -111,7 +113,7 @@ test_finding_not_found() {
   mkdir -p "$tmp/project/.claude/audits"
   csa_state_init "$tmp/project"
 
-  local err_out; err_out="$(csa_apply_run "$tmp/project" "FUID-bogus" 2>&1)"
+  local err_out; err_out="$(_apply "$tmp" "FUID-bogus" 2>&1)"
   local ec=$?
 
   [[ "$ec" -ne 0 ]] || { printf '    expected non-zero exit\n' >&2; return 1; }
@@ -126,7 +128,7 @@ test_auto_false_refuses() {
   mkdir -p "$tmp"
   _setup_apply_fixture "$tmp" "TEST-003" "false" "true" ".gitignore"
 
-  local err_out; err_out="$(csa_apply_run "$tmp/project" "FUID-test1234" 2>&1)"
+  local err_out; err_out="$(_apply "$tmp" "FUID-test1234" 2>&1)"
   local ec=$?
 
   [[ "$ec" -ne 0 ]] || { printf '    expected non-zero exit for AUTO=false\n' >&2; return 1; }
@@ -145,7 +147,7 @@ test_mech_false_refuses() {
   mkdir -p "$tmp"
   _setup_apply_fixture "$tmp" "TEST-004" "true" "false" ".gitignore"
 
-  local err_out; err_out="$(csa_apply_run "$tmp/project" "FUID-test1234" 2>&1)"
+  local err_out; err_out="$(_apply "$tmp" "FUID-test1234" 2>&1)"
   local ec=$?
 
   [[ "$ec" -ne 0 ]] || { printf '    expected non-zero exit for MECH=false\n' >&2; return 1; }
@@ -164,7 +166,7 @@ test_target_outside_allowlist_refuses() {
   mkdir -p "$tmp"
   _setup_apply_fixture "$tmp" "TEST-005" "true" "true" ".claude/hooks-handlers/x.sh"
 
-  local err_out; err_out="$(csa_apply_run "$tmp/project" "FUID-test1234" 2>&1)"
+  local err_out; err_out="$(_apply "$tmp" "FUID-test1234" 2>&1)"
   local ec=$?
 
   [[ "$ec" -ne 0 ]] || { printf '    expected non-zero exit for disallowed target\n' >&2; return 1; }
@@ -198,7 +200,6 @@ EOF
   local state_path; state_path="$(csa_state_path "$tmp/project")"
   jq \
     --arg fuid "$fuid" \
-    --arg rp "$tmp/rules/test/TEST-006.sh" \
     '.findings[$fuid] = {
       rule_id: "TEST-006",
       severity: "low",
@@ -207,12 +208,11 @@ EOF
       last_seen: "2026-01-01T00:00:00Z",
       seen_in_runs: 1,
       last_run_index: 1,
-      last_display_id: "SA-X-001",
-      rule_path: $rp
+      last_display_id: "SA-X-001"
     }' \
     "$state_path" > "$state_path.tmp" && mv "$state_path.tmp" "$state_path"
 
-  local err_out; err_out="$(csa_apply_run "$tmp/project" "$fuid" 2>&1)"
+  local err_out; err_out="$(_apply "$tmp" "$fuid" 2>&1)"
   local ec=$?
 
   [[ "$ec" -ne 0 ]] || { printf '    expected non-zero exit when fix() fails\n' >&2; return 1; }
@@ -234,12 +234,12 @@ test_double_apply_refused() {
   _setup_apply_fixture "$tmp" "TEST-007" "true" "true" ".gitignore"
 
   # First apply should succeed.
-  csa_apply_run "$tmp/project" "FUID-test1234" >/dev/null 2>&1
+  _apply "$tmp" "FUID-test1234" >/dev/null 2>&1
   local ec1=$?
   [[ "$ec1" -eq 0 ]] || { printf '    first apply must succeed (got %d)\n' "$ec1" >&2; return 1; }
 
   # Second apply must be refused.
-  local err_out; err_out="$(csa_apply_run "$tmp/project" "FUID-test1234" 2>&1)"
+  local err_out; err_out="$(_apply "$tmp" "FUID-test1234" 2>&1)"
   local ec2=$?
   [[ "$ec2" -ne 0 ]] || { printf '    second apply must be refused\n' >&2; return 1; }
   assert_contains "$err_out" "already" "stderr must mention already" || return 1
@@ -274,7 +274,6 @@ EOF
   local state_path; state_path="$(csa_state_path "$tmp/project")"
   jq \
     --arg fuid "$fuid" \
-    --arg rp "$tmp/rules/test/TEST-008.sh" \
     '.findings[$fuid] = {
       rule_id: "TEST-008",
       severity: "low",
@@ -283,8 +282,7 @@ EOF
       last_seen: "2026-01-01T00:00:00Z",
       seen_in_runs: 1,
       last_run_index: 1,
-      last_display_id: "SA-X-001",
-      rule_path: $rp
+      last_display_id: "SA-X-001"
     }' \
     "$state_path" > "$state_path.tmp" && mv "$state_path.tmp" "$state_path"
 
@@ -301,10 +299,12 @@ fix() {
 EOF
 
   # apply_run must re-validate and REFUSE.
-  local err_out; err_out="$(csa_apply_run "$tmp/project" "$fuid" 2>&1)"
+  local err_out; err_out="$(_apply "$tmp" "$fuid" 2>&1)"
   local ec=$?
 
   [[ "$ec" -ne 0 ]] || { printf '    T2-H: expected non-zero exit after rule swap AUTO→false\n' >&2; return 1; }
+  # Refused for the swap itself: the rule was found, re-read, and its AUTO flag is false.
+  assert_contains "$err_out" 'RULE_AUTO_FIXABLE="false"' "refused on the swapped AUTO flag" || return 1
 
   # Target must NOT have been written (fix should never have run).
   local content; content="$(cat "$tmp/project/.gitignore" 2>/dev/null || true)"
@@ -347,7 +347,6 @@ EOF
   local state_path; state_path="$(csa_state_path "$tmp/project")"
   jq \
     --arg fuid "$fuid" \
-    --arg rp "$tmp/rules/test/TEST-009.sh" \
     '.findings[$fuid] = {
       rule_id: "TEST-009",
       severity: "low",
@@ -356,12 +355,11 @@ EOF
       last_seen: "2026-01-01T00:00:00Z",
       seen_in_runs: 1,
       last_run_index: 1,
-      last_display_id: "SA-X-001",
-      rule_path: $rp
+      last_display_id: "SA-X-001"
     }' \
     "$state_path" > "$state_path.tmp" && mv "$state_path.tmp" "$state_path"
 
-  local err_out; err_out="$(csa_apply_run "$tmp/project" "$fuid" 2>&1)"
+  local err_out; err_out="$(_apply "$tmp" "$fuid" 2>&1)"
   local ec=$?
 
   [[ "$ec" -ne 0 ]] || { printf '    T2-H: expected non-zero exit for symlink target\n' >&2; return 1; }
@@ -407,7 +405,6 @@ EOF
   local state_path; state_path="$(csa_state_path "$tmp/project")"
   jq \
     --arg fuid "$fuid" \
-    --arg rp "$tmp/rules/test/TEST-010.sh" \
     --arg traversal "$traversal_path" \
     '.findings[$fuid] = {
       rule_id: "TEST-010",
@@ -417,12 +414,11 @@ EOF
       last_seen: "2026-01-01T00:00:00Z",
       seen_in_runs: 1,
       last_run_index: 1,
-      last_display_id: "SA-X-001",
-      rule_path: $rp
+      last_display_id: "SA-X-001"
     }' \
     "$state_path" > "$state_path.tmp" && mv "$state_path.tmp" "$state_path"
 
-  local err_out; err_out="$(csa_apply_run "$tmp/project" "$fuid" 2>&1)"
+  local err_out; err_out="$(_apply "$tmp" "$fuid" 2>&1)"
   local ec=$?
 
   [[ "$ec" -ne 0 ]] || { printf '    T2-H: expected non-zero exit for path traversal\n' >&2; return 1; }
@@ -452,12 +448,135 @@ test_display_id_resolves() {
   # FUID-test1234 has last_display_id="SA-X-001" (set by _setup_apply_fixture).
 
   local out
-  out="$(csa_apply_run "$tmp/project" "SA-X-001" 2>&1)"
+  out="$(_apply "$tmp" "SA-X-001" 2>&1)"
   local ec=$?
 
   [[ "$ec" -eq 0 ]] || { printf '    display_id resolve must succeed (got %d). out=%s\n' "$ec" "$out" >&2; return 1; }
   assert_contains "$out" "Applied" "stdout must contain Applied" || return 1
   assert_contains "$out" "FUID-test1234" "stdout must contain the resolved FUID" || return 1
+}
+
+# ---------------------------------------------------------------------------
+# 12. The rule is found by its RULE_ID among the shipped rules, never by a path in state.json
+# ---------------------------------------------------------------------------
+
+# _seed_entry <project> <fuid> <json-object> — state.json with one registry entry of recorded run 1.
+_seed_entry() {
+  csa_state_init "$1"
+  local sp; sp="$(csa_state_path "$1")"
+  jq --arg fuid "$2" --argjson e "$3" \
+    '.findings[$fuid] = ({severity: "low", first_seen: "2026-01-01T00:00:00Z", last_seen: "2026-01-01T00:00:00Z",
+       seen_in_runs: 1, last_run_index: 1, last_display_id: "SA-X-001"} + $e) | .audit_history = [{run_index: 1, focus: "all"}]' \
+    "$sp" > "$sp.tmp" && mv "$sp.tmp" "$sp"
+}
+
+# A registry entry whose rule_path names a file outside the shipped rules is never sourced, through bin/csa, by uid
+# and by display id: the marker that file's top-level code would write stays absent and the call exits non-zero.
+# With a shipped rule_id the refusal is that rule's own (PERM-002 is not mechanically fixable); with an unknown
+# rule_id it is "no shipped rule".
+test_forged_rule_path_is_never_sourced() {
+  local tmp="$_CSA_TMP/t12" rid id out rc
+  mkdir -p "$tmp/project"; touch "$tmp/project/.gitignore"
+  printf 'printf "top-level\\n" >> %q\nRULE_AUTO_FIXABLE="false"\n' "$tmp/MARKER" > "$tmp/evil.sh"
+  for rid in PERM-002 NO-SUCH-001; do
+    _seed_entry "$tmp/project" FUID-0000beef "$(jq -nc --arg r "$rid" --arg p "$tmp/evil.sh" '{rule_id: $r, file: ".gitignore", rule_path: $p}')"
+    for id in FUID-0000beef SA-X-001; do
+      rc=0; out="$(cd "$tmp/project" && HOME="$tmp/home" "$CSA_PLUGIN_ROOT/bin/csa" apply_run "$tmp/project" "$id" 2>&1)" || rc=$?
+      [[ "$rc" -ne 0 ]] || { printf '    %s/%s: expected a refusal, got rc 0: %s\n' "$rid" "$id" "$out" >&2; return 1; }
+      [[ ! -e "$tmp/MARKER" ]] || { printf '    %s/%s: the rule_path file was sourced: %s\n' "$rid" "$id" "$(cat "$tmp/MARKER")" >&2; return 1; }
+      case "$rid" in
+        PERM-002) assert_contains "$out" 'RULE_MECHANICALLY_FIXABLE="false"' "$id: refused for the shipped rule's own reason" || return 1 ;;
+        *) assert_contains "$out" "No shipped rule has rule_id=NO-SUCH-001" "$id: refused as no shipped rule" || return 1 ;;
+      esac
+    done
+  done
+}
+
+# A forged rule_path file that declares both flags true and defines fix() is not sourced and its fix() never runs:
+# rc non-zero, no marker, the target unchanged, and nothing logged in applied_fixes.
+test_forged_rule_path_with_both_flags_and_fix_never_runs() {
+  local tmp="$_CSA_TMP/t13" out rc=0
+  mkdir -p "$tmp/project"; printf 'keep\n' > "$tmp/project/.gitignore"
+  cat > "$tmp/evil.sh" <<EOF
+printf 'top-level\n' >> $(printf '%q' "$tmp/MARKER")
+RULE_ID="TEST-FORGED-001"
+RULE_AUTO_FIXABLE="true"
+RULE_MECHANICALLY_FIXABLE="true"
+fix() { printf 'fix(%s)\n' "\$1" >> $(printf '%q' "$tmp/MARKER"); }
+EOF
+  _seed_entry "$tmp/project" FUID-0000beef "$(jq -nc --arg p "$tmp/evil.sh" '{rule_id: "TEST-FORGED-001", file: ".gitignore", rule_path: $p}')"
+  out="$(cd "$tmp/project" && HOME="$tmp/home" "$CSA_PLUGIN_ROOT/bin/csa" apply_run "$tmp/project" FUID-0000beef 2>&1)" || rc=$?
+  [[ "$rc" -ne 0 ]] || { printf '    expected a refusal, got rc 0: %s\n' "$out" >&2; return 1; }
+  [[ ! -e "$tmp/MARKER" ]] || { printf '    the forged file ran: %s\n' "$(cat "$tmp/MARKER")" >&2; return 1; }
+  assert_eq "keep" "$(cat "$tmp/project/.gitignore")" "the target is unchanged" || return 1
+  assert_eq "0" "$(jq '.applied_fixes | length' "$(csa_state_path "$tmp/project")")" "nothing is logged" || return 1
+}
+
+# The registry's rule_id is compared whole against each rule file's RULE_ID line: a glob (`*`) and a prefix of a
+# fixable rule's id (TEST-00 for TEST-001) are refused, and the target is not written.
+test_rule_id_glob_or_prefix_is_refused() {
+  local tmp rid sp n=0
+  for rid in '*' 'TEST-00' 'TEST-0?1'; do
+    n=$((n + 1)); tmp="$_CSA_TMP/t14-$n"; mkdir -p "$tmp"
+    _setup_apply_fixture "$tmp" "TEST-001" "true" "true" ".gitignore"
+    sp="$(csa_state_path "$tmp/project")"
+    jq --arg r "$rid" '.findings["FUID-test1234"].rule_id = $r' "$sp" > "$sp.tmp" && mv "$sp.tmp" "$sp"
+    local out rc=0; out="$(_apply "$tmp" FUID-test1234 2>&1)" || rc=$?
+    [[ "$rc" -ne 0 ]] || { printf '    rule_id %s: expected a refusal, got rc 0: %s\n' "$rid" "$out" >&2; return 1; }
+    assert_contains "$out" "No shipped rule has rule_id=" "rule_id $rid: no shipped rule" || return 1
+    assert_eq "" "$(cat "$tmp/project/.gitignore")" "rule_id $rid: the target is not written" || return 1
+  done
+}
+
+# A rule whose file name is a slug and whose id has two words before its number (the shape of PROMPT-INJ-001) is
+# found by its RULE_ID line and applied.
+test_slug_named_two_segment_rule_resolves() {
+  local tmp="$_CSA_TMP/t15"
+  mkdir -p "$tmp/project" "$tmp/rules/test"; touch "$tmp/project/.gitignore"
+  printf '%s\n' 'RULE_ID="TEST-TWO-001"' 'RULE_AUTO_FIXABLE="true"' 'RULE_MECHANICALLY_FIXABLE="true"' \
+    'fix() { printf '"'"'FIXED\n'"'"' > "$1"; }' > "$tmp/rules/test/two-segment-slug.sh"
+  _seed_entry "$tmp/project" FUID-test1234 '{"rule_id":"TEST-TWO-001","file":".gitignore"}'
+  local out rc=0; out="$(_apply "$tmp" FUID-test1234 2>&1)" || rc=$?
+  assert_eq "0" "$rc" "applied: $out" || return 1
+  assert_eq "FIXED" "$(cat "$tmp/project/.gitignore")" "the slug-named rule's fix ran" || return 1
+}
+
+# Two rule files that declare the same RULE_ID resolve to neither, and a rule file that is a symlink is not a shipped
+# rule: both are refused and the target is not written. Control: the same rule as a regular file applies.
+test_duplicate_or_symlinked_rule_is_refused() {
+  local tmp="$_CSA_TMP/t16" body out rc
+  body="$(printf '%s\n' 'RULE_AUTO_FIXABLE="true"' 'RULE_MECHANICALLY_FIXABLE="true"' 'fix() { printf '"'"'FIXED\n'"'"' > "$1"; }')"
+  mkdir -p "$tmp/project" "$tmp/rules/a" "$tmp/rules/b" "$tmp/elsewhere"; touch "$tmp/project/.gitignore"
+  printf 'RULE_ID="TEST-DUP-001"\n%s\n' "$body" > "$tmp/rules/a/one.sh"
+  printf 'RULE_ID="TEST-DUP-001"\n%s\n' "$body" > "$tmp/rules/b/two.sh"
+  printf 'RULE_ID="TEST-LNK-001"\n%s\n' "$body" > "$tmp/elsewhere/real.sh"
+  ln -s ../../elsewhere/real.sh "$tmp/rules/a/link.sh"
+  local rid
+  for rid in TEST-DUP-001 TEST-LNK-001; do
+    _seed_entry "$tmp/project" FUID-test1234 "$(jq -nc --arg r "$rid" '{rule_id: $r, file: ".gitignore"}')"
+    rc=0; out="$(_apply "$tmp" FUID-test1234 2>&1)" || rc=$?
+    [[ "$rc" -ne 0 ]] || { printf '    %s: expected a refusal, got rc 0\n' "$rid" >&2; return 1; }
+    assert_contains "$out" "No shipped rule has rule_id=$rid" "$rid: refused" || return 1
+    assert_eq "" "$(cat "$tmp/project/.gitignore")" "$rid: the target is not written" || return 1
+  done
+  rm "$tmp/rules/a/link.sh"; cp "$tmp/elsewhere/real.sh" "$tmp/rules/a/real.sh"
+  rc=0; out="$(_apply "$tmp" FUID-test1234 2>&1)" || rc=$?
+  assert_eq "0" "$rc" "control: a regular rule file applies: $out" || return 1
+}
+
+# A registry entry whose file is an absolute path under a project root holding glob characters (`[`, `\`) is
+# placed inside that root, so the allowlisted target applies.
+test_absolute_target_under_a_glob_bearing_root_applies() {
+  local name tmp out rc
+  for name in 'p[r]j' 'p\rj'; do
+    tmp="$_CSA_TMP/t17/$name"; mkdir -p "$tmp"
+    _setup_apply_fixture "$tmp" "TEST-017" "true" "true" ".gitignore"
+    local sp; sp="$(csa_state_path "$tmp/project")"
+    jq --arg f "$tmp/project/.gitignore" '.findings["FUID-test1234"].file = $f' "$sp" > "$sp.tmp" && mv "$sp.tmp" "$sp"
+    rc=0; out="$(_apply "$tmp" FUID-test1234 2>&1)" || rc=$?
+    assert_eq "0" "$rc" "root $name: applied: $out" || return 1
+    assert_eq "FIXED" "$(cat "$tmp/project/.gitignore")" "root $name: the target was written" || return 1
+  done
 }
 
 # ---------------------------------------------------------------------------
@@ -474,5 +593,11 @@ csa_test_run test_t2h_malicious_rule_lies_about_auto   || _csa_failed=$((_csa_fa
 csa_test_run test_t2h_symlink_target_refused           || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_t2h_path_traversal_refused           || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_display_id_resolves                  || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_forged_rule_path_is_never_sourced    || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_forged_rule_path_with_both_flags_and_fix_never_runs || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_rule_id_glob_or_prefix_is_refused     || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_slug_named_two_segment_rule_resolves  || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_duplicate_or_symlinked_rule_is_refused || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_absolute_target_under_a_glob_bearing_root_applies || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

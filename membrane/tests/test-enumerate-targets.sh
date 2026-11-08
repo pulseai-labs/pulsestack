@@ -169,8 +169,9 @@ test_enum_dotted_executable_hook_handler() {
 }
 
 # 9c. Handler code under .claude/hooks/ is a target whatever its mode: .mjs, .cjs, .tsx, .jsx, .mts and .cts, at any
-# depth, each exactly once (an executable one too); a file with one of those suffixes elsewhere under .claude/ and a
-# non-executable file with another suffix stay out.
+# depth, each exactly once (an executable one too). A file with one of those suffixes elsewhere under .claude/ is a
+# target once too (the secrets rules read it), and the hooks rules do not read it; a non-executable file with
+# another suffix stays out.
 test_enum_hook_code_suffixes_whatever_the_mode() {
   local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-hooks.XXXXXX")"
   local hooks="$fixture/.claude/hooks" s f n rc=0
@@ -186,7 +187,14 @@ test_enum_hook_code_suffixes_whatever_the_mode() {
     n="$(printf '%s\n' "$out" | awk -v p="$f" '$0 == p { c++ } END { print c + 0 }')"
     assert_eq "1" "$n" "$f is enumerated exactly once" || rc=1
   done
-  [[ "$out" != *"$fixture/.claude/other.mjs"* ]] || { printf '    a .mjs outside .claude/hooks/ was enumerated\n' >&2; rc=1; }
+  n="$(printf '%s\n' "$out" | awk -v p="$fixture/.claude/other.mjs" '$0 == p { c++ } END { print c + 0 }')"
+  assert_eq "1" "$n" "a .mjs outside .claude/hooks/ is enumerated exactly once" || rc=1
+  if ( source "$CSA_LIB_DIR/rule-engine.sh"; _csa_target_matches_aspect "$fixture/.claude/other.mjs" hooks ); then
+    printf '    the hooks aspect reads a .mjs outside .claude/hooks/\n' >&2; rc=1
+  fi
+  # Control: the same check passes an executable handler under .claude/hooks/.
+  ( source "$CSA_LIB_DIR/rule-engine.sh"; _csa_target_matches_aspect "$hooks/run.mjs" hooks ) \
+    || { printf '    control: the hooks aspect refused .claude/hooks/run.mjs\n' >&2; rc=1; }
   [[ "$out" != *"$hooks/notes.txt"* ]] || { printf '    a non-executable .txt was enumerated\n' >&2; rc=1; }
   rm -rf "$fixture"
   return "$rc"

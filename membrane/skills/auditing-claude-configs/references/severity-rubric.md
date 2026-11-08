@@ -4,7 +4,7 @@ Distilled from SPEC §9.3. Each rule declares severity statically; chat-summary 
 
 ## Scanner findings
 
-The scanner reports its own failures as findings, not as a clean read. SCANNER-001: a rule failed to load (High). SCANNER-002: a rule's check failed on a target, for example a settings file that is not JSON (High). SCANNER-003: the scan could not read a target (Medium; one per target, for a scan whose rules would have read it, and it does not count toward the "rule(s) failed" banner).
+The scanner reports its own failures as findings, not as a clean read. SCANNER-001: a rule failed to load (High). SCANNER-002: a rule's check failed on a target, for example a settings file that is not JSON (High). SCANNER-003: the scan could not read a target (Medium; one per target, for a scan whose rules would have read it, and it does not count toward the "rule(s) failed" banner), or a directory of an enabled plugin or below the project's `.claude/` other than `.claude/audits/` (not scanned) and `.claude/hooks/` (one per directory, naming the plugin when there is one; nothing below it was listed). An unreadable directory under `.claude/hooks/` still refuses the audit.
 
 ## Tiers (5 static)
 
