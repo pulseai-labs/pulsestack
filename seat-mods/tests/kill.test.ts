@@ -149,6 +149,7 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ["fish -c 'time while kill -1; end'", "fish -c 'time while kill 123; end'"],
   ['time -p ! kill -1', 'time -p ! kill 123'],
   ['time -- ! kill -1', 'time -- ! kill 123'],
+  ['time -p -- ! kill -1', 'time -p -- ! kill 123'],
   ['time time ! kill -1', 'time time ! kill 123'],
   ['time ! time ! kill -1', 'time ! time ! kill 123'],
   // the other kill rules are read behind it too
@@ -395,6 +396,8 @@ const ALLOW: readonly string[] = [
   // `time` is reserved only unquoted at a command's head, and takes one `-p`: in each of these the word after the wrapper
   // is a program name (`!`, `-p`), so the kill is its argument and nothing is signalled
   'A=1 time ! kill -1', 'nohup ! kill -1', "'time' ! kill -1", 'time -p -p ! kill -1', 'xargs time ! kill -1',
+  // `--` ends time's options, so a `-p` after it is the program's name
+  'time -- -p ! kill -1',
   // a harmless command behind the reserved `time`, and the time program's own options before one
   'time ! true', 'time -f %e ! kill 123',
   // 0.14.2 (#1109): the same shapes with a harmless string; and after a bare - the next word is the string in every shell
