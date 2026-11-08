@@ -37,8 +37,9 @@ detect() {
   hits="$(LC_ALL=C grep -anE 'sk-ant-api03-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|gh[psorau]_[A-Za-z0-9]{36,}|AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' "$target_file" 2>/dev/null)" || grc=$?
   [[ "$grc" -le 1 ]] || [[ -n "$hits" ]] || return 2
   [[ -n "$hits" ]] || return 0
+  # LC_ALL=C on read only: in a UTF-8 locale, bash 5.2 joins a line that ends in an invalid byte to the next.
   printf '%s\n' "$hits" \
-    | while IFS=: read -r line_no match; do
+    | while LC_ALL=C IFS=: read -r line_no match; do
         local preview; preview="$(csa_redact "$match")"
         local fuid; fuid="$(csa_finding_uid_raw "$RULE_ID" "$target_file" "$match")"
         jq -nc \

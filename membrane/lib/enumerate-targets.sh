@@ -314,8 +314,9 @@ _csa_enum_record_lookup() {
   fi
   # `input` (not `.`) so an empty file is an error, not an empty answer. A row is its three fields joined by a tab,
   # raw, so a `\` in a path survives (`@tsv` writes it `\\`). A row whose field holds a tab, newline or CR keeps
-  # `@tsv`'s escaped form, so it cannot split into extra rows or fields; its path then names no directory and is
-  # refused as before (_csa_enum_guard_dir refuses a tab or newline in any case).
+  # `@tsv`'s escaped form, so it cannot split into extra rows or fields; its path then names the directory with that
+  # escaped name (`\t` as two characters), as before, and is refused when none exists. _csa_enum_guard_dir refuses a
+  # real tab or newline in any case.
   rows="$(jq -n -r --arg k "$key" 'input |
     if (.plugins | type) != "object" then error("no plugins object")
     elif ((.plugins[$k] // []) | type) != "array" then error("entry is not a list")

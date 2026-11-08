@@ -216,7 +216,7 @@ csa_apply_run() {
   local display_id; display_id="$(printf '%s' "$finding_json" | jq -r '.last_display_id // empty')"
   local target_rel; target_rel="$(printf '%s' "$finding_json" | jq -r '.file // empty')"
 
-  # The audit trail must be a list (absent or null reads as empty), or no entry can be written: refuse before the
+  # The audit trail must be a list (absent, null or false reads as empty), or no entry can be written: refuse before the
   # double-apply guard reads it and before fix() can run (#1156).
   if ! printf '%s' "$state_json" | jq -e '(.applied_fixes // []) | type == "array"' >/dev/null 2>&1; then
     printf 'ERROR: state.json applied_fixes is not a list; refusing, because the audit trail cannot be written\n' >&2

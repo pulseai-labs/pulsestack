@@ -79,8 +79,9 @@ detect() {
   filtered="$(printf '%s\n' "$hits" | LC_ALL=C grep -avE '(sha256:|sha1:|md5:)')" || true
   kept="$(printf '%s\n' "$filtered" | _csa_b64_drop_skipped_lines)" || kept="$filtered"
   [[ -n "$kept" ]] || return 0
+  # LC_ALL=C on read only: in a UTF-8 locale, bash 5.2 joins a line that ends in an invalid byte to the next.
   printf '%s\n' "$kept" \
-    | while IFS=: read -r line_no match; do
+    | while LC_ALL=C IFS=: read -r line_no match; do
         local preview; preview="$(csa_redact "$match")"
         local fuid; fuid="$(csa_finding_uid_raw "$RULE_ID" "$target_file" "$match")"
         jq -nc \

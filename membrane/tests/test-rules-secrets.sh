@@ -190,6 +190,9 @@ _lines_under() {
 # and SECRETS-004 report a secret on a line that also holds Latin-1 text (`café` with \xe9), in a UTF-8 locale and in C
 # alike. Matching is byte-wise: a UTF-8 em space between a name and `=` is not a space, so SECRETS-003 does not fire
 # on it in any locale (it fired only in a UTF-8 locale before), beside the same line with an ASCII space, which does.
+# SECRETS-003 counts a non-ASCII byte as a value byte: a UTF-8 or Latin-1 `Müllerpass1234` and an em space after
+# `= ` fire, and two CJK letters (6 bytes) stay under the 12-byte floor. SECRETS-004 keeps a hex-only run only beside
+# an ASCII credential word: `TOKEN=` keeps it, and `TO<Kelvin sign>EN=` does not, in a UTF-8 locale too.
 test_secrets_read_a_file_grep_calls_binary() {
   local loc rc=0 d="$_tmp/binary-bytes" u row rule f want got
   u="$(_utf8_locale)"
@@ -200,7 +203,13 @@ test_secrets_read_a_file_grep_calls_binary() {
   printf '# \000\nauth: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c\n' > "$d/jwt-nul.md"
   printf '# \000\nAPI_KEY=abcdefghijklmnopqrstuvwxyz123456\n'                              > "$d/env-nul.sh"
   printf 'API_KEY=abcdefghijklmnopqrstuvwxyz123456 # caf\351\n'                            > "$d/env-latin1.sh"
-  printf 'TOKEN =\342\200\203abcdefghijklmnop\n'                                           > "$d/env-emspace.sh"
+  printf 'TOKEN\342\200\203=abcdefghijklmnop\n'                                            > "$d/env-emspace.sh"
+  printf 'TOKEN =\342\200\203abcdefghijklmnop\n'                                           > "$d/env-emspace-value.sh"
+  printf 'PASSWORD=M\303\274llerpass1234\n'                                                 > "$d/env-utf8-value.sh"
+  printf 'PASSWORD=M\374llerpass123\n'                                                       > "$d/env-latin1-value.sh"
+  printf 'TOKEN=\346\227\245\346\234\254\n'                                                    > "$d/env-short-utf8.sh"
+  printf 'TO\342\204\252EN=0123456789abcdef0123456789abcdef0123456789abcdef\n'               > "$d/b64-kelvin.txt"
+  printf 'TOKEN=0123456789abcdef0123456789abcdef0123456789abcdef\n'                         > "$d/b64-token-hex.txt"
   printf 'TOKEN = abcdefghijklmnop\n'                                                      > "$d/env-space.sh"
   printf '# \000\ncredential=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY\n'                > "$d/b64-nul.txt"
   printf 'caf\351 credential=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY\n'                > "$d/b64-latin1.txt"
@@ -208,6 +217,8 @@ test_secrets_read_a_file_grep_calls_binary() {
   for loc in ${u:+"$u"} C; do
     for row in 'api-keys key-nul.json 2' 'api-keys key-latin1.md 1' 'jwt jwt-nul.md 2' 'env-var-leak env-nul.sh 2' \
       'env-var-leak env-latin1.sh 1' 'env-var-leak env-emspace.sh -' 'env-var-leak env-space.sh 1' \
+      'env-var-leak env-emspace-value.sh 1' 'env-var-leak env-utf8-value.sh 1' 'env-var-leak env-latin1-value.sh 1' \
+      'env-var-leak env-short-utf8.sh -' 'base64-credentials b64-kelvin.txt -' 'base64-credentials b64-token-hex.txt 1' \
       'base64-credentials b64-nul.txt 2' 'base64-credentials b64-latin1.txt 1' \
       'base64-credentials b64-latin1-first.txt 1,2'; do
       read -r rule f want <<< "$row"
