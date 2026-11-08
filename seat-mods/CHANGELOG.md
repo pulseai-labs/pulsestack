@@ -2,6 +2,17 @@
 
 All notable changes to the `seat-mods` plugin.
 
+## 0.15.4 — 2026-11-09
+
+The kill rail reads a head word after the reserved `time` (#1139). The rail took `time` as a wrapper and named the next word as the command, so in `time ! kill -1`, `time if kill -1; then :; fi` and `fish -c 'time while kill -1; end'` it named `!`, `if` or `while` and read no kill: the call went to the model as if the rail were absent. Behind the same miss sat every other kill rule (`ps aux; time ! kill 123`, `time ! pkill -u dev`), at top level, in a shell or fish string, in `eval '…'` and in an OMP `eval` literal. bash 5.3, zsh 5.9, dash and fish 4.2.1 were probed with harmless strings only.
+
+- The reserved `time` is taken off a command's head only when a head word (`if`, `then`, `elif`, `else`, `do`, `while`, `until`, `!`, `{`, `(`) or another `time` follows it, after one `-p` and then one `--`, as bash reads them, and again after each head word it uses (`time -p ! kill -1`, `time -- ! kill -1`, `time time ! kill -1`, `time ! time ! kill -1`). Any other `time` stays the time program with its options (`time -f %e kill -9 -1`, `time -p kill -1`), read as before.
+- No other wrapper changes. Only the reserved `time` takes a pipeline, so a head word after `A=1 time`, `'time'`, `/usr/bin/time`, `time -p -p`, `nohup`, `env`, `sudo` or `xargs time` names a program, which the shell runs and which does not exist: `A=1 time ! kill -1`, `nohup ! kill -1` and `xargs time ! kill -1` stay allowed.
+- Deliberate false stops: `\time ! kill -1`, since the reader takes `\time` as `time`, though the shell runs the time program; `time then kill -1` and the like, which bash rejects; `-p` or `--` after `time` under zsh and fish, which take neither (`zsh -c 'time -p ! kill -1'`); and every one of these forms under dash, whose `time` is not reserved (`dash -c 'time ! kill -1'`). Each runs nothing.
+- No form the rail refused is now allowed: 0 of 1,760,248 commands on a differential grid of wrappers, head words, payloads and shell contexts loosened or newly throw, and the only benign payload that changes verdict sits behind `ps aux;`, where a call that lists and signals is meant to be refused.
+- The role-guard rails' `time -p <cmd>` known limit and the kill rail's `coproc` known limit are unchanged.
+- The omp-roles floor stays at seat-mods 0.14.0. Claude Code and OMP both read the same `killRule`, and omp needs no change.
+
 ## 0.15.3 — 2026-11-08
 
 The kill rail reads `fish` (#1127). fish was a name the rail did not read, so `fish -c 'kill -1'` went to the model as if the rail were absent. fish 4.2.1 was probed with harmless strings only.
