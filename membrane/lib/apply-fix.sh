@@ -296,8 +296,8 @@ csa_apply_run() {
   # We source the rule in a subshell that calls fix() and captures exit code. errexit is off around the subshell, so
   # a failing fix() under bin/csa's `set -e` reaches the failed mark below, and on inside it, so fix() stops at its
   # first failing command. Not `if ( … )`: bash ignores `set -e` inside a condition, subshell included. The caller's
-  # errexit is restored after. Limit: a caller that runs csa_apply_run itself inside `if`, `||` or `&&` still turns
-  # errexit off inside fix(); bin/csa and the skill do not.
+  # errexit is restored after. Limit: a caller that runs csa_apply_run itself inside an `if`, `while` or `until`
+  # condition, after `!`, or before `||` or `&&` still turns errexit off inside fix(); bin/csa and the skill do not.
   local fix_ec=0 _had_e=0
   [[ $- == *e* ]] && _had_e=1
   set +e

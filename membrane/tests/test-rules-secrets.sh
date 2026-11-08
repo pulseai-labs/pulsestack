@@ -186,8 +186,8 @@ _lines_under() {
   printf '%s' "${got:--}"
 }
 
-# Each secrets rule reports its secret on line 2 of a file whose line 1 holds a NUL byte, and SECRETS-001 and
-# SECRETS-003 report a secret on a line that also holds Latin-1 text (`café` with \xe9), in a UTF-8 locale and in C
+# Each secrets rule reports its secret on line 2 of a file whose line 1 holds a NUL byte, and SECRETS-001, SECRETS-003
+# and SECRETS-004 report a secret on a line that also holds Latin-1 text (`café` with \xe9), in a UTF-8 locale and in C
 # alike. Matching is byte-wise: a UTF-8 em space between a name and `=` is not a space, so SECRETS-003 does not fire
 # on it in any locale (it fired only in a UTF-8 locale before), beside the same line with an ASCII space, which does.
 test_secrets_read_a_file_grep_calls_binary() {
@@ -203,10 +203,13 @@ test_secrets_read_a_file_grep_calls_binary() {
   printf 'TOKEN =\342\200\203abcdefghijklmnop\n'                                           > "$d/env-emspace.sh"
   printf 'TOKEN = abcdefghijklmnop\n'                                                      > "$d/env-space.sh"
   printf '# \000\ncredential=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY\n'                > "$d/b64-nul.txt"
+  printf 'caf\351 credential=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY\n'                > "$d/b64-latin1.txt"
+  printf 'caf\351 credential=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY\ncredential=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY\n' > "$d/b64-latin1-first.txt"
   for loc in ${u:+"$u"} C; do
     for row in 'api-keys key-nul.json 2' 'api-keys key-latin1.md 1' 'jwt jwt-nul.md 2' 'env-var-leak env-nul.sh 2' \
       'env-var-leak env-latin1.sh 1' 'env-var-leak env-emspace.sh -' 'env-var-leak env-space.sh 1' \
-      'base64-credentials b64-nul.txt 2'; do
+      'base64-credentials b64-nul.txt 2' 'base64-credentials b64-latin1.txt 1' \
+      'base64-credentials b64-latin1-first.txt 1,2'; do
       read -r rule f want <<< "$row"
       got="$(_lines_under "$loc" "$CSA_RULES_DIR/secrets/$rule.sh" "$d/$f")"
       assert_eq "$want" "$got" "$loc: $rule on $f" || rc=1
