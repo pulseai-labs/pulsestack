@@ -192,6 +192,35 @@ test_enum_hook_code_suffixes_whatever_the_mode() {
   return "$rc"
 }
 
+# 9d. A .py .js .ts file under .claude/hooks/ whose name holds a tab is not a target, whatever its mode (no execute
+# bit, or a u, g or o one): it is one HOOK-005 line on stderr (the root's glob characters, p[r]j, matched literally).
+# A tab-named .sh there, executable or not, and a tab-named .py elsewhere under .claude/ are listed as before, with no
+# HOOK-005.
+test_enum_tab_named_hook_code_is_hook005() {
+  local tmp; tmp="$(mktemp -d "${TMPDIR:-/tmp}/csa-hooks.XXXXXX")"
+  local root="$tmp/p[r]j" t=$'\t' f rc=0 want=""
+  local hooks="$root/.claude/hooks"
+  mkdir -p "$hooks"
+  for f in "a${t}b.py" "c${t}d.js" "e${t}f.ts" "g${t}x.py" "j${t}x.js" "o${t}x.py" "t${t}x.ts" "u${t}x.py" \
+           "s${t}h.sh" "n${t}h.sh"; do printf 'x\n' > "$hooks/$f"; done
+  printf 'x\n' > "$root/.claude/x${t}y.py"
+  chmod 0700 "$hooks/u${t}x.py" "$hooks/j${t}x.js" "$hooks/t${t}x.ts" "$hooks/s${t}h.sh"
+  chmod 0610 "$hooks/g${t}x.py"; chmod 0601 "$hooks/o${t}x.py"
+  local out err; out="$(csa_enum_project_targets "$root" 2>"$tmp/err")"; err="$(cat "$tmp/err")"
+  for f in "a\\tb.py" "c\\td.js" "e\\tf.ts" "g\\tx.py" "j\\tx.js" "o\\tx.py" "t\\tx.ts" "u\\tx.py"; do
+    want="$want${want:+$'\n'}finding: HOOK-005${t}${t}$hooks/$f"
+  done
+  assert_eq "$want" "$(printf '%s\n' "$err" | grep '^finding:' | LC_ALL=C sort)" "one HOOK-005 line per code file" || rc=1
+  for f in "a${t}b.py" "c${t}d.js" "e${t}f.ts" "g${t}x.py" "j${t}x.js" "o${t}x.py" "t${t}x.ts" "u${t}x.py"; do
+    [[ "$out" != *"$hooks/$f"* ]] || { printf '    %s was listed\n' "$f" >&2; rc=1; }
+  done
+  for f in "$hooks/s${t}h.sh" "$hooks/n${t}h.sh" "$root/.claude/x${t}y.py"; do
+    assert_eq "1" "$(printf '%s\n' "$out" | awk -v p="$f" '$0 == p { c++ } END { print c + 0 }')" "$f is listed once" || rc=1
+  done
+  rm -rf "$tmp"
+  return "$rc"
+}
+
 # 10. Paranoid-candidate membership stays exact under pipefail with a REAL
 # enabled-plugin array over Linux's 131072-byte single-argument limit (#424):
 # the production transport, not a mock, must deliver every enabled name.
@@ -451,6 +480,7 @@ csa_test_run test_enum_gitignored_target_still_scanned    || _csa_failed=$((_csa
 csa_test_run test_enum_extensionless_executable_hook_handler || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_dotted_executable_hook_handler || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_hook_code_suffixes_whatever_the_mode || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_enum_tab_named_hook_code_is_hook005 || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_paranoid_candidates_exact_membership_under_pipefail || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_enabled_plugins_transport          || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_unreadable_settings_fail_explicitly || _csa_failed=$((_csa_failed + 1))

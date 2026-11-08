@@ -320,10 +320,11 @@ _csa_rule_engine_validate_focus() {
 # _csa_enum_stderr_to_findings <enumeration-stderr>
 # Turns each `finding: PROVENANCE-002 plugin <key> enabled but <reason>` line,
 # and each `finding: HOOK-005` line for a hook file whose name holds a newline or
-# tab, into a High finding JSONL record on stdout, and passes every `csa:` line on
-# to stderr. Other lines (info notes) are dropped, as they always were on success.
+# tab or that is a symlink, into a High finding JSONL record on stdout, and passes
+# every `csa:` line on to stderr. Other lines (info notes) are dropped, as they
+# always were on success.
 _csa_enum_stderr_to_findings() {
-  local line rest key reason fuid file tab=$'\t'
+  local line rest key reason fuid file why head tab=$'\t'
   while IFS= read -r line; do
     case "$line" in
       "finding: PROVENANCE-002 plugin "*" enabled but "*)
@@ -342,22 +343,32 @@ _csa_enum_stderr_to_findings() {
           + (if $fuid == "" then {} else {finding_uid: $fuid} end)'
         ;;
       "finding: HOOK-005$tab"*"$tab"*)
-        # A hook file left unread because its name holds a newline or tab
-        # (_csa_enum_unread_hook_file): `finding: HOOK-005<TAB><plugin key or
-        # empty><TAB><path>`, both escaped onto one line.
+        # A hook file left unread (_csa_enum_unread_hook_file): `finding:
+        # HOOK-005<TAB><plugin key or empty><TAB><path>` because its name holds
+        # a newline or tab, with `<TAB>symlink` after the path because it is a
+        # symlink. Key and path are escaped onto one line, so neither holds a tab.
         rest="${line#"finding: HOOK-005$tab"}"
         key="${rest%%"$tab"*}"
         file="${rest#*"$tab"}"
+        # why: the uid's excerpt; reason and head: the record's text.
+        why="name holds a newline or tab"
+        reason="name holds a newline or tab; not read"
+        head="hook file not read: its name holds a newline or tab"
+        if [[ "$file" == *"${tab}symlink" ]]; then
+          file="${file%"${tab}symlink"}"
+          why="symlink; not followed"
+          reason="symlink; not followed"
+          head="hook path not read: it is a symlink, which is never followed"
+        fi
         fuid=""
         if declare -F csa_finding_uid_raw >/dev/null 2>&1; then
-          fuid="$(csa_finding_uid_raw "HOOK-005" "$file" "name holds a newline or tab")"
+          fuid="$(csa_finding_uid_raw "HOOK-005" "$file" "$why")"
         fi
-        jq -nc --arg key "$key" --arg file "$file" --arg fuid "$fuid" '
+        jq -nc --arg key "$key" --arg file "$file" --arg fuid "$fuid" --arg reason "$reason" --arg head "$head" '
           {rule_id: "HOOK-005", file: $file, line: 0, offset: 0,
-           preview: ("hook file not read: its name holds a newline or tab"
-                     + (if $key == "" then "" else " (plugin " + $key + ")" end)),
+           preview: ($head + (if $key == "" then "" else " (plugin " + $key + ")" end)),
            severity: "high",
-           context: ({reason: "name holds a newline or tab; not read"}
+           context: ({reason: $reason}
                      + (if $key == "" then {} else {plugin: $key} end))}
           + (if $fuid == "" then {} else {finding_uid: $fuid} end)'
         ;;
