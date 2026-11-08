@@ -112,6 +112,35 @@ _csa_group_count_line() {
     "$n" "$([[ "$n" -eq 1 ]] && printf finding || printf findings)" "$c" "$h" "$m" "$extra"
 }
 
+# _csa_findings_arg <findings_jsonl or path> — print the findings and exit 0, or exit 4 with one message.
+# THE one reader of the three report functions' findings argument, read the way state_record_audit
+# reads its own: a non-empty argument that does not start with `{` and names a file is read, and
+# anything else is the findings themselves. Every non-blank line must be exactly one JSON object, or
+# nothing is rendered: a line jq cannot read could be a Critical, so it is refused, never skipped or
+# counted as zero. A line of only spaces or tabs is blank: it is not printed, so no caller counts,
+# renders or numbers it. Empty or blank input is no findings. Exit 4 is suppress_stale's code for the
+# same input. Skill-first question 2: membrane's own findings files, a closed shape.
+_csa_findings_arg() {
+  local x="$1" src="the findings"
+  if [[ -n "$x" && "$x" != "{"* && -f "$x" ]]; then
+    src="$x"
+    x="$(cat "$x" 2>/dev/null)" || { printf 'csa: cannot read %s; nothing rendered\n' "$src" >&2; return 4; }
+  elif [[ -n "$x" && "$x" != "{"* && "$x" != *$'\n'* ]]; then
+    src="$x"   # one line that is not an object: most likely a path that does not exist
+  fi
+  [[ "$x" == *[![:space:]]* ]] || return 0
+  # One pass: the non-blank lines, printed only when every one of them is one JSON object.
+  local lines
+  if ! lines="$(printf '%s\n' "$x" | jq -r -R -s '
+      split("\n") | map(select(test("\\S")))
+      | if all(.[]; (try fromjson catch null) | type == "object") then .[] else error("not findings JSONL") end' \
+      2>/dev/null)"; then
+    printf 'csa: %s is missing or is not findings JSONL (one JSON object per line); nothing rendered\n' "$src" >&2
+    return 4
+  fi
+  printf '%s\n' "$lines"
+}
+
 # ---------------------------------------------------------------------------
 # csa_report_next_run_of_day <project_root>
 # Count today's report files in .claude/audits/ (YYYY-MM-DD-*.md), return N+1 as 2-digit padded.
@@ -133,14 +162,16 @@ csa_report_next_run_of_day() {
 }
 
 # ---------------------------------------------------------------------------
-# csa_report_assign_display_ids <findings_jsonl> <date>
-# Read JSONL, augment each line with "display_id": "SA-<date>-<NNN>".
-# Prints augmented JSONL to stdout.
+# csa_report_assign_display_ids <findings_jsonl or path> <report-name>
+# Read JSONL, augment each line with "display_id": "SA-<report-name>-<NNN>". The skill passes the
+# report's name, <date>-<NN>, so the id is SA-<date>-<NN>-<NNN>: the prefix state_record_audit
+# records from the report path. Prints augmented JSONL to stdout; exit 4 on input that is not
+# findings JSONL (_csa_findings_arg).
 # ---------------------------------------------------------------------------
 csa_report_assign_display_ids() {
-  local findings_jsonl="$1"
-  local date="$2"
+  local findings_jsonl date="$2"
   local ordinal=0
+  findings_jsonl="$(_csa_findings_arg "$1")" || return 4
 
   if [[ -z "$findings_jsonl" ]]; then
     return
@@ -192,13 +223,14 @@ _csa_build_summary_table() {
 }
 
 # ---------------------------------------------------------------------------
-# csa_report_render_chat <findings_jsonl> [<report_path>] [verbose]
-# Emit chat-summary markdown to stdout.
+# csa_report_render_chat <findings_jsonl or path> [<report_path>] [verbose]
+# Emit chat-summary markdown to stdout; exit 4, printing nothing, on input that is not findings
+# JSONL (_csa_findings_arg).
 # ---------------------------------------------------------------------------
 csa_report_render_chat() {
-  local findings_jsonl="$1"
-  local report_path="${2:-}"
+  local findings_jsonl report_path="${2:-}"
   local verbose="${3:-false}"
+  findings_jsonl="$(_csa_findings_arg "$1")" || return 4
 
   # Also check environment variable.
   if [[ "${CSA_VERBOSE:-}" == "1" ]]; then
@@ -218,19 +250,21 @@ csa_report_render_chat() {
     done <<< "$findings_jsonl"
   fi
 
-  # Extract date + run from first finding's display_id, or fallback.
+  # Date and run number from the first display id, or today and run #01.
   local date run_of_day
   date="$(date +%Y-%m-%d)"
   run_of_day="01"
 
   if [[ -n "$findings_jsonl" ]]; then
     local first_did
-    first_did="$(printf '%s' "$findings_jsonl" | head -1 | jq -r '.display_id // empty')"
+    first_did="$(printf '%s\n' "$findings_jsonl" | jq -r -n '[inputs | .display_id | strings | select(length > 0)] | first // empty')"
     if [[ -n "$first_did" ]]; then
-      # SA-YYYY-MM-DD-NNN or SA-YYYY-MM-DD-NN-NNN
-      # Extract date from SA-<date>-... (positions 3-12)
-      local stripped="${first_did#SA-}"
+      # SA-<date>-<NN>-<NNN> as the skill assigns it, or SA-<date>-<NNN> (no run number: run #01).
+      local stripped="${first_did#SA-}" run_re='^[0-9]{4}-[0-9]{2}-[0-9]{2}-([0-9]{2})-[0-9]{3}$'
       date="${stripped:0:10}"
+      if [[ "$stripped" =~ $run_re ]]; then
+        run_of_day="${BASH_REMATCH[1]}"
+      fi
     fi
   fi
 
@@ -314,13 +348,14 @@ csa_report_render_chat() {
 }
 
 # ---------------------------------------------------------------------------
-# csa_report_render_markdown <findings_jsonl> <metadata_json> <output_path>
-# Write full markdown report to output_path.
+# csa_report_render_markdown <findings_jsonl or path> <metadata_json> <output_path>
+# Write full markdown report to output_path. On input that is not findings JSONL
+# (_csa_findings_arg) it exits 4 before output_path is opened, so no report file is written.
 # ---------------------------------------------------------------------------
 csa_report_render_markdown() {
-  local findings_jsonl="$1"
-  local metadata_json="$2"
+  local findings_jsonl metadata_json="$2"
   local output_path="$3"
+  findings_jsonl="$(_csa_findings_arg "$1")" || return 4
 
   # Parse metadata.
   local project date run_of_day duration scope_summary
@@ -340,6 +375,10 @@ csa_report_render_markdown() {
 
   [[ -z "$date" ]] && date="$(date +%Y-%m-%d)"
   local run_padded; run_padded="$(printf '%02d' "$run_of_day")"
+
+  # A project's first report: .claude/audits/ may not exist yet.
+  local out_dir; out_dir="$(dirname "$output_path")"
+  mkdir -p "$out_dir" 2>/dev/null || { printf 'csa: cannot create %s; no report written\n' "$out_dir" >&2; return 5; }
 
   # Build output.
   {

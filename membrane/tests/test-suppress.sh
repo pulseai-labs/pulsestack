@@ -247,7 +247,8 @@ test_display_id_resolves_to_finding_uid() {
 
   local fuid="FUID-display-resolved"
   local display_id="SA-X-001"
-  # Use a first_seen far in the past to avoid race-window refusal.
+  # Use a first_seen far in the past to avoid race-window refusal. The finding was seen in recorded
+  # run 1, the latest, since a display id resolves only in the latest run.
   local old_iso="2026-01-01T00:00:00Z"
 
   local state_file; state_file="$(csa_state_path "$root")"
@@ -255,7 +256,8 @@ test_display_id_resolves_to_finding_uid() {
     --arg fuid "$fuid" \
     --arg did "$display_id" \
     --arg old "$old_iso" \
-    '.findings[$fuid] = {rule_id:"PERM-003",severity:"medium",file:"y.json",first_seen:$old,last_seen:$old,seen_in_runs:1,last_run_index:1,last_display_id:$did}' \
+    '.findings[$fuid] = {rule_id:"PERM-003",severity:"medium",file:"y.json",first_seen:$old,last_seen:$old,seen_in_runs:1,last_run_index:1,last_display_id:$did}
+     | .audit_history = [{run_index: 1, focus: "all"}]' \
     "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
 
   csa_suppress_init "$root"

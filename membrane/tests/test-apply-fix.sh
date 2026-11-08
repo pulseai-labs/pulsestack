@@ -47,7 +47,7 @@ RULEEOF
   mkdir -p "$target_dir"
   touch "$tmp/project/$target_rel"
 
-  # Seed state.json.
+  # Seed state.json as recorded run 1 leaves it (a display id resolves only in the latest run).
   local fuid="FUID-test1234"
   csa_state_init "$tmp/project"
   local state_path; state_path="$(csa_state_path "$tmp/project")"
@@ -68,7 +68,7 @@ RULEEOF
       last_run_index: 1,
       last_display_id: $disp,
       rule_path: $rp
-    }' \
+    } | .audit_history = [{run_index: 1, focus: "all"}]' \
     "$state_path" > "$state_path.tmp" && mv "$state_path.tmp" "$state_path"
 
   # Export values so caller can use them.

@@ -5,7 +5,8 @@
 
 # csa_baseline_tag <findings_jsonl_file> <project_root>
 # Read findings_jsonl_file (one JSON object per line).
-# For each finding, look up .findings[finding_uid] in state.json.
+# For each finding, look up its finding_uid in state.json's registry (csa_registry, lib/state.sh:
+# an entry that is not an object is not there).
 # If present: augment with {state: "PERSISTED", first_seen: <from_state>}
 # Else: augment with {state: "NEW"}
 # Emit augmented findings JSONL on stdout.
@@ -20,7 +21,7 @@ csa_baseline_tag() {
       printf '%s\n' "$line" | jq -c '. + {state: "NEW"}'
       continue
     fi
-    local persisted; persisted="$(printf '%s' "$state_json" | jq -c --arg k "$fuid" '.findings[$k] // null')"
+    local persisted; persisted="$(printf '%s' "$state_json" | jq -c --arg k "$fuid" "$_CSA_JQ_REGISTRY"'csa_registry[$k] // null')"
     if [[ "$persisted" == "null" ]]; then
       printf '%s\n' "$line" | jq -c '. + {state: "NEW"}'
     else

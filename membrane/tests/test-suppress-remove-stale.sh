@@ -183,6 +183,10 @@ test_documented_csa_calls_run_through_dispatcher() {
   _mk_root
   local skill="$CSA_PLUGIN_ROOT/skills/auditing-claude-configs/SKILL.md" calls call ran=0
   : > "$_CSA_TMP/empty$_n.jsonl"
+  # The findings files hold one High finding, so a call that reads its path as the findings
+  # themselves fails here instead of rendering nothing.
+  local fx="$_CSA_TMP/one$_n.jsonl"
+  printf '%s\n' '{"rule_id":"PERM-002","severity":"high","file":".claude/settings.json","line":3,"offset":0,"preview":"Bash(*)","finding_uid":"FUID-0a0b0c0d","state":"NEW","display_id":"SA-2026-01-01-01-001"}' > "$fx"
   calls="$(grep -oE '`csa [a-z_]+( [^`]*)?`' "$skill" | tr -d '`')"
   [[ -n "$calls" ]] || { printf '    SKILL.md documents no csa call with arguments\n' >&2; return 1; }
   while IFS= read -r call; do
@@ -195,8 +199,10 @@ test_documented_csa_calls_run_through_dispatcher() {
     call="${call//<run-index>/1}"
     call="${call//<report-path>/$root/.claude/audits/r.md}"
     call="${call//<metadata-json>/\{\}}"
-    call="${call//<findings>/$_CSA_TMP/empty$_n.jsonl}"
-    call="${call//<tagged>/$_CSA_TMP/empty$_n.jsonl}"
+    call="${call//<findings>/$fx}"
+    call="${call//<tagged>/$fx}"
+    call="${call//<baseline>/$fx}"
+    call="${call//\"<report-name>\"/2026-01-01-01}"
     call="${call//<raw-file>/$_CSA_TMP/empty$_n.jsonl}"
     [[ "$call" != *"<"* ]] || { printf '    unfilled placeholder in: %s\n' "$call" >&2; return 1; }
     local out rc=0
@@ -206,12 +212,111 @@ test_documented_csa_calls_run_through_dispatcher() {
       [[ "$rc" -eq 0 ]] || { printf '    documented call exits %s: %s -> %s\n' "$rc" "$call" "$out" >&2; return 1; }
       assert_eq "1" "$(jq '.audit_history | length' "$root/.claude/audits/state.json")" "documented state_record_audit wrote its run" || return 1
     fi
+    # A call that reads a findings file must succeed, print no jq error, and use the finding it holds.
+    case "$call" in
+      "csa report_render_markdown "*|"csa report_render_chat "*|"csa report_assign_display_ids "*)
+        [[ "$rc" -eq 0 ]] || { printf '    documented call exits %s: %s -> %s\n' "$rc" "$call" "$out" >&2; return 1; }
+        [[ "$out" != *"jq:"* ]] || { printf '    documented call prints a jq error: %s -> %s\n' "$call" "$out" >&2; return 1; } ;;
+    esac
+    case "$call" in
+      "csa report_render_chat "*) assert_contains "$out" "SA-2026-01-01-01-001 — PERM-002" "chat lists the file's finding" || return 1 ;;
+      "csa report_render_markdown "*) assert_contains "$(cat "$root/.claude/audits/r.md")" "FUID-0a0b0c0d" "the report holds the file's finding" || return 1 ;;
+      "csa report_assign_display_ids "*) assert_eq "SA-2026-01-01-01-001" "$(jq -r .display_id <<<"$out")" "the display id names the report" || return 1 ;;
+    esac
     [[ "$out" != *"unbound variable"* && "$out" != *"Unknown function"* && "$out" != *"Usage:"* ]] \
       || { printf '    documented call aborts: %s -> %s\n' "$call" "$out" >&2; return 1; }
     ran=$((ran + 1))
   done <<<"$calls"
   [[ "$ran" -ge 12 ]] || { printf '    only %s documented calls ran\n' "$ran" >&2; return 1; }
 }
+
+# _documented_steps <root> <work-dir> <report-name> : SKILL.md audit steps 6 to 9, run in the order
+# written: each call's output goes to the file its step names ("... a file, `<name>`"), and the next
+# call reads it, so step 9 records whatever step 6's last call wrote into `<tagged>`. <work-dir>/raw-file
+# must hold step 4's output. Sets $chat to step 8's chat summary. Returns non-zero on any call that does.
+_documented_steps() {
+  local root="$1" d="$2" name="$3"
+  local skill="$CSA_PLUGIN_ROOT/skills/auditing-claude-configs/SKILL.md"
+  local steps; steps="$(awk '/^## /{a = ($0 ~ /^## Audit mode/)} a && /^[6-9]\. /' "$skill")"
+  assert_eq "6 7 8 9" "$(cut -d. -f1 <<<"$steps" | tr '\n' ' ' | sed 's/ $//')" "SKILL.md has steps 6 to 9" || return 1
+  local re='`(csa [a-z_]+[^`]*)`(.*)' re_out='a file, `<([a-z-]+)>`' line rest call seg target ph rc ran=0 out
+  chat=""
+  while IFS= read -r line; do
+    rest="$line"
+    while [[ "$rest" =~ $re ]]; do
+      call="${BASH_REMATCH[1]}"; rest="${BASH_REMATCH[2]}"
+      # The text up to the next call says where this call's output goes, if anywhere.
+      seg="${rest%%\`csa *}"; target=""
+      [[ "$seg" =~ $re_out ]] && target="${BASH_REMATCH[1]}"
+      call="${call//\"\$PWD\"/\"$root\"}"
+      call="${call//\"\$focus\"/all}"
+      call="${call//\"<report-name>\"/$name}"
+      call="${call//<report-path>/$root/.claude/audits/$name.md}"
+      call="${call//<metadata-json>/\{\}}"
+      call="${call//<run-index>/1}"
+      for ph in raw-file baseline tagged findings; do call="${call//<$ph>/$d/$ph}"; done
+      [[ "$call" != *"<"* ]] || { printf '    unfilled placeholder in: %s\n' "$call" >&2; return 1; }
+      rc=0
+      if [[ -n "$target" ]]; then
+        (cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" > "$d/$target" 2>"$d/err") || rc=$?
+      else
+        out="$(cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" 2>"$d/err")" || rc=$?
+        [[ "$call" != "csa report_render_chat "* ]] || chat="$out"
+      fi
+      [[ "$rc" -eq 0 ]] || { printf '    step call exits %s: %s -> %s\n' "$rc" "$call" "$(cat "$d/err")" >&2; return 1; }
+      ran=$((ran + 1))
+    done
+  done <<<"$steps"
+  [[ "$ran" -ge 6 ]] || { printf '    only %s step calls ran\n' "$ran" >&2; return 1; }
+}
+
+# _first_audit <git|nogit> : a project's first audit, as written, on a project with only a
+# .claude/settings.json and no .claude/audits/ (with git: step 2's gitignore bootstrap first). The
+# settings give a Critical (PERM-004) and one rule firing twice on the same text (two PERM-001 lines,
+# `Bash(*)` twice, sharing a uid). Every step exits 0; the report and state.json exist and hold every finding, the
+# Critical included; every display id this run printed for a registered finding resolves to it.
+_first_audit() {
+  _n=$((_n + 1)); local root="$_CSA_TMP/fresh$_n" d="$_CSA_TMP/flow$_n" chat
+  mkdir -p "$root/.claude" "$d"
+  printf '%s\n' '{"permissions":{"allow":["Bash(*)","Read(*)","Bash(*)"],"deny":[]}}' > "$root/.claude/settings.json"
+  if [[ "$1" == git ]]; then
+    git -C "$root" init -q || { printf '    git init failed\n' >&2; return 1; }
+    (cd "$root" && HOME=/nonexistent "$CSA" state_bootstrap_gitignore "$root" >/dev/null) || { printf '    step 2 failed\n' >&2; return 1; }
+    grep -qx '.claude/audits/' "$root/.gitignore" || { printf '    step 2 wrote no .gitignore entry\n' >&2; return 1; }
+  fi
+  [[ ! -e "$root/.claude/audits" ]] || { printf '    .claude/audits/ exists before the audit; setup is vacuous\n' >&2; return 1; }
+  _scan "$root" all > "$d/raw-file" || { printf '    step 4 failed\n' >&2; return 1; }
+  local name; name="$(date +%Y-%m-%d)-01"
+  _documented_steps "$root" "$d" "$name" || return 1
+  local st="$root/.claude/audits/state.json" rp="$root/.claude/audits/$name.md"
+  [[ -f "$rp" && -f "$st" ]] || { printf '    report or state.json missing\n' >&2; return 1; }
+  assert_eq PERM-004 "$(jq -r 'select(.severity == "critical") | .rule_id' "$d/raw-file")" "the scan has the Critical" || return 1
+  local shared; shared="$(jq -r '.finding_uid // empty' "$d/raw-file" | sort | uniq -d)"
+  [[ "$shared" == FUID-* && "$shared" != *$'\n'* ]] || { printf '    no single uid shared by two lines: %s\n' "$shared" >&2; return 1; }
+  assert_eq 2 "$(jq -r --arg u "$shared" 'select(.finding_uid == $u) | .rule_id' "$d/raw-file" | grep -c PERM-001)" "two PERM-001 lines share $shared" || return 1
+  assert_eq "$(jq -r '.finding_uid // empty' "$d/raw-file" | sort -u | tr '\n' ' ')" "$(jq -r '.findings | keys[]' "$st" | sort | tr '\n' ' ')" "state.json registers every uid of the scan" || return 1
+  assert_eq critical "$(jq -r '.findings[] | select(.rule_id == "PERM-004") | .severity' "$st")" "state.json holds the Critical" || return 1
+  assert_eq 1 "$(jq '.audit_history | length' "$st")" "the run is recorded" || return 1
+  local did uid
+  while IFS=$'\t' read -r did uid; do
+    assert_contains "$(cat "$rp")" "$did" "the report prints $did" || return 1
+    assert_eq "$uid" "$(cd "$root" && "$CSA" apply_resolve_id "$root" "$did" 2>/dev/null)" "$did resolves to the finding it was printed for" || return 1
+  done < <(jq -r 'select(.finding_uid != null) | [.display_id, .finding_uid] | @tsv' "$d/findings")
+  assert_eq 5 "$(jq -r 'select(.finding_uid != null) | .display_id' "$d/findings" | grep -cE "^SA-$name-[0-9]{3}\$")" "five display ids SA-<date>-<NN>-<NNN>" || return 1
+  assert_contains "$chat" "(run #01)" "chat names the run" || return 1
+  assert_contains "$chat" "### Critical (1)" "chat lists the Critical" || return 1
+  assert_contains "$(cat "$rp")" "(Critical) — PERM-004" "the report lists the Critical" || return 1
+  # --suppress takes the first of the two ids the shared uid was printed with.
+  local first; first="$(jq -r --arg u "$shared" 'select(.finding_uid == $u) | .display_id' "$d/findings" | head -1)"
+  uid="$shared"
+  jq '.findings |= map_values(.first_seen = "2026-01-01T00:00:00Z")' "$st" > "$d/st" && mv "$d/st" "$st"
+  local rc=0; (cd "$root" && "$CSA" suppress_add "$root" "$first" note >/dev/null 2>&1) || rc=$?
+  assert_eq 0 "$rc" "--suppress takes $first" || return 1
+  assert_eq "$uid" "$(jq -r '.suppressions[0].finding_uid' "$root/.claude/audits/suppressions.json")" "the suppression stores that finding's uid" || return 1
+}
+
+test_documented_audit_steps_on_a_first_audit() { _first_audit nogit; }
+test_documented_audit_steps_on_a_first_audit_in_git() { _first_audit git; }
 
 # ---- exit codes and exact matching -----------------------------------------
 
@@ -393,6 +498,8 @@ csa_test_run test_stale_no_file_lists_nothing               || _csa_failed=$((_c
 csa_test_run test_stale_excludes_tamper_uids                || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_e2e_uid_move_old_stale_new_is_new         || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_documented_csa_calls_run_through_dispatcher || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_documented_audit_steps_on_a_first_audit || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_documented_audit_steps_on_a_first_audit_in_git || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_remove_empty_file_rc2                     || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_remove_object_without_suppressions_array_rc2 || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_remove_matches_the_uid_exactly            || _csa_failed=$((_csa_failed + 1))
