@@ -64,22 +64,30 @@ csa_enum_opencode_project_targets() {
 # does not list and that is either executable (extensionless, hidden, or an
 # unlisted dotted suffix such as `preflight.tool`, #426) or handler code by its
 # suffix whatever its mode (.mjs .cjs .tsx .jsx .mts .cts, which settings run as
-# `node .claude/hooks/x.mjs`), or reject newline-containing ones. Listed
+# `node .claude/hooks/x.mjs`). A name holding a newline or tab cannot be one
+# target line: an executable one refuses the whole enumeration (rc 2, #426); a
+# non-executable code file is left out and reported as one HOOK-005. Listed
 # suffixes are skipped here so the main pass emits them exactly once: keep this
 # case list equal to its -name list.
 _csa_enum_unlisted_hook_handlers() {
-  local root="$1" hooks="$1/.claude/hooks" code
+  local root="$1" hooks="$1/.claude/hooks" code unread=""
   [[ -d "$hooks" ]] || return 0
 
-  find "$hooks" -type f -print0 2>/dev/null | while IFS= read -r -d '' handler; do
+  # The HOOK-005 lines are held until the walk ends, so a refusal prints only its own message.
+  find "$hooks" -type f -print0 2>/dev/null | { while IFS= read -r -d '' handler; do
     case "${handler##*/}" in
       *.md|*.json|*.sh|*.py|*.js|*.ts) : ;;
       *) code=0
          case "${handler##*/}" in *.mjs|*.cjs|*.tsx|*.jsx|*.mts|*.cts) code=1 ;; esac
          if [[ "$code" -eq 1 || -x "$handler" ]]; then
            if [[ "$handler" == *$'\n'* || "$handler" == *$'\t'* ]]; then
-             printf 'refusing newline-or-tab-containing executable hook handler\n' >&2
-             return 2
+             if [[ -x "$handler" ]]; then
+               printf 'refusing newline-or-tab-containing executable hook handler\n' >&2
+               return 2
+             fi
+             # Not executable: unread and reported as one HOOK-005, the audit goes on.
+             unread="$unread$(_csa_enum_unread_hook_file "" "$handler")"$'\n'
+             continue
            fi
            printf '%s\n' "$handler"
          else
@@ -88,6 +96,7 @@ _csa_enum_unlisted_hook_handlers() {
          ;;
     esac
   done
+  [[ -z "$unread" ]] || printf '%s' "$unread" >&2; }
 }
 
 csa_enum_project_targets() {
@@ -120,6 +129,28 @@ _csa_enum_oneline() {
   s="${s//$'\r'/\\r}"
   s="${s//$'\t'/\\t}"
   printf '%s' "$s"
+}
+
+# _csa_enum_glob_quote <string> — the string with the glob metacharacters
+# `\ * ? [` backslash-escaped, so `find -path` matches it literally.
+_csa_enum_glob_quote() {
+  local s="$1" o="" c i
+  for (( i = 0; i < ${#s}; i++ )); do
+    c="${s:i:1}"
+    case "$c" in
+      '\'|'*'|'?'|'[') o="$o\\$c" ;;
+      *) o="$o$c" ;;
+    esac
+  done
+  printf '%s' "$o"
+}
+
+# _csa_enum_unread_hook_file <plugin-key> <path> — the line, for stderr, that
+# the rule engine turns into one High HOOK-005 for a hook file that is not read
+# because its name holds a newline or tab: it cannot be one line of the target
+# list. The key is empty for a project file. Both are escaped onto one line.
+_csa_enum_unread_hook_file() {
+  printf 'finding: HOOK-005\t%s\t%s\n' "$(_csa_enum_oneline "$1")" "$(_csa_enum_oneline "$2")"
 }
 
 # _csa_enum_settings_plugin_list <settings-file> — the file's enabledPlugins as
@@ -403,11 +434,20 @@ csa_enum_targets_all() {
       *) return 2 ;;
     esac
   done <<< "$enabled_plugins"
+  # A file below a plugin's hooks/ whose path there holds a newline or tab would
+  # split or truncate as a target line (the rules gate on the hooks/ layout,
+  # which a fragment loses), so it is left out of the list and reported as one
+  # HOOK-005 naming the plugin and the file. Skill-first question 3: it only adds
+  # a stop. Every other file is listed as before.
+  local hpat f
   {
     [[ -n "$project_targets" ]] && printf '%s\n' "$project_targets"
     while IFS=$'\t' read -r plugin_name plugin_path; do
       [[ -z "$plugin_name" ]] && continue
-      find "$plugin_path" -type f 2>/dev/null \
+      hpat="$(_csa_enum_glob_quote "$plugin_path")/hooks/*"
+      find "$plugin_path/hooks" -type f \( -path "$hpat"$'\n'"*" -o -path "$hpat"$'\t'"*" \) -print0 2>/dev/null \
+        | while IFS= read -r -d '' f; do _csa_enum_unread_hook_file "$plugin_name" "$f" >&2; done
+      find "$plugin_path" -type f ! -path "$hpat"$'\n'"*" ! -path "$hpat"$'\t'"*" 2>/dev/null \
         | CSA_LABEL="$plugin_name" CSA_PREFIX="$plugin_path/" awk '
             BEGIN { l = ENVIRON["CSA_LABEL"]; p = ENVIRON["CSA_PREFIX"]; n = length(p) }
             { rel = (substr($0, 1, n) == p) ? substr($0, n + 1) : $0

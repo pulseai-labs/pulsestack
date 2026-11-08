@@ -243,6 +243,8 @@ _csa_hook_rel_is_code() {
 # not read, exactly as before.
 csa_hook_handler_file() {
   local t="$1" n="" rel root="${_CSA_ENGINE_ROOT:-${CSA_PROJECT_ROOT:-}}"
+  # Both branches below need a /hooks/ segment: a cheap test first, before the path is normalized.
+  [[ "$t" == */hooks/* ]] || return 1
   declare -F csa_normalize_path >/dev/null 2>&1 && n="$(csa_normalize_path "$t")"
   if [[ "$n" == @plugin:* ]]; then
     [[ "$n" =~ ^@plugin:[^:/]+@[^:/]+:hooks/(.+)$ ]] || return 1
@@ -276,8 +278,8 @@ _CSA_HOOK_JQ_MODULES='
 # below hooks/>} when it resolves to a regular file physically inside the plugin's hooks/ dir that HOOK-001 to
 # HOOK-004 read as handler code (the module is then read as its own target); otherwise an inconclusive line, a
 # HOOK-005 stop. Resolved as _csa_hook_walk_ref resolves a plugin.json hooks path: physical containment, and a
-# symlink is never followed. Skill-first question 2: a JSON manifest's paths, our own resolution rule; a path it
-# cannot place is a stop, never a pass.
+# symlink is never followed. Skill-first question 3: a JSON manifest's paths are open input, and this can only add
+# a stop; a path it cannot place is a HOOK-005, never a pass.
 _csa_hook_module_line() {
   local file="$1" jp="$2" ref="$3" hdir hooksp dir phys rel
   if [[ -z "$ref" || "$ref" == /* ]]; then

@@ -318,11 +318,12 @@ _csa_rule_engine_validate_focus() {
 }
 
 # _csa_enum_stderr_to_findings <enumeration-stderr>
-# Turns each `finding: PROVENANCE-002 plugin <key> enabled but <reason>` line
-# into a High finding JSONL record on stdout, and passes every `csa:` line on
+# Turns each `finding: PROVENANCE-002 plugin <key> enabled but <reason>` line,
+# and each `finding: HOOK-005` line for a hook file whose name holds a newline or
+# tab, into a High finding JSONL record on stdout, and passes every `csa:` line on
 # to stderr. Other lines (info notes) are dropped, as they always were on success.
 _csa_enum_stderr_to_findings() {
-  local line rest key reason fuid file
+  local line rest key reason fuid file tab=$'\t'
   while IFS= read -r line; do
     case "$line" in
       "finding: PROVENANCE-002 plugin "*" enabled but "*)
@@ -338,6 +339,26 @@ _csa_enum_stderr_to_findings() {
           {rule_id: "PROVENANCE-002", file: $file, line: 0, offset: 0,
            preview: ("plugin " + $key + " is enabled but " + $reason),
            severity: "high", context: {plugin: $key, reason: $reason}}
+          + (if $fuid == "" then {} else {finding_uid: $fuid} end)'
+        ;;
+      "finding: HOOK-005$tab"*"$tab"*)
+        # A hook file left unread because its name holds a newline or tab
+        # (_csa_enum_unread_hook_file): `finding: HOOK-005<TAB><plugin key or
+        # empty><TAB><path>`, both escaped onto one line.
+        rest="${line#"finding: HOOK-005$tab"}"
+        key="${rest%%"$tab"*}"
+        file="${rest#*"$tab"}"
+        fuid=""
+        if declare -F csa_finding_uid_raw >/dev/null 2>&1; then
+          fuid="$(csa_finding_uid_raw "HOOK-005" "$file" "name holds a newline or tab")"
+        fi
+        jq -nc --arg key "$key" --arg file "$file" --arg fuid "$fuid" '
+          {rule_id: "HOOK-005", file: $file, line: 0, offset: 0,
+           preview: ("hook file not read: its name holds a newline or tab"
+                     + (if $key == "" then "" else " (plugin " + $key + ")" end)),
+           severity: "high",
+           context: ({reason: "name holds a newline or tab; not read"}
+                     + (if $key == "" then {} else {plugin: $key} end))}
           + (if $fuid == "" then {} else {finding_uid: $fuid} end)'
         ;;
       "csa: "*) printf '%s\n' "$line" >&2 ;;
