@@ -1087,8 +1087,10 @@ describe('batch 5: substitutions', () => {
     expect(bashRules(nest(8, 'true'))).toEqual([])
     expect(rmTargets(nest(8, 'true'))).toEqual([])
     expect(bashRules(nest(8, RULED))).toContain('force-push')
-    // far deeper than the walk follows: still read as too deep, with no stack overflow
-    const deeper = 'echo "' + '$('.repeat(20000) + 'true' + ')'.repeat(20000) + '"'
+    // far deeper than the walk follows: still read as too deep, with no stack overflow. 10,000 levels
+    // overflow any reader that spends five or more frames a level (bun's stack holds about 45,000
+    // simple frames); 20,000 took up to 5.2 s on a CI runner, past the kit's fixed 5 s test timeout.
+    const deeper = 'echo "' + '$('.repeat(10000) + 'true' + ')'.repeat(10000) + '"'
     expect(bashRules(deeper)).toContain('force-push')
   })
   test('Ruling 2: a relative rm operand in a substitution is unread when the command changes directory', () => {
