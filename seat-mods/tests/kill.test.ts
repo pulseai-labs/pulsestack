@@ -140,6 +140,25 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ['time -p pkill -u dev', 'time -p pkill node'],
   ['time -f %e kill -9 -1', 'time -f %e kill -9 123'],
   ['builtin -- kill -9 -1', 'builtin -- kill -9 123'],
+  // the reserved `time` times a pipeline, so a head word or another `time` may follow it, after bash's `-p` and then `--`
+  ['time ! kill -1', 'time ! kill 123'],
+  ["sh -c 'time ! kill -1'", "sh -c 'time ! kill 123'"],
+  ["sh -c 'time if kill -1; then :; fi'", "sh -c 'time if kill 123; then :; fi'"],
+  ["fish -c 'time ! kill -1'", "fish -c 'time ! kill 123'"],
+  ["fish -c 'time if kill -1; end'", "fish -c 'time if kill 123; end'"],
+  ["fish -c 'time while kill -1; end'", "fish -c 'time while kill 123; end'"],
+  ['time -p ! kill -1', 'time -p ! kill 123'],
+  ['time -- ! kill -1', 'time -- ! kill 123'],
+  ['time -p -- ! kill -1', 'time -p -- ! kill 123'],
+  ['time { kill -1; }', 'time { kill 123; }'],
+  ['time until kill -1; do :; done', 'time until kill 123; do :; done'],
+  ['time ! ! kill -1', 'time ! ! kill 123'],
+  ['time time ! kill -1', 'time time ! kill 123'],
+  ['time ! time ! kill -1', 'time ! time ! kill 123'],
+  // the other kill rules are read behind it too
+  ['ps aux; time ! kill 123', 'ps aux; time ! echo 123'],
+  ['time ! pkill -u dev', 'time ! pkill node'],
+  ["eval 'time ! kill -1'", "eval 'time ! kill 123'"],
   // fix r0 N1: other spellings of -1 and 0, and a backtick negative operand
   ['kill -9 -01', 'kill -9 -012'],
   ['kill -- -01', 'kill -- 123'],
@@ -377,6 +396,15 @@ const ALLOW: readonly string[] = [
   // fix r0 N4: a help or version request names no process
   'pkill --help', 'pkill -V', 'pkill -h', 'killall --version', 'killall -V', 'pkill --version',
   'time -p ls', 'builtin echo hi', 'bash -c -- \'echo hi\'', 'bash -O extglob -c \'echo hi\'',
+  // `time` is reserved only unquoted at a command's head, and takes one `-p`: in each of these the word after the wrapper
+  // is a program name (`!`, `-p`), so the kill is its argument and nothing is signalled
+  'A=1 time ! kill -1', 'nohup ! kill -1', "'time' ! kill -1", 'time -p -p ! kill -1', 'xargs time ! kill -1',
+  // `--` ends time's options, so a `-p` after it is the program's name
+  'time -- -p ! kill -1',
+  // one `--` only, and only the reserved word itself: a second `--`, or the time program by path, names a program
+  'time -- -- ! kill -1', '/usr/bin/time ! kill -1', 'TIME ! kill -1',
+  // a harmless command behind the reserved `time`, and the time program's own options before one
+  'time ! true', 'time -f %e ! kill 123',
   // 0.14.2 (#1109): the same shapes with a harmless string; and after a bare - the next word is the string in every shell
   "zsh -cO 'echo hi'", "zsh -cO extglob 'echo hi'", "bash -cO extglob 'echo hi'", "zsh -c -oshwordsplit 'echo hi'",
   "bash -c - -x 'kill -1'", "zsh -c - - 'kill -1'", "zsh -c -- -x 'kill -1'", "zsh -- -c 'kill -1'",
@@ -676,6 +704,30 @@ describe('killRule: deliberate false stop of the yash grammar', () => {
   test('control: the same shape with a harmless string is allowed', () => {
     expect(killRule("yash -c + 'echo ok'")).toBeUndefined()
   })
+})
+
+// Deliberate false stops of the reserved `time`: each form runs nothing in the shell named, and is refused. `\time` reads
+// as `time` (the shell runs the time program, which runs a program named `!`); `then` after `time` is a syntax error;
+// zsh and fish take no `-p` or `--` after `time`; dash's `time` is not reserved, so it runs the time program; a
+// redirection is dropped before the head words are read; zsh and fish take no `time` after `time`; bash and fish reserve
+// `time` only at a pipeline's start.
+describe('killRule: deliberate false stops of the reserved time', () => {
+  const rows: ReadonlyArray<readonly [string, string]> = [
+    ['\\time ! kill -1', '\\time ! kill 123'],
+    ['time then kill -1', 'time then kill 123'],
+    ["zsh -c 'time -p ! kill -1'", "zsh -c 'time -p ! kill 123'"],
+    ["fish -c 'time -- ! kill -1'", "fish -c 'time -- ! kill 123'"],
+    ["dash -c 'time ! kill -1'", "dash -c 'time ! kill 123'"],
+    ['time >/dev/null ! kill -1', 'time >/dev/null ! kill 123'],
+    ['>/dev/null time ! kill -1', '>/dev/null time ! kill 123'],
+    ['time \\-p ! kill -1', 'time \\-p ! kill 123'],
+    ["zsh -c 'time time ! kill -1'", "zsh -c 'time time ! kill 123'"],
+    ["bash -c 'true | time ! kill -1'", "bash -c 'true | time ! kill 123'"],
+  ]
+  for (const [command, control] of rows) {
+    test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
+    test(`control: ${JSON.stringify(control)} is allowed`, () => { expect(killRule(control)).toBeUndefined() })
+  }
 })
 
 // A name speaks only for its own grammar: a form another name's reading refuses is not refused under it.

@@ -1409,12 +1409,25 @@ function xargsCommand(words: readonly string[]): number {
   return i
 }
 
-// Reserved words that only introduce a command. `time` and `builtin` are not stripped here: they are wrappers with
-// options, left to KILL_WRAPPER_SHAPES. The shared afterHeads is not used because it strips them without their options.
+// Reserved words that only introduce a command. `time` and `builtin` are not among them: they are wrappers with options,
+// left to KILL_WRAPPER_SHAPES (`time` is taken off only before a head word, below). The shared afterHeads is not used
+// because it strips them without their options.
 const KILL_HEADS = new Set(['if', 'then', 'elif', 'else', 'do', 'while', 'until', '!', '{', '('])
+// The reserved `time` (unquoted, at a head; bash also takes one `-p` and then `--`) times a pipeline, so a head word or
+// another `time` may follow it: `time ! kill -1`, `time -p if kill -1; then :; fi`. It is taken off only then; otherwise
+// it stays for KILL_WRAPPER_SHAPES, which reads it as the time program with its options. Walked by index.
 function killHeads(tokens: string[]): string[] {
-  while (KILL_HEADS.has(tokens[0] ?? '')) tokens = tokens.slice(1)
-  return tokens
+  let i = 0
+  for (;;) {
+    while (KILL_HEADS.has(tokens[i] ?? '')) i += 1
+    if (tokens[i] !== 'time') break
+    let j = i + 1
+    if (tokens[j] === '-p') j += 1
+    if (tokens[j] === '--') j += 1
+    if (!KILL_HEADS.has(tokens[j] ?? '') && tokens[j] !== 'time') break
+    i = j
+  }
+  return tokens.slice(i)
 }
 
 // The command text with each unquoted `$(…)` or `$((…))` span replaced by one `$`, so the words after a substitution
