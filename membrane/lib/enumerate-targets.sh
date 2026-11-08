@@ -124,7 +124,9 @@ csa_enum_project_targets() {
     # The six module suffixes below .claude/hooks/ are emitted by _csa_enum_unlisted_hook_handlers, so not here (#1141).
     local aq; aq="$(_csa_enum_glob_quote "$root/.claude/audits")"
     # A dir below .claude/ that find cannot read makes it exit 1: `|| :` keeps that from ending the enumeration under
-    # bin/csa's `set -euo pipefail`, and the dir is one SCANNER-003 line (#1149).
+    # enum_targets_all and the engine, and the dir is one SCANNER-003 line (#1149). A direct `bin/csa
+    # enum_project_targets` call still ends at the next unguarded find, and an unreadable dir under .claude/hooks/
+    # still refuses the audit (exit 2) through _csa_enum_unlisted_hook_handlers, as in 0.8.0.
     find "$root/.claude" -type f \
          -not -path "$aq/*" \
          \( -name '*.md' -o -name '*.json' -o -name '*.sh' \
