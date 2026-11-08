@@ -26,8 +26,10 @@ detect() {
   [[ -r "$target_file" ]] || return 0
   # grep rc 1 is no match; rc 2 or more is a read error: rc 2 (SCANNER-002) unless a match is already in hand,
   # which is emitted, since the engine drops a detector's stdout on rc 2 (#1089). Skill-first question 3.
+  # LC_ALL=C grep -a reads the file byte by byte in every locale, as HOOK-004 does: a NUL or a byte that is not
+  # UTF-8 does not make grep call the file binary and print no line.
   local hits grc=0
-  hits="$(grep -nE 'eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' "$target_file" 2>/dev/null)" || grc=$?
+  hits="$(LC_ALL=C grep -anE 'eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' "$target_file" 2>/dev/null)" || grc=$?
   [[ "$grc" -le 1 ]] || [[ -n "$hits" ]] || return 2
   [[ -n "$hits" ]] || return 0
   printf '%s\n' "$hits" \

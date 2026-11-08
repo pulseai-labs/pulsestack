@@ -427,13 +427,16 @@ csa_state_update_self_integrity() {
     suppressions_mtime="$(csa_file_mtime "$suppressions_file")"
   fi
 
-  # Git-tracked check.
+  # Git-tracked check. git runs in the audited project and reads its config. `-c core.fsmonitor=` (empty means no
+  # hook; `false` would name a hook path on git before 2.36) stops the one key that runs a command on this read,
+  # measured on git 2.53, wherever it is set: .git/config, include.path, includeIf, a .git file's gitdir. The
+  # redirects keep a configured pager from running. Skill-first question 3: it only removes a command.
   local state_tracked=false suppressions_tracked=false
   if command -v git >/dev/null 2>&1; then
-    if git -C "$root" ls-files --error-unmatch "$state_file" >/dev/null 2>&1; then
+    if git -c core.fsmonitor= -C "$root" ls-files --error-unmatch "$state_file" >/dev/null 2>&1; then
       state_tracked=true
     fi
-    if [[ -f "$suppressions_file" ]] && git -C "$root" ls-files --error-unmatch "$suppressions_file" >/dev/null 2>&1; then
+    if [[ -f "$suppressions_file" ]] && git -c core.fsmonitor= -C "$root" ls-files --error-unmatch "$suppressions_file" >/dev/null 2>&1; then
       suppressions_tracked=true
     fi
   fi
@@ -535,19 +538,19 @@ csa_state_check_tamper() {
       }'
   fi
 
-  # TAMPER-003: git-tracked status drift.
+  # TAMPER-003: git-tracked status drift. `-c core.fsmonitor=` as in csa_state_update_self_integrity.
   local checked_at; checked_at="$(printf '%s' "$state" | jq -r '.self_integrity.git_tracked_check.checked_at // empty')"
   if [[ -n "$checked_at" ]] && command -v git >/dev/null 2>&1; then
     local recorded_state_tracked; recorded_state_tracked="$(printf '%s' "$state" | jq -r '.self_integrity.git_tracked_check.state_json_tracked // false')"
     local recorded_suppressions_tracked; recorded_suppressions_tracked="$(printf '%s' "$state" | jq -r '.self_integrity.git_tracked_check.suppressions_json_tracked // false')"
 
     local current_state_tracked=false
-    if git -C "$root" ls-files --error-unmatch "$state_file" >/dev/null 2>&1; then
+    if git -c core.fsmonitor= -C "$root" ls-files --error-unmatch "$state_file" >/dev/null 2>&1; then
       current_state_tracked=true
     fi
 
     local current_suppressions_tracked=false
-    if [[ -f "$suppressions_file" ]] && git -C "$root" ls-files --error-unmatch "$suppressions_file" >/dev/null 2>&1; then
+    if [[ -f "$suppressions_file" ]] && git -c core.fsmonitor= -C "$root" ls-files --error-unmatch "$suppressions_file" >/dev/null 2>&1; then
       current_suppressions_tracked=true
     fi
 

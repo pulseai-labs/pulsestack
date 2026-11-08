@@ -40,7 +40,7 @@ Identical to audit mode but with `--focus <aspect>` baked in. Skill body parses 
    - Rule has `RULE_AUTO_FIXABLE=true` AND `RULE_MECHANICALLY_FIXABLE=true`
    - Re-resolve fix recipe target path; verify still in safe-write allowlist
    - Refuse symlinks at target; refuse paths outside project root
-   It writes the `state.json.applied_fixes` audit-trail entry before the write. If the rule's `fix()` fails, `apply_run` exits non-zero: tell the user the fix failed and do not retry it.
+   It writes the `state.json.applied_fixes` audit-trail entry before the write, and refuses (exit 1) when it cannot, so the fix never runs unrecorded. If the rule's `fix()` fails, `apply_run` exits non-zero and marks that entry `failed`: tell the user the fix failed and do not retry it.
 4. Never source or run a file whose path you read from `state.json` (a `rule_path` field or any other), and never call a rule's `fix` yourself: `state.json` can be edited by someone other than membrane, and membrane never records a rule's path there.
 5. On exit 0, emit its chat confirmation: `"Applied <display_id> (<finding_uid>): <fix_summary>"`.
 

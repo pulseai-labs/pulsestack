@@ -27,8 +27,10 @@ detect() {
   # Case-insensitive match on variable names; require at least 12 alphanumeric chars as value.
   # grep rc 1 is no match; rc 2 or more is a read error: rc 2 (SCANNER-002) unless a match is already in hand,
   # which is emitted, since the engine drops a detector's stdout on rc 2 (#1089). Skill-first question 3.
+  # LC_ALL=C grep -a reads the file byte by byte in every locale, as HOOK-004 does: a NUL or a byte that is not
+  # UTF-8 does not make grep call the file binary and print no line.
   local hits grc=0
-  hits="$(grep -inE '(API_KEY|SECRET|TOKEN|PASSWORD)[[:space:]]*=[[:space:]]*[A-Za-z0-9]{12,}' "$target_file" 2>/dev/null)" || grc=$?
+  hits="$(LC_ALL=C grep -ainE '(API_KEY|SECRET|TOKEN|PASSWORD)[[:space:]]*=[[:space:]]*[A-Za-z0-9]{12,}' "$target_file" 2>/dev/null)" || grc=$?
   [[ "$grc" -le 1 ]] || [[ -n "$hits" ]] || return 2
   [[ -n "$hits" ]] || return 0
   printf '%s\n' "$hits" \

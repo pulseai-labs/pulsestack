@@ -477,6 +477,12 @@ test_enum_opencode_project_targets_exact_set() {
     "OpenCode symlink warning" || return 1
 }
 
+# No CSA_GLOB_* setting is defined or read in lib/: the enumeration and the aspect gates name their own suffixes, so
+# a variable of that name in the environment could only mislead.
+test_no_csa_glob_settings_in_lib() {
+  assert_eq "" "$(grep -rln 'CSA_GLOB_' "$CSA_LIB_DIR")" "lib/ files naming CSA_GLOB_" || return 1
+}
+
 csa_test_run test_enum_no_dot_claude_returns_empty       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_project_only                       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_project_plus_one_plugin            || _csa_failed=$((_csa_failed + 1))
@@ -498,5 +504,6 @@ csa_test_run test_enum_paranoid_candidates_refuse_newline_candidate || _csa_fail
 csa_test_run test_enum_paranoid_candidates_unreadable_cache || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_codex_project_targets              || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_opencode_project_targets_exact_set || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_no_csa_glob_settings_in_lib            || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

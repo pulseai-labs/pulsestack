@@ -63,13 +63,13 @@ else:
 
 ## Self-tamper detection (T1-F)
 
-Three checks at audit start (skipped silently on first-ever run when state.json doesn't exist):
+Three checks, run by `csa state_check_tamper "$PWD"` (skipped silently on first-ever run when state.json doesn't exist). `/security-audit` does not run them today: they run only when `csa state_check_tamper` is called, and they compare against what `csa state_update_self_integrity "$PWD"` last recorded.
 
 - **Check 1 — state.json mtime drift**: if actual mtime ≠ `state.json.self_integrity.state_mtime_at_last_audit`, emit `TAMPER-001` (High). Show diff if git-tracked, else before/after counts.
 - **Check 2 — suppressions.json mtime drift**: same pattern → `TAMPER-002` (High).
-- **Check 3 — git-tracked status drift**: `git check-ignore -q` on state.json and suppressions.json; if tracked-status changed since last audit → `TAMPER-003` (High).
+- **Check 3 — git-tracked status drift**: whether state.json and suppressions.json are tracked by git; if tracked-status changed since last audit → `TAMPER-003` (High). Read it only through `csa state_check_tamper "$PWD"`; never run `git` in the audited project yourself (`git check-ignore`, `git ls-files`, or any other): git reads that project's config, which can name a command git runs (`core.fsmonitor`). `csa` turns that key off for its own call.
 
-After every legitimate audit run, update `self_integrity.state_mtime_at_last_audit` IMMEDIATELY AFTER the audit's own write.
+Where the checks are used, record with `csa state_update_self_integrity "$PWD"` IMMEDIATELY AFTER the audit's own write (it sets `self_integrity.state_mtime_at_last_audit` and the tracked status).
 
 **Race-window suppression refusal**: when user runs `/security-audit --suppress <id>`, check `findings[finding_uid].first_seen`. If within 60 seconds of current time, refuse with the message in SPEC §9.5. Blocks attacker who introduces malicious file + immediately pre-suppresses the finding.
 
