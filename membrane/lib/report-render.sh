@@ -124,7 +124,7 @@ _csa_findings_arg() {
   local x="$1" src="the findings"
   if [[ -n "$x" && "$x" != "{"* && -f "$x" ]]; then
     src="$x"
-    x="$(cat "$x")" || { printf 'csa: cannot read %s; nothing rendered\n' "$src" >&2; return 4; }
+    x="$(cat "$x" 2>/dev/null)" || { printf 'csa: cannot read %s; nothing rendered\n' "$src" >&2; return 4; }
   elif [[ -n "$x" && "$x" != "{"* && "$x" != *$'\n'* ]]; then
     src="$x"   # one line that is not an object: most likely a path that does not exist
   fi
@@ -375,6 +375,10 @@ csa_report_render_markdown() {
 
   [[ -z "$date" ]] && date="$(date +%Y-%m-%d)"
   local run_padded; run_padded="$(printf '%02d' "$run_of_day")"
+
+  # A project's first report: .claude/audits/ may not exist yet.
+  local out_dir; out_dir="$(dirname "$output_path")"
+  mkdir -p "$out_dir" 2>/dev/null || { printf 'csa: cannot create %s; no report written\n' "$out_dir" >&2; return 5; }
 
   # Build output.
   {

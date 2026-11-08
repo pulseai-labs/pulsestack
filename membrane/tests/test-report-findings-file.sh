@@ -56,7 +56,7 @@ test_renderers_read_a_findings_file() {
 
 test_not_findings_jsonl_is_rc4_and_renders_nothing() {
   _mk_root
-  local bad rc out err
+  local bad rc out err fn
   for bad in 'x' '[1]' '"s"' 'null' '{"a":1}{"b":2}' '{"a":1} {"b":2}' "$(_line FUID-aaaaaaa1 critical SA-1)"$'\n''garbage'; do
     printf '%s\n' "$bad" > "$root/b.jsonl"; rm -f "$root/b.md"
     rc=0; out="$(_c report_render_markdown "$root/b.jsonl" '{}' "$root/b.md" 2>"$root/err")" || rc=$?
@@ -73,8 +73,20 @@ test_not_findings_jsonl_is_rc4_and_renders_nothing() {
     assert_eq 4 "$rc" "assign exit on $(printf %q "$bad")" || return 1
     assert_eq "" "$out" "assign prints nothing for $(printf %q "$bad")" || return 1
   done
+  # An unreadable file prints the one csa line too, never cat's own message beside it.
+  if [[ "$(id -u)" -ne 0 ]]; then
+    _line FUID-aaaaaaa1 high SA-1 > "$root/u.jsonl"; chmod 000 "$root/u.jsonl"
+    for fn in report_render_chat report_assign_display_ids; do
+      rc=0; _c "$fn" "$root/u.jsonl" 2026-01-01-01 >/dev/null 2>"$root/err" || rc=$?
+      assert_eq 4 "$rc" "$fn on an unreadable file" || return 1
+      assert_eq 1 "$(grep -c . "$root/err")" "$fn: one message line for an unreadable file ($(tr '\n' '|' < "$root/err"))" || return 1
+    done
+    rc=0; _c report_render_markdown "$root/u.jsonl" '{}' "$root/u.md" >/dev/null 2>"$root/err" || rc=$?
+    assert_eq "4 1" "$rc $(grep -c . "$root/err")" "markdown on an unreadable file: exit and one line" || return 1
+    [[ ! -e "$root/u.md" ]] || { printf '    a report was written for an unreadable file\n' >&2; return 1; }
+    chmod 600 "$root/u.jsonl"
+  fi
   # A path that does not exist is not findings either.
-  local fn
   for fn in report_render_chat report_assign_display_ids; do
     rc=0; _c "$fn" "$root/missing.jsonl" 2026-01-01-01 >/dev/null 2>&1 || rc=$?
     assert_eq 4 "$rc" "$fn on a missing file" || return 1
@@ -102,6 +114,22 @@ test_not_findings_jsonl_is_rc4_sourced() {
     csa_report_render_markdown "$root/b.jsonl" '{}' "$root/b.md" 2>/dev/null ) || rc=$?
   assert_eq 4 "$rc" "sourced markdown on a file that is not JSONL" || return 1
   [[ ! -e "$root/b.md" ]] || { printf '    sourced markdown wrote a report\n' >&2; return 1; }
+}
+
+# A project's first report: the report's directory does not exist yet, so the renderer makes it.
+# When it cannot, it says so and writes nothing.
+test_markdown_creates_the_report_directory() {
+  _mk_root
+  rm -rf "$root/.claude/audits"
+  _line FUID-aaaaaaa1 critical SA-2026-01-01-01-001 > "$root/f.jsonl"
+  local rc=0 out
+  out="$(_c report_render_markdown "$root/f.jsonl" '{}' "$root/.claude/audits/2026-01-01-01.md" 2>&1)" || rc=$?
+  assert_eq 0 "$rc" "markdown with no .claude/audits/ ($out)" || return 1
+  assert_contains "$(cat "$root/.claude/audits/2026-01-01-01.md")" "| Critical | 1 | 0 | 0 | 1 |" "the report holds the Critical" || return 1
+  : > "$root/blocker"
+  rc=0; out="$(_c report_render_markdown "$root/f.jsonl" '{}' "$root/blocker/r.md" 2>&1)" || rc=$?
+  [[ "$rc" -ne 0 ]] || { printf '    markdown exits 0 with no directory to write to\n' >&2; return 1; }
+  assert_eq "csa: cannot create $root/blocker; no report written" "$out" "one message line" || return 1
 }
 
 # The findings passed as content are refused the same way as a file that holds them.
@@ -182,6 +210,7 @@ csa_test_run test_not_findings_jsonl_is_rc4_and_renders_nothing         || _csa_
 csa_test_run test_not_findings_jsonl_is_rc4_sourced                     || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_not_findings_jsonl_as_content_is_rc4                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_whitespace_only_line_is_blank                         || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_markdown_creates_the_report_directory                 || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_chat_header_reads_the_run_number_from_the_display_ids || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

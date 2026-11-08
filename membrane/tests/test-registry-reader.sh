@@ -255,6 +255,106 @@ test_display_id_without_a_recorded_run_matches_nothing() {
   assert_eq FUID-good0001 "$(_c apply_resolve_id "$root" FUID-good0001)" "control: the FUID" || return 1
 }
 
+# ---- one uid printed under several display ids ---------------------------------------------
+
+# _scan_record <root> <report-name> <run-index> : step 4 to step 9 by hand (scan, baseline_tag,
+# report_assign_display_ids, state_record_audit); leaves the numbered findings in $root/tagged.
+_scan_record() {
+  local r="$1"
+  ( cd "$r" && HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" rule_engine_scan_all "$r" all 2>/dev/null ) > "$r/raw" || return 1
+  _c baseline_tag "$r/raw" "$r" > "$r/base" || return 1
+  _c report_assign_display_ids "$r/base" "$2" > "$r/tagged" || return 1
+  _c state_record_audit "$r" "$3" "$r/.claude/audits/$2.md" "$r/tagged" all >/dev/null 2>&1 || return 1
+  jq '.findings |= map_values(.first_seen = "2026-01-01T00:00:00Z")' "$st" > "$st.w" && mv "$st.w" "$st"
+}
+
+# One rule firing on the same text on two lines gives two findings with one uid (the uid has no line
+# number), each printed under its own display id. Every id the latest run printed resolves to that
+# uid; a later run's ids replace them.
+test_every_id_a_shared_uid_was_printed_with_resolves() {
+  _mk_root
+  printf '%s\n' '{"permissions":{"allow":["Bash(*)","Bash(*)"],"deny":[]}}' > "$root/.claude/settings.json"
+  _scan_record "$root" 2026-01-02-01 1 || { printf '    run 1 failed\n' >&2; return 1; }
+  local uid ids id rc out
+  uid="$(jq -r 'select(.rule_id == "PERM-001") | .finding_uid' "$root/tagged" | sort -u)"
+  ids="$(jq -r 'select(.rule_id == "PERM-001") | .display_id' "$root/tagged" | tr '\n' ' ' | sed 's/ $//')"
+  assert_eq "SA-2026-01-02-01-002 SA-2026-01-02-01-003" "$ids" "two PERM-001 lines, two ids" || return 1
+  [[ "$uid" == FUID-* && "$uid" != *$'\n'* ]] || { printf '    the two lines do not share one uid: %s\n' "$uid" >&2; return 1; }
+  for id in $ids; do
+    assert_eq "$uid" "$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" "apply_resolve_id $id" || return 1
+  done
+  for id in $ids; do
+    rc=0; _c suppress_add "$root" "$id" n >/dev/null 2>&1 || rc=$?
+    assert_eq 0 "$rc" "suppress_add $id" || return 1
+  done
+  assert_eq "$uid" "$(jq -r '[.suppressions[].finding_uid] | unique | join(" ")' "$root/.claude/audits/suppressions.json")" "both ids suppress that uid" || return 1
+  # Run 2 renumbers: its ids resolve, run 1's do not, even the one run 2 also gives that uid's line.
+  rm -f "$root/.claude/audits/suppressions.json"
+  _scan_record "$root" 2026-01-02-02 2 || { printf '    run 2 failed\n' >&2; return 1; }
+  for id in SA-2026-01-02-02-002 SA-2026-01-02-02-003; do
+    assert_eq "$uid" "$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" "run 2: apply_resolve_id $id" || return 1
+  done
+  for id in SA-2026-01-02-01-002 SA-2026-01-02-01-003; do
+    rc=0; out="$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" || rc=$?
+    assert_eq "1 " "$rc $out" "run 2: run 1's $id is refused by apply_resolve_id" || return 1
+    rc=0; _c suppress_add "$root" "$id" n >/dev/null 2>&1 || rc=$?
+    assert_eq 3 "$rc" "run 2: run 1's $id is refused by suppress_add" || return 1
+  done
+  assert_eq '["SA-2026-01-02-02-002","SA-2026-01-02-02-003"]' "$(jq -c --arg u "$uid" '.findings[$u].last_display_ids' "$st")" "the entry lists run 2's ids only" || return 1
+}
+
+# Three Critical lines sharing one uid: each of the three ids resolves, and --suppress refuses each
+# as Critical (exit 1), never as an unknown id (exit 3).
+test_every_id_of_a_shared_critical_uid_is_refused_as_critical() {
+  _mk_root
+  cp -R "$CSA_FIXTURES_DIR/issues/prompt-injection-agent/." "$root/"
+  local f="$root/.claude/agents/helper.md" body
+  body="$(tail -1 "$f")"; { printf '%s\n' "$body"; printf 'spacer\n'; printf '%s\n' "$body"; } >> "$f"
+  _scan_record "$root" 2026-01-02-01 1 || { printf '    run failed\n' >&2; return 1; }
+  local uid ids id rc out
+  uid="$(jq -r 'select(.severity == "critical") | .finding_uid' "$root/tagged" | sort -u)"
+  ids="$(jq -r 'select(.severity == "critical") | .display_id' "$root/tagged")"
+  assert_eq 3 "$(grep -c . <<<"$ids")" "three Critical lines" || return 1
+  [[ "$uid" == FUID-* && "$uid" != *$'\n'* ]] || { printf '    the three lines do not share one uid: %s\n' "$uid" >&2; return 1; }
+  for id in $ids; do
+    assert_eq "$uid" "$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" "apply_resolve_id $id" || return 1
+    rc=0; out="$(_c suppress_add "$root" "$id" n 2>&1)" || rc=$?
+    assert_eq 1 "$rc" "suppress_add $id" || return 1
+    assert_contains "$out" "Cannot suppress a critical-severity finding" "$id is refused as Critical" || return 1
+  done
+}
+
+# Two entries of the latest run holding one id, one in its list and one as last_display_id, name no
+# one finding. Control: the list alone resolves.
+test_an_id_two_entries_hold_through_the_list_matches_nothing() {
+  _mk_root
+  local a b
+  a="$(jq -c '.last_display_id = "SA-2026-01-01-01-002" | .last_display_ids = ["SA-2026-01-01-01-001","SA-2026-01-01-01-002"]' <<<"$_good")"
+  b="$(jq -c '.last_display_id = "SA-2026-01-01-01-001" | .last_display_ids = ["SA-2026-01-01-01-001"]' <<<"$_good")"
+  _state "{\"FUID-a0000001\":$a,\"FUID-b0000001\":$b}"
+  local rc=0 out
+  out="$(_c apply_resolve_id "$root" SA-2026-01-01-01-001 2>/dev/null)" || rc=$?
+  assert_eq "1 " "$rc $out" "an id two entries hold" || return 1
+  assert_eq FUID-a0000001 "$(_c apply_resolve_id "$root" SA-2026-01-01-01-002)" "control: an id one entry holds" || return 1
+}
+
+# The first audit of a project has no .claude/audits/: state_record_audit creates it. When it cannot,
+# it says so and records nothing.
+test_record_audit_creates_the_audits_directory() {
+  _n=$((_n + 1)); root="$_CSA_TMP/t$_n"; mkdir -p "$root/.claude"; st="$root/.claude/audits/state.json"
+  _line FUID-ccccccc1 SA-2026-01-02-01-001 > "$root/f1"
+  local rc=0 out
+  out="$(_c state_record_audit "$root" 1 "$root/.claude/audits/2026-01-02-01.md" "$root/f1" all 2>&1)" || rc=$?
+  assert_eq 0 "$rc" "record_audit with no .claude/audits/ ($out)" || return 1
+  assert_eq '["FUID-ccccccc1"]' "$(_keys)" "state.json holds the finding" || return 1
+  # A file where the directory should be: the directory cannot be made.
+  _n=$((_n + 1)); root="$_CSA_TMP/t$_n"; mkdir -p "$root/.claude"; : > "$root/.claude/audits"
+  _line FUID-ccccccc1 SA-2026-01-02-01-001 > "$root/f1"
+  rc=0; out="$(_c state_record_audit "$root" 1 "$root/r.md" "$root/f1" all 2>&1)" || rc=$?
+  [[ "$rc" -ne 0 ]] || { printf '    record_audit exits 0 with no directory to write to\n' >&2; return 1; }
+  assert_contains "$out" "csa: cannot create $root/.claude/audits; no audit state written" "the message" || return 1
+}
+
 csa_test_run test_non_object_entry_is_skipped_by_readers_and_dropped_by_writers || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_registry_that_is_not_an_object_reads_as_empty                || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_gc_and_resighting_read_malformed_fields                       || _csa_failed=$((_csa_failed + 1))
@@ -263,5 +363,9 @@ csa_test_run test_display_id_resolves_only_in_the_latest_run                  ||
 csa_test_run test_reused_display_id_does_not_reach_a_stale_entry               || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_empty_display_id_matches_nothing                              || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_display_id_without_a_recorded_run_matches_nothing             || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_every_id_a_shared_uid_was_printed_with_resolves               || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_every_id_of_a_shared_critical_uid_is_refused_as_critical      || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_an_id_two_entries_hold_through_the_list_matches_nothing       || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_record_audit_creates_the_audits_directory                    || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

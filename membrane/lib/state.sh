@@ -117,8 +117,10 @@ _csa_state_rule_severities() {
 _CSA_JQ_REGISTRY='def csa_registry: ((.findings | objects) // {}) | with_entries(select(.value | type == "object"));'
 
 # _csa_registry_resolve_display_id <state_json> <display_id>
-# Print the finding_uid whose last_display_id is <display_id>, or nothing; exit 0 either way. THE
-# one display-id lookup (suppress_add, apply_resolve_id). A display id names a line of the latest
+# Print the finding_uid that holds <display_id>, or nothing; exit 0 either way. THE one display-id
+# lookup (suppress_add, apply_resolve_id). An entry holds every id the latest run printed for it,
+# in last_display_ids (one uid can be several findings: a rule firing on the same text on two lines),
+# and last_display_id, the last of them, as before 0.7.2. A display id names a line of the latest
 # recorded run's report, so only an entry seen in that run (last_run_index equal to the newest
 # audit_history run_index) can match. An id an older run's entry still holds matches nothing: its
 # number may have come round again (a report file was deleted) and now name a SCANNER finding,
@@ -130,7 +132,9 @@ _csa_registry_resolve_display_id() {
   printf '%s' "$state_json" | jq -r --arg did "$did" "$_CSA_JQ_REGISTRY"'
     ((.audit_history | arrays | last | objects | .run_index | numbers) // null) as $latest
     | [csa_registry | to_entries[]
-       | select($latest != null and .value.last_run_index == $latest and .value.last_display_id == $did)]
+       | select($latest != null and .value.last_run_index == $latest
+               and (.value.last_display_id == $did
+                    or (((.value.last_display_ids | arrays) // []) | any(.[]; . == $did))))]
     | if length == 1 then .[0].key else empty end' 2>/dev/null || true
 }
 
@@ -154,6 +158,9 @@ _csa_suppressed_uid_set() {
 # Append to audit_history, update last_audit, update findings registry, run GC.
 # findings_jsonl: newline-delimited JSON objects (the content, or the path of a file holding
 #   them); each must have: finding_uid, rule_id, severity, file, display_id
+# A registry entry keeps the run's display ids for its uid in last_display_ids: reset at the run's
+# first sighting of the uid, appended on later sightings in the same run. It creates
+# .claude/audits/ when missing (exit 5, nothing written, when it cannot).
 # Every finding it is given is registered with findings[uid].suppressed, which this function
 # computes from suppressions.json (never from the input's state) and which is false for a
 # critical finding, since suppress_filter never hides one; so a suppressed finding that
@@ -268,11 +275,15 @@ csa_state_record_audit() {
         --argjson sup "$is_sup" \
         --argjson run_index "$run_index" '
         if .findings[$fuid] then
+          (.findings[$fuid].last_run_index == $run_index) as $same_run |
           .findings[$fuid].rule_id = $rule_id |
           .findings[$fuid].severity = $severity |
           .findings[$fuid].file = $file |
           .findings[$fuid].suppressed = $sup |
           (if $display_id != "" then .findings[$fuid].last_display_id = $display_id else . end) |
+          .findings[$fuid].last_display_ids =
+            ((if $same_run then ((.findings[$fuid].last_display_ids | arrays) // []) else [] end)
+             + (if $display_id != "" then [$display_id] else [] end)) |
           .findings[$fuid].last_seen = $now |
           .findings[$fuid].seen_in_runs = (((.findings[$fuid].seen_in_runs | numbers) // 0) + 1) |
           .findings[$fuid].last_run_index = $run_index
@@ -286,6 +297,7 @@ csa_state_record_audit() {
             seen_in_runs: 1,
             last_run_index: $run_index,
             last_display_id: $display_id,
+            last_display_ids: (if $display_id != "" then [$display_id] else [] end),
             suppressed: $sup
           }
         end
@@ -334,8 +346,10 @@ csa_state_record_audit() {
     }]
   ')"
 
-  # Write atomically.
-  local tmp; tmp="$(dirname "$state_file")/state.json.tmp.$$"
+  # Write atomically. A project's first audit: .claude/audits/ may not exist yet.
+  local audits_dir; audits_dir="$(dirname "$state_file")"
+  mkdir -p "$audits_dir" 2>/dev/null || { printf 'csa: cannot create %s; no audit state written\n' "$audits_dir" >&2; return 5; }
+  local tmp; tmp="$audits_dir/state.json.tmp.$$"
   printf '%s\n' "$state" > "$tmp"
   mv "$tmp" "$state_file"
 
