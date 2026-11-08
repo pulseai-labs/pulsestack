@@ -3,7 +3,7 @@ RULE_ID="HOOK-003"
 RULE_NAME="unbounded-eval"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="high"
-RULE_DESCRIPTION="eval of a variable or command substitution detected in hook script — potential code injection."
+RULE_DESCRIPTION="eval of a variable or command substitution detected in a hook script, handler or command — potential code injection."
 RULE_AUTO_FIXABLE="false"
 RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Replace eval with explicit command invocations. If dynamic dispatch is required, use a whitelist of allowed commands rather than evaluating arbitrary strings."
@@ -29,10 +29,11 @@ RULE_PATTERN='eval[[:space:]]+"?\$'
 detect() {
   local target_file="$1"
   [[ -r "$target_file" ]] || return 0
-  # Only scan known hook handler and wrapper script surfaces.
+  # Only scan known hook handler and wrapper script surfaces, and hook handler code (csa_hook_handler_file).
   if [[ "$target_file" != */.claude/hooks* && "$target_file" != *.sh \
         && "$target_file" != */.opencode/bin/* && "$target_file" != */.opencode/*.js \
-        && "$target_file" != */.opencode/*.ts && "$target_file" != */.opencode/*.mjs ]]; then
+        && "$target_file" != */.opencode/*.ts && "$target_file" != */.opencode/*.mjs ]] \
+        && ! csa_hook_handler_file "$target_file"; then
     return 0
   fi
   # grep rc 1 is no match; rc 2 or more is a read error: rc 2 here (a SCANNER-002 in the engine, not a

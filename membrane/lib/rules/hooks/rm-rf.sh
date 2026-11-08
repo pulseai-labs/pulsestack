@@ -3,7 +3,7 @@ RULE_ID="HOOK-002"
 RULE_NAME="rm-rf"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="critical"
-RULE_DESCRIPTION="Destructive rm -rf on absolute path detected in hook script."
+RULE_DESCRIPTION="Destructive rm -rf on absolute path detected in a hook script, handler or command."
 RULE_AUTO_FIXABLE="false"
 RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Remove or scope the rm -rf command. Avoid deleting absolute paths from hook scripts; use temporary directories scoped to the build."
@@ -29,10 +29,11 @@ RULE_PATTERN='rm[[:space:]]+(-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)[[:spac
 detect() {
   local target_file="$1"
   [[ -r "$target_file" ]] || return 0
-  # Only scan known hook handler and wrapper script surfaces.
+  # Only scan known hook handler and wrapper script surfaces, and hook handler code (csa_hook_handler_file).
   if [[ "$target_file" != */.claude/hooks* && "$target_file" != *.sh \
         && "$target_file" != */.opencode/bin/* && "$target_file" != */.opencode/*.js \
-        && "$target_file" != */.opencode/*.ts && "$target_file" != */.opencode/*.mjs ]]; then
+        && "$target_file" != */.opencode/*.ts && "$target_file" != */.opencode/*.mjs ]] \
+        && ! csa_hook_handler_file "$target_file"; then
     return 0
   fi
   # Match rm with -rf or -fr flags followed by an absolute path /

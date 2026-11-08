@@ -37,7 +37,7 @@ detect() { return 1; }
 detect_text() {
   local entries="$1" target_file="$2" counts preview fuid
   counts="$(printf '%s\n' "$entries" | jq -rs '
-    [.[] | select(has("inconclusive") | not) | select(.type != "command") | .type]
+    [.[] | select(has("inconclusive") | not) | select(has("module") | not) | select(.type != "command") | .type]
     | group_by(.) | map("\(.[0])=\(length)") | join(", ")' 2>/dev/null)" || return 2
   [[ -n "$counts" ]] || return 1
   preview="$(csa_redact "hook entries not inspected: $counts")"

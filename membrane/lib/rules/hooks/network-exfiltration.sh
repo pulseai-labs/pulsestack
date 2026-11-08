@@ -3,7 +3,7 @@ RULE_ID="HOOK-004"
 RULE_NAME="network-exfiltration"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="high"
-RULE_DESCRIPTION="Hook script combines a network-call command with a sensitive credential/config path — potential data exfiltration."
+RULE_DESCRIPTION="A hook script, handler or command combines a network-call command with a sensitive credential/config path — potential data exfiltration."
 RULE_AUTO_FIXABLE="false"
 RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Review the hook for unintended data exfiltration. Ensure network calls do not reference SSH keys, AWS credentials, or system password files."
@@ -126,10 +126,11 @@ _csa_hook004_match() {
 detect() {
   local target_file="$1"
   [[ -r "$target_file" ]] || return 0
-  # Only scan known hook handler and wrapper script surfaces.
+  # Only scan known hook handler and wrapper script surfaces, and hook handler code (csa_hook_handler_file).
   if [[ "$target_file" != */.claude/hooks* && "$target_file" != *.sh \
         && "$target_file" != */.opencode/bin/* && "$target_file" != */.opencode/*.js \
-        && "$target_file" != */.opencode/*.ts && "$target_file" != */.opencode/*.mjs ]]; then
+        && "$target_file" != */.opencode/*.ts && "$target_file" != */.opencode/*.mjs ]] \
+        && ! csa_hook_handler_file "$target_file"; then
     return 0
   fi
   # Fire only when BOTH a network command AND a sensitive path reference are present

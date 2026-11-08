@@ -3,10 +3,10 @@ RULE_ID="HOOK-005"
 RULE_NAME="hook-entry-unreadable"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="high"
-RULE_DESCRIPTION="A hook declared in JSON (settings, a plugin's hooks/hooks.json or plugin.json) could not be read, so its command was not checked."
+RULE_DESCRIPTION="A hook declared in JSON (settings, a plugin's hooks/hooks.json or plugin.json), a hooks.json modules path, or a hook file whose name holds a newline or tab or that is a symlink could not be read, so that command, module or file was not checked."
 RULE_AUTO_FIXABLE="false"
 RULE_MECHANICALLY_FIXABLE="false"
-RULE_REMEDIATION="Read the named JSON path by hand. Fix a malformed file or a hook entry of the wrong shape, or remove the entry, so the audit can read every hook command."
+RULE_REMEDIATION="Read the named JSON path or file by hand. Fix a malformed file or a hook entry of the wrong shape, point a hooks.json modules path at handler code inside the plugin's hooks/ dir, replace a symlink below a hook dir with the file it points at, rename a file whose name holds a newline or tab, or remove the entry, so the audit can read every hook command and module."
 RULE_REFERENCES=""
 
 if [[ -n "${BASH_SOURCE[0]:-}" ]]; then

@@ -60,22 +60,34 @@ csa_enum_opencode_project_targets() {
 }
 
 # _csa_enum_unlisted_hook_handlers <project-root>
-# Emit every executable regular file under .claude/hooks/ whose suffix the main
-# pass below does not list (extensionless, hidden, or an unlisted dotted suffix
-# such as `preflight.tool`, #426), or reject newline-containing ones. Listed
+# Emit every regular file under .claude/hooks/ whose suffix the main pass below
+# does not list and that is either executable (extensionless, hidden, or an
+# unlisted dotted suffix such as `preflight.tool`, #426) or handler code by its
+# suffix whatever its mode (.mjs .cjs .tsx .jsx .mts .cts, which settings run as
+# `node .claude/hooks/x.mjs`). A name holding a newline or tab cannot be one
+# target line: an executable one refuses the whole enumeration (rc 2, #426); a
+# non-executable code file is left out and reported as one HOOK-005. Listed
 # suffixes are skipped here so the main pass emits them exactly once: keep this
 # case list equal to its -name list.
 _csa_enum_unlisted_hook_handlers() {
-  local root="$1" hooks="$1/.claude/hooks"
+  local root="$1" hooks="$1/.claude/hooks" code unread=""
   [[ -d "$hooks" ]] || return 0
 
-  find "$hooks" -type f -print0 2>/dev/null | while IFS= read -r -d '' handler; do
+  # The HOOK-005 lines are held until the walk ends, so a refusal prints only its own message.
+  find "$hooks" -type f -print0 2>/dev/null | { while IFS= read -r -d '' handler; do
     case "${handler##*/}" in
       *.md|*.json|*.sh|*.py|*.js|*.ts) : ;;
-      *) if [[ -x "$handler" ]]; then
+      *) code=0
+         case "${handler##*/}" in *.mjs|*.cjs|*.tsx|*.jsx|*.mts|*.cts) code=1 ;; esac
+         if [[ "$code" -eq 1 || -x "$handler" ]]; then
            if [[ "$handler" == *$'\n'* || "$handler" == *$'\t'* ]]; then
-             printf 'refusing newline-or-tab-containing executable hook handler\n' >&2
-             return 2
+             if [[ -x "$handler" ]]; then
+               printf 'refusing newline-or-tab-containing executable hook handler\n' >&2
+               return 2
+             fi
+             # Not executable: unread and reported as one HOOK-005, the audit goes on.
+             unread="$unread$(_csa_enum_unread_hook_file "" "$handler")"$'\n'
+             continue
            fi
            printf '%s\n' "$handler"
          else
@@ -84,19 +96,34 @@ _csa_enum_unlisted_hook_handlers() {
          ;;
     esac
   done
+  [[ -z "$unread" ]] || printf '%s' "$unread" >&2; }
 }
 
 csa_enum_project_targets() {
-  local root="$1"
+  local root="$1" hq f
   if [[ -d "$root/.claude" ]]; then
     if ! _csa_enum_unlisted_hook_handlers "$root"; then
       return 2
     fi
+    # A symlink below .claude/hooks/, or .claude/hooks/ as one, is not followed:
+    # one HOOK-005 each.
+    _csa_enum_hook_symlinks "" "$root/.claude/hooks" >&2
+    # split: a .py .js .ts file, in any mode, whose name below .claude/hooks/
+    # holds a newline or tab. It would split as a target line, so the main pass
+    # leaves it out and it is one HOOK-005; one predicate for both, so a file
+    # left out is always reported. A .sh .md .json one is listed as before.
+    # Skill-first question 3: it only adds a stop.
+    hq="$(_csa_enum_glob_quote "$root/.claude/hooks")"
+    local -a split=( \( -path "$hq/*"$'\n'"*" -o -path "$hq/*"$'\t'"*" \)
+                     \( -name '*.py' -o -name '*.js' -o -name '*.ts' \) )
+    find "$root/.claude/hooks" -type f "${split[@]}" -print0 2>/dev/null \
+      | while IFS= read -r -d '' f; do _csa_enum_unread_hook_file "" "$f" >&2; done || :
     # Exclude .claude/audits/ — it holds audit state/reports and must not be scanned.
     find "$root/.claude" -type f \
          -not -path "$root/.claude/audits/*" \
          \( -name '*.md' -o -name '*.json' -o -name '*.sh' \
-            -o -name '*.py' -o -name '*.js' -o -name '*.ts' \) 2>/dev/null
+            -o -name '*.py' -o -name '*.js' -o -name '*.ts' \) \
+         ! \( "${split[@]}" \) 2>/dev/null
     find "$root/.claude" -type l \
          -not -path "$root/.claude/audits/*" 2>/dev/null | while read -r sl; do
       printf 'info: symlink at %s not followed\n' "$sl" >&2
@@ -116,6 +143,52 @@ _csa_enum_oneline() {
   s="${s//$'\r'/\\r}"
   s="${s//$'\t'/\\t}"
   printf '%s' "$s"
+}
+
+# _csa_enum_glob_quote <string> — the string with the glob metacharacters
+# `\ * ? [` backslash-escaped, so `find -path` matches it literally.
+_csa_enum_glob_quote() {
+  local s="$1" o="" c i
+  for (( i = 0; i < ${#s}; i++ )); do
+    c="${s:i:1}"
+    case "$c" in
+      '\'|'*'|'?'|'[') o="$o\\$c" ;;
+      *) o="$o$c" ;;
+    esac
+  done
+  printf '%s' "$o"
+}
+
+# _csa_enum_unread_hook_file <plugin-key> <path> [symlink] — the line, for
+# stderr, that the rule engine turns into one High HOOK-005 for a hook file that
+# is not read: by default because its name holds a newline or tab (it cannot be
+# one line of the target list), with `symlink` because it is a symlink, which is
+# never followed. The key is empty for a project file. Both are escaped onto one
+# line; the optional third field is the word `symlink`.
+_csa_enum_unread_hook_file() {
+  if [[ "${3-}" == symlink ]]; then
+    printf 'finding: HOOK-005\t%s\t%s\tsymlink\n' "$(_csa_enum_oneline "$1")" "$(_csa_enum_oneline "$2")"
+  else
+    printf 'finding: HOOK-005\t%s\t%s\n' "$(_csa_enum_oneline "$1")" "$(_csa_enum_oneline "$2")"
+  fi
+}
+
+# _csa_enum_hook_symlinks <plugin-key> <hooks-dir> — for stderr, one HOOK-005
+# line (_csa_enum_unread_hook_file ... symlink) for <hooks-dir> when it is a
+# symlink itself, else one per symlink below it, to a file or to a directory. A
+# symlink is never followed, so what it points at is not read; the stop says so.
+# Skill-first question 3: it only adds a stop. A missing <hooks-dir> is no line
+# and rc 0, and a find that fails part way still returns 0, so the caller's
+# `set -euo pipefail` (bin/csa) never ends the enumeration here.
+_csa_enum_hook_symlinks() {
+  local key="$1" dir="$2" l
+  if [[ -L "$dir" ]]; then
+    _csa_enum_unread_hook_file "$key" "$dir" symlink
+    return 0
+  fi
+  find "$dir" -mindepth 1 -type l -print0 2>/dev/null \
+    | while IFS= read -r -d '' l; do _csa_enum_unread_hook_file "$key" "$l" symlink; done || :
+  return 0
 }
 
 # _csa_enum_settings_plugin_list <settings-file> — the file's enabledPlugins as
@@ -399,11 +472,24 @@ csa_enum_targets_all() {
       *) return 2 ;;
     esac
   done <<< "$enabled_plugins"
+  # A file below a plugin's hooks/ whose path there holds a newline or tab would
+  # split or truncate as a target line (the rules gate on the hooks/ layout,
+  # which a fragment loses), so it is left out of the list and reported as one
+  # HOOK-005 naming the plugin and the file. A symlink below hooks/, or hooks/
+  # as one, is never followed and is one HOOK-005 too. Skill-first question 3:
+  # each only adds a stop. Every other file is listed as before.
+  local hpat f
   {
     [[ -n "$project_targets" ]] && printf '%s\n' "$project_targets"
     while IFS=$'\t' read -r plugin_name plugin_path; do
       [[ -z "$plugin_name" ]] && continue
-      find "$plugin_path" -type f 2>/dev/null \
+      hpat="$(_csa_enum_glob_quote "$plugin_path")/hooks/*"
+      _csa_enum_hook_symlinks "$plugin_name" "$plugin_path/hooks" >&2
+      # A plugin with no hooks/ makes this find fail: `|| :` keeps that from
+      # ending the group under bin/csa's `set -euo pipefail`.
+      find "$plugin_path/hooks" -type f \( -path "$hpat"$'\n'"*" -o -path "$hpat"$'\t'"*" \) -print0 2>/dev/null \
+        | while IFS= read -r -d '' f; do _csa_enum_unread_hook_file "$plugin_name" "$f" >&2; done || :
+      find "$plugin_path" -type f ! -path "$hpat"$'\n'"*" ! -path "$hpat"$'\t'"*" 2>/dev/null \
         | CSA_LABEL="$plugin_name" CSA_PREFIX="$plugin_path/" awk '
             BEGIN { l = ENVIRON["CSA_LABEL"]; p = ENVIRON["CSA_PREFIX"]; n = length(p) }
             { rel = (substr($0, 1, n) == p) ? substr($0, n + 1) : $0
