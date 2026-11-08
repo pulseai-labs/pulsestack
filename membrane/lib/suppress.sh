@@ -64,13 +64,16 @@ csa_suppress_add() {
   }
   local fuid="$id_arg" resolved=""
   if [[ -n "$id_arg" ]]; then
-    resolved="$(printf '%s' "$state_json" | jq -r --arg did "$id_arg" \
-      'first(.findings | to_entries[] | select((.value | type) == "object" and .value.last_display_id == $did) | .key) // empty')"
+    resolved="$(_csa_registry_resolve_display_id "$state_json" "$id_arg")"
   fi
   [[ -n "$resolved" ]] && fuid="$resolved"
   local entry; entry="$(printf '%s' "$state_json" | jq -c --arg k "$fuid" '.findings[$k] // empty')"
   if [[ -z "$entry" ]]; then
-    printf 'csa: %s is not a finding any recorded audit produced; nothing suppressed\n' "$id_arg" >&2
+    if [[ "$id_arg" == SA-* ]]; then
+      printf 'csa: %s names no registered finding in the latest audit (a display id names a line of the latest report, and a SCANNER finding is never registered); nothing suppressed. Use the finding_uid (FUID-...) from the report.\n' "$id_arg" >&2
+    else
+      printf 'csa: %s is not a finding any recorded audit produced; nothing suppressed\n' "$id_arg" >&2
+    fi
     return 3
   fi
   local sevmap; sevmap="$(_csa_state_rule_severities)"

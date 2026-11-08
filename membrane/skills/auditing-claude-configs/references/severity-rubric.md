@@ -49,6 +49,7 @@ Counts table at the top of chat output (mirrors SPEC §8.4 report header):
 - Compute `runs_since_last_seen = current_run_index - last_seen_run_index`, minus the runs in that window that were focused on another aspect (#429). Each `audit_history` entry records its `focus`: `all` for a full audit, which counts for every finding, or the one aspect a focused scan covered. A finding's aspect is its rule's directory under `lib/rules/`.
 - A run recorded before 0.1.7 (no `focus`) counts as a full run. A `TAMPER-*` finding has no aspect and ages on every run. A `SCANNER-*` finding carries no `finding_uid`, so it never enters the registry.
 - If `runs_since_last_seen > 10`, evict the entry.
+- An entry no reader can use is dropped at the next audit: one that is not an object, and one whose `last_run_index` is not a number (it cannot be aged) that does not fire in that audit. One that fires is re-sighted first, so it is kept, reads PERSISTED and keeps its `first_seen`. A `rule_id` that is not a string maps to no aspect, so the entry ages on every run. A registry that is not an object restarts empty. A finding whose entry was dropped reads NEW once.
 - A suppressed finding that still fires counts as seen: step 9 records it (marked `suppressed: true`; a Critical is never marked, since the filter never hides it), so it ages only when it stops firing, like any other.
 - Evicted entries silently re-appear as NEW if rediscovered (acceptable for a "what changed recently" feature).
 

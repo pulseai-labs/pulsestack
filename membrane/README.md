@@ -58,10 +58,11 @@ codex plugin marketplace add github:pulseai-labs/pulsestack
 /security-audit --verbose                 # show Info findings
 /security-audit --show-suppressed         # also show suppressed
 /security-audit --suppress FUID-a3f9b21c   # dismiss a finding (refuses Critical, and an id no audit produced)
+/security-audit --suppress SA-2026-05-24-01-013  # same, using the display id from the latest report
 /security-audit --unsuppress FUID-a3f9b21c  # remove one suppression
 /secrets-scan                             # alias for --focus secrets
 /permissions-review                       # alias for --focus permissions
-/apply-fix SA-2026-...                    # apply one safe-category fix
+/apply-fix SA-2026-05-24-01-013           # apply one safe-category fix
 /apply-fix FUID-a3f9b21c                  # same, using durable ID
 ```
 
@@ -121,6 +122,8 @@ Critical findings **cannot be suppressed**; they must be remediated. A Critical 
 **Upgrading to 0.7.0.** `csa suppress_add` is `csa suppress_add <root> <id> <note>`; the old four-argument form still runs and its severity is ignored. It refuses an id no recorded audit produced (exit 3) and a missing `state.json` (exit 2), and takes severity from membrane's own registry and rules, so a Critical finding cannot be suppressed by passing another severity. A suppression of a Critical finding made before 0.7.0 (or written by hand) no longer hides it: it shows again, and the entry stays in the file until `/security-audit --unsuppress <FUID>` removes it. A suppressed finding is now recorded in `state.json` on every audit, so it no longer ages out while it fires. See the CHANGELOG.
 
 **Upgrading to 0.7.1.** HOOK-004 (`network-exfiltration`) also reads `ncat`, `netcat`, `nc.openbsd`, `nc.traditional`, `socat`, `sftp`, `ftp`, `tftp`, `telnet`, bash's `/dev/tcp/` and `/dev/udp/`, and a quoted `'nc'`, `"ssh"` or `'scp'` word (the argv form of `spawn('scp', …)`), so it fires on more files. A HOOK-004 finding in a script file gets a new durable id once when the file holds one of these forms, in code or in a comment, that adds a name or a both-line; it reads NEW in the next audit, and the old entry in `.claude/audits/suppressions.json` matches nothing: a full audit lists it, and `/security-audit --unsuppress <FUID>` removes it. A hook command read from JSON keeps its id. Uppercase names (`CURL`, `SSH`) stay silent. See the CHANGELOG.
+
+**Upgrading to 0.7.2.** Each finding in an audit now gets a display id, `SA-<date>-<NN>-<NNN>` (the run of the day, then the finding's number in that run's report), which chat and the report print and `--suppress` and `/apply-fix` accept for a registered finding (not a SCANNER finding); it names a line of the latest recorded audit's report and resolves to nothing after the next audit, so use the `FUID-...` across sessions. No finding's durable id changes, and `state.json` keeps its layout. At the next audit, `state.json` registry entries that are not objects, and entries with no numeric `last_run_index` that do not fire in that audit, are dropped: a finding such an entry stood for reads NEW once. An entry with no numeric `last_run_index` whose finding fires is kept, reads PERSISTED and keeps its `first_seen`. A registry that one of those entries had stuck (every audit since then exited 5 after recording its run) runs its first working clean-up then, and may evict many entries unseen for more than 10 runs in that one audit. See the CHANGELOG.
 
 ## Composition
 

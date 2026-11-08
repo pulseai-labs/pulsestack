@@ -107,6 +107,33 @@ _csa_state_rule_severities() {
   done | jq -R -s 'split("\n") | map(select(length > 0) | split("\t") | {key: .[0], value: .[1]}) | from_entries'
 }
 
+# _CSA_JQ_REGISTRY — THE one reader of state.json's `findings` registry, as a jq def that each reader
+# and writer prepends to its program. `csa_registry` is the registry's object entries only: a
+# registry that is not an object reads as {}, and an entry that is not an object (a string, a
+# number, an array, null, a boolean) is left out. No reader can act on such an entry, so readers
+# skip it and the writers (state_record_audit, state_gc_findings) drop it. suppress_add keeps its
+# own entry read, so such an entry stays its exit 1 there.
+# Skill-first question 2: membrane's own state file, a closed shape.
+_CSA_JQ_REGISTRY='def csa_registry: ((.findings | objects) // {}) | with_entries(select(.value | type == "object"));'
+
+# _csa_registry_resolve_display_id <state_json> <display_id>
+# Print the finding_uid whose last_display_id is <display_id>, or nothing; exit 0 either way. THE
+# one display-id lookup (suppress_add, apply_resolve_id). A display id names a line of the latest
+# recorded run's report, so only an entry seen in that run (last_run_index equal to the newest
+# audit_history run_index) can match. An id an older run's entry still holds matches nothing: its
+# number may have come round again (a report file was deleted) and now name a SCANNER finding,
+# which is never registered. An empty id, a state with no recorded run, and an id two entries of
+# that run hold (only a hand edit makes one) match nothing.
+_csa_registry_resolve_display_id() {
+  local state_json="$1" did="$2"
+  [[ -n "$did" ]] || return 0
+  printf '%s' "$state_json" | jq -r --arg did "$did" "$_CSA_JQ_REGISTRY"'
+    ((.audit_history | arrays | last | objects | .run_index | numbers) // null) as $latest
+    | [csa_registry | to_entries[]
+       | select($latest != null and .value.last_run_index == $latest and .value.last_display_id == $did)]
+    | if length == 1 then .[0].key else empty end' 2>/dev/null || true
+}
+
 # _csa_suppressed_uid_set <suppressions_file>
 # Print the suppressed uids as one JSON array, always, and exit 0. A missing, empty or
 # whitespace-only file is []. A file that is anything but one object with a suppressions array
@@ -162,9 +189,10 @@ csa_state_record_audit() {
   # Read existing state (or empty object).
   local state; state="$(csa_state_read "$root")"
 
-  # If state is '{}' (missing file), bootstrap a minimal structure for jq.
-  state="$(printf '%s' "$state" | jq '
-    if . == {} then {
+  # If state is '{}' (missing file), bootstrap a minimal structure for jq. Then keep only the
+  # registry entries a reader can use (csa_registry), before this run's sightings.
+  state="$(printf '%s' "$state" | jq "$_CSA_JQ_REGISTRY"'
+    (if . == {} then {
       schema_version: 2,
       last_audit: null,
       self_integrity: {
@@ -179,7 +207,7 @@ csa_state_record_audit() {
       findings: {},
       audit_history: [],
       applied_fixes: []
-    } else . end
+    } else . end) | .findings = csa_registry
   ')"
 
   # Build finding counts and findings registry updates from findings_jsonl.
@@ -246,7 +274,7 @@ csa_state_record_audit() {
           .findings[$fuid].suppressed = $sup |
           (if $display_id != "" then .findings[$fuid].last_display_id = $display_id else . end) |
           .findings[$fuid].last_seen = $now |
-          .findings[$fuid].seen_in_runs = (.findings[$fuid].seen_in_runs + 1) |
+          .findings[$fuid].seen_in_runs = (((.findings[$fuid].seen_in_runs | numbers) // 0) + 1) |
           .findings[$fuid].last_run_index = $run_index
         else
           .findings[$fuid] = {
@@ -325,7 +353,9 @@ csa_state_record_audit() {
 # that were focused on another aspect. A run with focus `all`, or with no focus
 # (written by 0.1.6 and earlier), is a full run and counts for every finding. A
 # finding whose rule_id maps to no shipped rule has no aspect and ages on every
-# run.
+# run. The registry is read through csa_registry, so an entry that is not an object is dropped;
+# an entry whose last_run_index is not a number cannot be aged and is evicted; a rule_id that is
+# not a string maps to no rule. A failed run leaves state.json as it was and no tmp file.
 csa_state_gc_findings() {
   local root="$1"
   local current_run_index="$2"
@@ -333,15 +363,16 @@ csa_state_gc_findings() {
   [[ -f "$state_file" ]] || return 0
 
   local rule_aspects; rule_aspects="$(_csa_state_rule_aspects)"
-  local tmp; tmp="$(dirname "$state_file")/state.json.tmp.$$"
+  local tmp rc=0; tmp="$(dirname "$state_file")/state.json.tmp.$$"
   jq \
     --argjson current "$current_run_index" \
     --argjson rule_aspects "$rule_aspects" \
-    'if .findings then
+    "$_CSA_JQ_REGISTRY"'if .findings then
       (.audit_history // []) as $hist |
-      .findings = (.findings | with_entries(
+      .findings = (csa_registry | with_entries(
+        select((.value.last_run_index | type) == "number") |
         .value.last_run_index as $last |
-        ($rule_aspects[.value.rule_id // ""] // null) as $aspect |
+        ($rule_aspects[(.value.rule_id | strings) // ""] // null) as $aspect |
         ([$hist[]
           | select(.run_index > $last and .run_index <= $current)
           | select($aspect != null
@@ -351,7 +382,12 @@ csa_state_gc_findings() {
         select(($current - $last - $skipped) <= 10)
       ))
     else . end' \
-    "$state_file" > "$tmp" && mv "$tmp" "$state_file"
+    "$state_file" > "$tmp" || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    rm -f "$tmp"
+    return "$rc"
+  fi
+  mv "$tmp" "$state_file"
 }
 
 # ---------------------------------------------------------------------------

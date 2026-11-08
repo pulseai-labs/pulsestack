@@ -36,7 +36,8 @@ csa_apply_is_in_allowlist() {
 
 # csa_apply_resolve_id <project_root> <id>
 # If id starts with "FUID-" → echo as-is.
-# Else treat as display_id, look up state.findings[*].last_display_id == id, echo matching FUID.
+# Else treat as display_id: the registry entry seen in the latest recorded run whose last_display_id
+# is the id (_csa_registry_resolve_display_id, lib/state.sh). An empty id matches nothing.
 # Exit 1 if not found.
 csa_apply_resolve_id() {
   local root="$1"
@@ -49,10 +50,7 @@ csa_apply_resolve_id() {
 
   # Treat as display_id: resolve via state.findings.
   local state_json; state_json="$(csa_state_read "$root")"
-  local resolved; resolved="$(printf '%s' "$state_json" | jq -r \
-    --arg did "$id" \
-    '(.findings // {}) | to_entries[] | select(.value.last_display_id == $did) | .key' \
-    2>/dev/null | head -1)"
+  local resolved; resolved="$(_csa_registry_resolve_display_id "$state_json" "$id")"
 
   if [[ -n "$resolved" ]]; then
     printf '%s\n' "$resolved"
@@ -187,10 +185,10 @@ csa_apply_run() {
     return 1
   fi
 
-  # 2. Read state.findings[FUID]; if missing → refuse.
+  # 2. Read the registry entry (csa_registry); if missing, or not an object → refuse.
   local state_json; state_json="$(csa_state_read "$project_root")"
   local finding_json; finding_json="$(printf '%s' "$state_json" | jq -c \
-    --arg fuid "$fuid" '.findings[$fuid] // empty' 2>/dev/null)"
+    --arg fuid "$fuid" "$_CSA_JQ_REGISTRY"'csa_registry[$fuid] // empty' 2>/dev/null)"
 
   if [[ -z "$finding_json" ]]; then
     printf 'ERROR: Finding not found in state: %s\n' "$fuid" >&2
