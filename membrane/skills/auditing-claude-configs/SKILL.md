@@ -36,16 +36,15 @@ Identical to audit mode but with `--focus <aspect>` baked in. Skill body parses 
 
 1. Parse `$ARGUMENTS` to extract finding ID. Accept either `display_id` (e.g., `SA-2026-05-24-01-013`) or `finding_uid` (e.g., `FUID-a3f9b21c`).
 2. Resolve via `csa apply_resolve_id "$PWD" "<id>"`: display_id → the registry entry that carries it in the latest recorded audit → finding_uid. An id from an older report resolves to nothing; use the `FUID-`.
-3. Load finding record from `state.json`.
-4. Run defense-in-depth checks per references/auto-fix-policy.md:
+3. Apply it with one call, `csa apply_run "$PWD" "<id>"`, passing the same id. It reads the finding's registry entry from `state.json`, finds the rule among membrane's shipped rules by the entry's `rule_id` (read as text), and runs the defense-in-depth checks per references/auto-fix-policy.md before it calls the rule's `fix`:
    - Rule has `RULE_AUTO_FIXABLE=true` AND `RULE_MECHANICALLY_FIXABLE=true`
    - Re-resolve fix recipe target path; verify still in safe-write allowlist
    - Refuse symlinks at target; refuse paths outside project root
-5. Execute the rule's `fix` function with `(target_file, finding_json_context)`.
-6. Update `state.json.applied_fixes` audit-trail entry (BEFORE write; updated to `failed` if write fails).
-7. Emit chat confirmation: `"Applied <display_id> (<finding_uid>): <fix_summary>"`.
+   It writes the `state.json.applied_fixes` audit-trail entry before the write, and marks it `failed` if the fix fails.
+4. Never source or run a file whose path you read from `state.json` (a `rule_path` field or any other), and never call a rule's `fix` yourself: `state.json` can be edited by someone other than membrane, and membrane never records a rule's path there.
+5. On exit 0, emit its chat confirmation: `"Applied <display_id> (<finding_uid>): <fix_summary>"`.
 
-If any check fails, refuse with the specific message from references/auto-fix-policy.md.
+If it exits non-zero, refuse with the specific message it printed (references/auto-fix-policy.md).
 
 ## Suppression mode (`/security-audit --suppress <finding-id>`)
 

@@ -320,10 +320,40 @@ test_normalize_path_layouts() {
   assert_eq "@plugin:p@m:h.sh" "$(csa_normalize_path "$base/m/p/1/h.sh")" || rc=1
   assert_eq "@plugin:p@m:h.sh" "$(csa_normalize_path "$base/m/p/latest/h.sh")" || rc=1
   assert_eq "@plugin:p@m:d/h.sh" "$(csa_normalize_path "$base/m/p/2026-11-02/d/h.sh")" || rc=1
-  assert_eq "@plugin:p:2.0/h.sh" "$(csa_normalize_path "$base/p/1.0.0/2.0/h.sh")" || rc=1
+  # A version-named segment followed by another one is read as a plugin dir holding a version dir.
+  assert_eq "@plugin:1.0.0@p:h.sh" "$(csa_normalize_path "$base/p/1.0.0/2.0/h.sh")" || rc=1
   [[ "$(csa_normalize_path "$base/m/p/1.2.3/h.sh")" != "$(csa_normalize_path "$base/m2/p/1.2.3/h.sh")" ]] \
     || { printf '    two marketplaces share an id\n' >&2; rc=1; }
   return "$rc"
+}
+
+# A plugin named like a version (`unknown`, 7 to 40 lowercase hex, a version string) whose version dir is a version
+# is the plugin: `@plugin:<plugin>@<marketplace>:`, each with its own id. Control: a two-level path whose version dir
+# holds no version-named dir stays two-level.
+test_normalize_path_version_named_plugin() {
+  local base="/home/u/.claude/plugins/cache" rc=0
+  assert_eq "@plugin:unknown@m:hooks/h.sh" "$(csa_normalize_path "$base/m/unknown/1.0.0/hooks/h.sh")" "unknown, semver" || rc=1
+  assert_eq "@plugin:deadbeef@m:hooks/x.ts" "$(csa_normalize_path "$base/m/deadbeef/a0b04d9ddcca/hooks/x.ts")" "hex, digest" || rc=1
+  assert_eq "@plugin:1234567@m:h.sh" "$(csa_normalize_path "$base/m/1234567/unknown/h.sh")" "hex, unknown" || rc=1
+  assert_eq "@plugin:v1.2@m:h.sh" "$(csa_normalize_path "$base/m/v1.2/2.0.0/h.sh")" "version string, semver" || rc=1
+  [[ "$(csa_normalize_path "$base/m/unknown/1.0.0/hooks/y.sh")" != "$(csa_normalize_path "$base/m/deadbeef/1.0.0/hooks/y.sh")" ]] \
+    || { printf '    two version-named plugins of one marketplace share an id\n' >&2; rc=1; }
+  assert_eq "@plugin:p:hooks/h.sh" "$(csa_normalize_path "$base/p/0.1.0/hooks/h.sh")" "control: two-level stays" || rc=1
+  assert_eq "@plugin:deadbeef:hooks/h.sh" "$(csa_normalize_path "$base/deadbeef/0.1.0/hooks/h.sh")" "control: two-level, hex name" || rc=1
+  return "$rc"
+}
+
+# The paranoid list reads a marketplace dir holding a version-named plugin the same way: each plugin is listed as
+# `<plugin>@<marketplace>`, not the marketplace as one flat plugin. Control: a flat cache/<plugin>/<version>/ dir
+# stays a bare name.
+test_paranoid_version_named_plugin_is_not_a_version() {
+  _mk
+  _install mk/deadbeef/1.0.0 d.sh; _install mk/alpha/1.0.0 a.sh; _install mk/unknown/a0b04d9ddcca u.sh
+  _install flat/1.0.0 f.sh
+  local out rc=0
+  out="$(HOME="$_H" CSA_PROJECT_ROOT="$_P" csa_enum_paranoid_candidates)" || rc=$?
+  assert_eq "0" "$rc" "rc" || return 1
+  assert_eq $'alpha@mk\ndeadbeef@mk\nflat\nunknown@mk' "$out" "each plugin of mk, and the flat dir"
 }
 
 test_is_version_name() {
@@ -347,7 +377,8 @@ for t in test_object_map_true_keys_only test_array_form_still_reads \
          test_same_plugin_name_in_two_marketplaces_stays_distinct \
          test_targets_all_rc2_is_not_swallowed_by_the_output_pipeline \
          test_paranoid_real_layout test_paranoid_marketplace_dir_is_not_a_plugin \
-         test_normalize_path_layouts test_is_version_name; do
+         test_normalize_path_layouts test_is_version_name \
+         test_normalize_path_version_named_plugin test_paranoid_version_named_plugin_is_not_a_version; do
   csa_test_run "$t" || _csa_failed=$((_csa_failed + 1))
 done
 

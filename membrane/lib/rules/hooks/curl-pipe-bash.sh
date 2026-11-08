@@ -23,7 +23,9 @@ source "$_RULE_DIR/helpers.sh" 2>/dev/null || true
 # shellcheck source=/dev/null
 source "$_RULE_DIR/hook-entries.sh" 2>/dev/null || true
 
-RULE_PATTERN='curl[[:space:]].*\|[[:space:]]*(bash|sh|zsh)|wget[[:space:]].*\|[[:space:]]*(bash|sh|zsh)'
+# The shell name must end the word: a letter, digit or `_` after it is another command (`| shasum`, `| shellcheck`,
+# `|| shellish(`), while a quote, `>`, `;`, `)`, `,` or the end of the line still ends a real `| sh` (#1140).
+RULE_PATTERN='curl[[:space:]].*\|[[:space:]]*(bash|sh|zsh)([^[:alnum:]_]|$)|wget[[:space:]].*\|[[:space:]]*(bash|sh|zsh)([^[:alnum:]_]|$)'
 
 
 detect() {

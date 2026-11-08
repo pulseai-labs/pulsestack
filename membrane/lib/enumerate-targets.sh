@@ -19,7 +19,8 @@ csa_enum_codex_project_targets() {
     has_codex_surface=1
     find "$root/.codex" -type f \
          \( -name '*.md' -o -name '*.json' -o -name '*.toml' -o -name '*.sh' \
-            -o -name '*.py' -o -name '*.js' -o -name '*.ts' \) 2>/dev/null
+            -o -name '*.py' -o -name '*.js' -o -name '*.ts' \
+            -o -name '*.mjs' -o -name '*.cjs' -o -name '*.tsx' -o -name '*.jsx' -o -name '*.mts' -o -name '*.cts' \) 2>/dev/null
     find "$root/.codex" -type l 2>/dev/null | while read -r sl; do
       printf 'info: symlink at %s not followed\n' "$sl" >&2
     done
@@ -44,16 +45,17 @@ csa_enum_opencode_project_targets() {
   fi
 
   [[ -e "$root/.opencode" || -L "$root/.opencode" ]] || return 0
+  local oq; oq="$(_csa_enum_glob_quote "$root/.opencode")"
   find "$root/.opencode" \
-       \( -path "$root/.opencode/node_modules" -o -path "$root/.opencode/audits" \) -prune -o \
+       \( -path "$oq/node_modules" -o -path "$oq/audits" \) -prune -o \
        -type f \
-       -not -path "$root/.opencode/package.json" \
-       -not -path "$root/.opencode/package-lock.json" \
-       -not -path "$root/.opencode/bun.lock" \
-       -not -path "$root/.opencode/.gitignore" \
+       -not -path "$oq/package.json" \
+       -not -path "$oq/package-lock.json" \
+       -not -path "$oq/bun.lock" \
+       -not -path "$oq/.gitignore" \
        -print 2>/dev/null
   find "$root/.opencode" \
-       \( -path "$root/.opencode/node_modules" -o -path "$root/.opencode/audits" \) -prune -o \
+       \( -path "$oq/node_modules" -o -path "$oq/audits" \) -prune -o \
        -type l -print 2>/dev/null | while read -r sl; do
     printf 'info: symlink at %s not followed\n' "$sl" >&2
   done
@@ -118,16 +120,23 @@ csa_enum_project_targets() {
                      \( -name '*.py' -o -name '*.js' -o -name '*.ts' \) )
     find "$root/.claude/hooks" -type f "${split[@]}" -print0 2>/dev/null \
       | while IFS= read -r -d '' f; do _csa_enum_unread_hook_file "" "$f" >&2; done || :
-    # Exclude .claude/audits/ — it holds audit state/reports and must not be scanned.
+    # Exclude .claude/audits/ — it holds audit state/reports and must not be scanned. The root is glob-quoted (#1148).
+    # The six module suffixes below .claude/hooks/ are emitted by _csa_enum_unlisted_hook_handlers, so not here (#1141).
+    local aq; aq="$(_csa_enum_glob_quote "$root/.claude/audits")"
+    # A dir below .claude/ that find cannot read makes it exit 1: `|| :` keeps that from ending the enumeration under
+    # bin/csa's `set -euo pipefail`, and the dir is one SCANNER-003 line (#1149).
     find "$root/.claude" -type f \
-         -not -path "$root/.claude/audits/*" \
+         -not -path "$aq/*" \
          \( -name '*.md' -o -name '*.json' -o -name '*.sh' \
-            -o -name '*.py' -o -name '*.js' -o -name '*.ts' \) \
-         ! \( "${split[@]}" \) 2>/dev/null
+            -o -name '*.py' -o -name '*.js' -o -name '*.ts' \
+            -o \( \( -name '*.mjs' -o -name '*.cjs' -o -name '*.tsx' -o -name '*.jsx' -o -name '*.mts' -o -name '*.cts' \) \
+                  ! -path "$hq/*" \) \) \
+         ! \( "${split[@]}" \) 2>/dev/null || :
     find "$root/.claude" -type l \
-         -not -path "$root/.claude/audits/*" 2>/dev/null | while read -r sl; do
+         -not -path "$aq/*" 2>/dev/null | while read -r sl; do
       printf 'info: symlink at %s not followed\n' "$sl" >&2
     done
+    _csa_enum_unreadable_dirs "" "$root/.claude" "$aq" >&2
   fi
   find "$root" -name 'CLAUDE.md' -type f 2>/dev/null
   [[ -f "$root/.claude-plugin/marketplace.json" ]] && printf '%s\n' "$root/.claude-plugin/marketplace.json"
@@ -175,19 +184,42 @@ _csa_enum_unread_hook_file() {
 
 # _csa_enum_hook_symlinks <plugin-key> <hooks-dir> — for stderr, one HOOK-005
 # line (_csa_enum_unread_hook_file ... symlink) for <hooks-dir> when it is a
-# symlink itself, else one per symlink below it, to a file or to a directory. A
-# symlink is never followed, so what it points at is not read; the stop says so.
+# symlink itself, else one per symlink below it, to a file or to a directory,
+# except below a node_modules/ under <hooks-dir> (package-manager links into
+# code that is never read there, #1150; the test is relative to <hooks-dir>, so
+# a root that itself sits below a node_modules/ keeps its stops). A symlink is
+# never followed, so what it points at is not read; the stop says so.
 # Skill-first question 3: it only adds a stop. A missing <hooks-dir> is no line
 # and rc 0, and a find that fails part way still returns 0, so the caller's
 # `set -euo pipefail` (bin/csa) never ends the enumeration here.
 _csa_enum_hook_symlinks() {
-  local key="$1" dir="$2" l
+  local key="$1" dir="$2" l q
   if [[ -L "$dir" ]]; then
     _csa_enum_unread_hook_file "$key" "$dir" symlink
     return 0
   fi
-  find "$dir" -mindepth 1 -type l -print0 2>/dev/null \
+  q="$(_csa_enum_glob_quote "$dir")"
+  find "$dir" -mindepth 1 -type l ! -path "$q/node_modules/*" ! -path "$q/*/node_modules/*" -print0 2>/dev/null \
     | while IFS= read -r -d '' l; do _csa_enum_unread_hook_file "$key" "$l" symlink; done || :
+  return 0
+}
+
+# _csa_enum_unreadable_dirs <plugin-key> <dir> [<pruned-path>] — for stderr, one
+# `finding: SCANNER-003<TAB><key><TAB><dir>` line for <dir> and for each dir
+# below it that this process cannot read or enter, so nothing below it was
+# listed (#1149). The key is empty for a project dir. <pruned-path>, already
+# glob-quoted, is skipped with what is below it. A test on the mode bits the
+# shell sees (no GNU -readable, no parsing of find's stderr). Skill-first
+# question 3: it only adds a stop. rc 0 always, so bin/csa's
+# `set -euo pipefail` never ends the enumeration here.
+_csa_enum_unreadable_dirs() {
+  local key="$1" dir="$2" prune="${3-}" d
+  local -a skip=()
+  [[ -z "$prune" ]] || skip=( -path "$prune" -prune -o )
+  find "$dir" ${skip[@]+"${skip[@]}"} -type d -print0 2>/dev/null | while IFS= read -r -d '' d; do
+    [[ -r "$d" && -x "$d" ]] \
+      || printf 'finding: SCANNER-003\t%s\t%s\n' "$(_csa_enum_oneline "$key")" "$(_csa_enum_oneline "$d")"
+  done || :
   return 0
 }
 
@@ -351,7 +383,7 @@ _csa_enum_guard_dir() {
     printf 'installPath %s holds a tab or newline' "$(_csa_enum_oneline "$p")"
     return 1
   fi
-  printf '%s/.claude/plugins/%s\n' "$HOME" "${phys#$proot/}"
+  printf '%s/.claude/plugins/%s\n' "$HOME" "${phys#"$proot"/}"
 }
 
 # _csa_enum_safe_segment <name> — rc 0 if <name> is one safe path segment: not
@@ -489,24 +521,35 @@ csa_enum_targets_all() {
       # ending the group under bin/csa's `set -euo pipefail`.
       find "$plugin_path/hooks" -type f \( -path "$hpat"$'\n'"*" -o -path "$hpat"$'\t'"*" \) -print0 2>/dev/null \
         | while IFS= read -r -d '' f; do _csa_enum_unread_hook_file "$plugin_name" "$f" >&2; done || :
+      # A dir find cannot read makes it exit 1: `|| :` keeps that from ending the group under bin/csa's
+      # `set -euo pipefail` and dropping the plugins after this one, and each such dir is one SCANNER-003 (#1149).
       find "$plugin_path" -type f ! -path "$hpat"$'\n'"*" ! -path "$hpat"$'\t'"*" 2>/dev/null \
         | CSA_LABEL="$plugin_name" CSA_PREFIX="$plugin_path/" awk '
             BEGIN { l = ENVIRON["CSA_LABEL"]; p = ENVIRON["CSA_PREFIX"]; n = length(p) }
             { rel = (substr($0, 1, n) == p) ? substr($0, n + 1) : $0
-              printf "@plugin:%s:%s\t%s\n", l, rel, $0 }'
+              printf "@plugin:%s:%s\t%s\n", l, rel, $0 }' || :
+      _csa_enum_unreadable_dirs "$plugin_name" "$plugin_path" >&2
     done <<< "$resolved"
   } | awk -F '\t' '!seen[$NF]++'
 }
 
 # _csa_enum_is_flat_plugin_dir <dir> — rc 0 if a plugin cache directory holds a
 # version directory directly (the older cache/<plugin>/<version> layout),
-# rc 1 if it is a marketplace directory holding plugin directories.
+# rc 1 if it is a marketplace directory holding plugin directories. A
+# version-named child that itself holds a version-named directory is a plugin
+# named like a version (`unknown`, `deadbeef`), not a version: the reading
+# csa_normalize_path gives the same path (#1147).
 _csa_enum_is_flat_plugin_dir() {
-  local d="$1" c
+  local d="$1" c g pair
   [[ -f "$d/.active" ]] && return 0
   for c in "$d"/*; do
     [[ -d "$c" ]] || continue
-    csa_is_version_name "${c##*/}" && return 0
+    csa_is_version_name "${c##*/}" || continue
+    pair=0
+    for g in "$c"/*; do
+      [[ -d "$g" ]] && csa_is_version_name "${g##*/}" && { pair=1; break; }
+    done
+    [[ "$pair" -eq 1 ]] || return 0
   done
   return 1
 }

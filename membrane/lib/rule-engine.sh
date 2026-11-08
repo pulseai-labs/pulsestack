@@ -15,7 +15,8 @@ fi
 # Any other non-zero result emits SCANNER-002 (High), including exit 1 with
 # output because a detector must not mix findings with a no-match status.
 # SCANNER-003 (Medium) is the engine's own: a target no rule could read, emitted once
-# per target by csa_rule_engine_scan_all (_csa_unreadable_targets_findings).
+# per target by csa_rule_engine_scan_all (_csa_unreadable_targets_findings), or a
+# directory the enumeration could not read (_csa_enum_stderr_to_findings).
 csa_rule_run_one() {
   local rule_file="$1"; local target_file="$2"
   local rule_id; rule_id="$(basename "$rule_file" .sh)"
@@ -284,11 +285,14 @@ _csa_target_matches_aspect() {
       ;;
     secrets)
       # Secrets rules scan text-like files and executable Claude hook handlers.
-      # TOML, YAML and JSONC configs are enumerated, so they are scanned too (#121).
+      # TOML, YAML and JSONC configs are enumerated, so they are scanned too (#121), and so is node module
+      # code, .mjs .cjs .tsx .jsx .mts .cts (#1141).
       [[ "$target" == *.md || "$target" == *.json || "$target" == *.sh \
          || "$target" == *.toml || "$target" == *.yaml || "$target" == *.yml \
          || "$target" == *.jsonc \
          || "$target" == *.py || "$target" == *.js || "$target" == *.ts \
+         || "$target" == *.mjs || "$target" == *.cjs || "$target" == *.tsx || "$target" == *.jsx \
+         || "$target" == *.mts || "$target" == *.cts \
          || "$target" == */.opencode/bin/* ]] && return 0
       [[ "$target" == */.claude/hooks/* && -x "$target" ]] && return 0
       return 1
@@ -320,9 +324,10 @@ _csa_rule_engine_validate_focus() {
 # _csa_enum_stderr_to_findings <enumeration-stderr>
 # Turns each `finding: PROVENANCE-002 plugin <key> enabled but <reason>` line,
 # and each `finding: HOOK-005` line for a hook file whose name holds a newline or
-# tab or that is a symlink, into a High finding JSONL record on stdout, and passes
-# every `csa:` line on to stderr. Other lines (info notes) are dropped, as they
-# always were on success.
+# tab or that is a symlink, into a High finding JSONL record on stdout, each
+# `finding: SCANNER-003` line for a directory the enumeration could not read into
+# a Medium one, and passes every `csa:` line on to stderr. Other lines (info
+# notes) are dropped, as they always were on success.
 _csa_enum_stderr_to_findings() {
   local line rest key reason fuid file why head tab=$'\t'
   while IFS= read -r line; do
@@ -371,6 +376,19 @@ _csa_enum_stderr_to_findings() {
            context: ({reason: $reason}
                      + (if $key == "" then {} else {plugin: $key} end))}
           + (if $fuid == "" then {} else {finding_uid: $fuid} end)'
+        ;;
+      "finding: SCANNER-003$tab"*"$tab"*)
+        # A dir find could not read (_csa_enum_unreadable_dirs, #1149): `finding: SCANNER-003<TAB><plugin key or
+        # empty><TAB><dir>`. No uid: a SCANNER finding is reported on every run and never registered.
+        rest="${line#"finding: SCANNER-003$tab"}"
+        key="${rest%%"$tab"*}"
+        file="${rest#*"$tab"}"
+        jq -nc --arg key "$key" --arg file "$file" '
+          {rule_id: "SCANNER-003", file: $file, line: 0, offset: 0,
+           preview: ("directory could not be read; nothing below it was scanned"
+                     + (if $key == "" then "" else " (plugin " + $key + ")" end)),
+           severity: "medium",
+           context: ({reason: "directory not readable"} + (if $key == "" then {} else {plugin: $key} end))}'
         ;;
       "csa: "*) printf '%s\n' "$line" >&2 ;;
     esac

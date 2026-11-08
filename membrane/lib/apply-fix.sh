@@ -61,12 +61,29 @@ csa_apply_resolve_id() {
   return 1
 }
 
+# _csa_apply_rule_file <rule_id> — the one shipped rule file whose RULE_ID line is <rule_id>, found by reading
+# each rule file as text (never sourcing it). rc 1, nothing printed: no rule, or more than one, has that id.
+# state.json's registry entry names the rule only by its id; a `rule_path` there is ignored (#1142).
+# Skill-first question 2: ids membrane mints, compared whole against its own rules dir.
+_csa_apply_rule_file() {
+  local id="$1" dir="${CSA_RULES_DIR:-$CSA_LIB_DIR/rules}" f v hit="" n=0
+  [[ -n "$id" ]] || return 1
+  for f in "$dir"/*/*.sh; do
+    [[ -f "$f" && ! -L "$f" ]] || continue
+    v="$(grep -m1 '^RULE_ID=' "$f" 2>/dev/null | sed 's/^RULE_ID=//' | tr -d '"'\')" || v=""
+    if [[ "$v" == "$id" ]]; then hit="$f"; n=$((n + 1)); fi
+  done
+  [[ "$n" -eq 1 ]] || return 1
+  printf '%s\n' "$hit"
+}
+
 # ---------------------------------------------------------------------------
 # Rule validation (Layer 1: re-source + re-check both flags)
 # ---------------------------------------------------------------------------
 
 # csa_apply_validate_rule <rule_file>
 # Re-source in subshell, check RULE_AUTO_FIXABLE=="true" AND RULE_MECHANICALLY_FIXABLE=="true".
+# csa_apply_run passes only the shipped rule file _csa_apply_rule_file resolved, never a path from state.json.
 # Exit 0 if both true, 1 otherwise.
 csa_apply_validate_rule() {
   local rule_file="$1"
@@ -114,9 +131,9 @@ csa_apply_validate_target() {
   # Normalize: if target is absolute under project_root, strip the prefix.
   local resolved_root; resolved_root="$(csa_realpath "$project_root")"
   if [[ "$target_path" == "$resolved_root/"* ]]; then
-    rel_path="${target_path#$resolved_root/}"
+    rel_path="${target_path#"$resolved_root"/}"
   elif [[ "$target_path" == "$project_root/"* ]]; then
-    rel_path="${target_path#$project_root/}"
+    rel_path="${target_path#"$project_root"/}"
   fi
 
   # Layer 2: check allowlist.
@@ -198,7 +215,6 @@ csa_apply_run() {
   local rule_id; rule_id="$(printf '%s' "$finding_json" | jq -r '.rule_id // empty')"
   local display_id; display_id="$(printf '%s' "$finding_json" | jq -r '.last_display_id // empty')"
   local target_rel; target_rel="$(printf '%s' "$finding_json" | jq -r '.file // empty')"
-  local rule_path; rule_path="$(printf '%s' "$finding_json" | jq -r '.rule_path // empty')"
 
   # 7-double-apply guard: scan applied_fixes for a prior success entry.
   local prior_success; prior_success="$(printf '%s' "$state_json" | jq -r \
@@ -210,15 +226,11 @@ csa_apply_run() {
     return 1
   fi
 
-  # 3. Locate rule file.
-  if [[ -z "$rule_path" || ! -f "$rule_path" ]]; then
-    # Fallback: find by rule_id in CSA_RULES_DIR.
-    local rules_dir="${CSA_RULES_DIR:-$CSA_LIB_DIR/rules}"
-    rule_path="$(find "$rules_dir" -name "${rule_id}.sh" -type f 2>/dev/null | head -1)"
-    if [[ -z "$rule_path" ]]; then
-      printf 'ERROR: Rule file not found for rule_id=%s\n' "$rule_id" >&2
-      return 1
-    fi
+  # 3. Locate rule file: by rule_id among the shipped rules, before anything is sourced.
+  local rule_path
+  if ! rule_path="$(_csa_apply_rule_file "$rule_id")"; then
+    printf 'ERROR: No shipped rule has rule_id=%q\n' "$rule_id" >&2
+    return 1
   fi
 
   # 4. Layer 1: Validate rule (re-source, re-check both flags).
