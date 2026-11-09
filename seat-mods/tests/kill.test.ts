@@ -458,6 +458,12 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ["ps aux; env - kill 123", "ls; env - kill 123"],
   ["xargs env - kill -1", "xargs env - kill 123"],
   ["env - bash -c 'kill -1'", "env - bash -c 'kill 123'"],
+  // env behind another wrapper, or second in a chain of envs, is read with env's grammars too
+  ["sudo env - kill -1", "sudo env - kill 123"],
+  ["nice env -a xq kill -1", "nice env -a xq kill 123"],
+  ["env -i env - kill -1", "env -i env - kill 123"],
+  // each segment walks its own xargs commands: a second xargs at the same word count from the end is still read
+  ["xargs echo hi; xargs kill -1", "xargs echo hi; xargs kill 123"],
   // every word of a command after the outer shell's quote removal as bash does it: the command word, its operands, a
   // wrapper, a runner name, a listing and a session verb
   ["$'\\x6bill' -1", "$'\\x6bill' 123"],
@@ -488,6 +494,8 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ["bash -c $'login\\ctl kill-user dev'", "bash -c $'login\\ctl list-users'"],
   ["bash -c $'kill -1\\ug'", "bash -c $'kill 123\\ug'"],
   ["bash -c $'kill -1\\400'x", "bash -c $'kill 123\\400'x"],
+  // zsh's \x reads its two characters as zstrtol does, a blank first: `\x 9` is a tab
+  ["bash -c $'kill\\x 9-1'", "bash -c $'kill\\x 9123'"],
   // zsh's eval keeps a NUL inside its word, where it ends a command name: the rail reads it there as a blank
   ["eval $'kill\\0zz'$'\\ \\-1'", "eval $'kill\\0zz'$'\\ 123'"],
 ]
@@ -642,6 +650,7 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['kill 123 $(echo ${x:-)}) -1', 'a ) inside ${…} inside $(…) ends the span early'],
   ["pkill node '.*'", "a second pkill operand (procps rejects it; BSD and macOS pkill take several)"],
   ["bash -c kill\\ \\\n-1", "a -c or eval word split by a line continuation"],
+  ["kill -9 -\\\n1", "an operand split by a line continuation"],
   ["{kill -1}", "zsh: a brace with no blank (#1170)"],
   ["repeat 1 {kill -1}", "zsh: a brace with no blank after repeat (#1170)"],
   ["if [[ 1 ]] kill -1", "zsh: the short if (#1170)"],
@@ -890,8 +899,10 @@ describe('killRule: deliberate false stops of the reserved time', () => {
 // operand (`kill $'\v-1'`). Every word of a command is also read as before, with its quote characters taken off: bash
 // hands on `'-1` here. bash's quote removal and zsh's are both read, in every shell: `$"kill" -1` runs `$kill` under zsh,
 // and the zsh-only rows above run nothing under bash. zsh's eval keeps a NUL inside its word, and the rail reads it as a
-// blank: zsh runs an empty command name in `eval $'\0 kill -1'`, and gives kill an operand that is not a number in the
-// last row.
+// blank: zsh runs an empty command name in `eval $'\0 kill -1'`, and gives kill an operand that is not a number in
+// `eval $'\k\i\l\l\ '$'-1\0zz'`. zsh's reading of a command's words ends each at a NUL, kill's operands too, though zsh's
+// kill keeps the NUL and bash's gets `-1x`: neither runs `kill -1` for `kill $'-1\0'x`. Every reading's heads share one
+// scan: bash's quote removal names `ps` and zsh's names `kill` in `$"ps" aux; $'\k\i\l\l' 123`.
 describe('killRule: deliberate false stops of the quote removal and the zsh words', () => {
   const rows: ReadonlyArray<readonly [string, string]> = [
     ["bash -c k'ill '$'--\\\\ -1'", "bash -c k'ill '$'--\\\\ 123'"],
@@ -909,6 +920,8 @@ describe('killRule: deliberate false stops of the quote removal and the zsh word
     ["bash -c $'kill 123\\f-1'", "bash -c $'echo 123\\f-1'"],
     ["noglob nocorrect kill -1", "noglob nocorrect kill 123"],
     ["dash -c 'noglob kill -1'", "dash -c 'noglob kill 123'"],
+    ["kill $'-1\\0'x", "kill $'123\\0'x"],
+    ["$\"ps\" aux; $'\\k\\i\\l\\l' 123", "$\"ls\" aux; $'\\k\\i\\l\\l' 123"],
   ]
   for (const [command, control] of rows) {
     test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
@@ -1085,6 +1098,18 @@ describe('killRule: bounds', () => {
   test('8 nested xargs are read; 9 are unread', () => {
     expect(killRule('ps | ' + 'xargs '.repeat(8) + 'kill 1')).toContain('kill rail')
     expect(() => killRule('ps | ' + 'xargs '.repeat(9) + 'kill 1')).toThrow()
+  })
+  test('a chain more than 8 deep in one reading is unread, though another reading reaches its words less deep', () => {
+    // where env's generic reading takes -a as a flag and `$'\x78args'` is decoded, each unit is two xargs (10 in all);
+    // where env's own grammar takes `$'\x78args'` as -a's value, each unit is one
+    const chain = (units: number): string => "xargs env -a $'\\x78args' ".repeat(units) + 'echo'
+    expect(() => killRule(chain(5))).toThrow()
+    expect(killRule(chain(4))).toBeUndefined()
+  })
+  test('a chain that branches at every level finishes under a second', () => {
+    const started = performance.now()
+    try { killRule("xargs $'-\\x6e' env ".repeat(8) + 'zq' + " $'\\x61'".repeat(5000)) } catch {}
+    expect(performance.now() - started).toBeLessThan(1000)
   })
   test('a 30 KB xargs chain finishes under a second', () => {
     const started = performance.now()

@@ -1031,8 +1031,9 @@ function skipWrapper(name: string, words: readonly string[], i: number): number 
 }
 
 // #1168: env's own grammars, each read beside skipWrapper's (probed on GNU coreutils 9.7, uutils coreutils 0.8.0 and
-// busybox 1.37; FreeBSD's and macOS's read from source). Options end at `--` or at the first word that is not one; a long
-// name is any prefix of one. A bare `-` is -i: on GNU, busybox and uutils it ends the options, and after them any number of
+// busybox 1.37; FreeBSD's and macOS's read from source). Options end at `--` or at the first word that is not one. In the
+// GNU-like grammar a long name is any prefix of one; the BSD grammar has no long names and reads `--x` as its getopt does,
+// a cluster of `-` and `x`. A bare `-` is -i: on GNU, busybox and uutils it ends the options, and after them any number of
 // `-` may stand among the assignments (uutils); on FreeBSD and macOS it is an option among the others, and after `--` it is
 // the command. An assignment is any word that holds `=`. An option an env rejects is read as a flag.
 type EnvGrammar = { values: string; long: readonly string[]; dashOption: boolean; dashes: boolean }
@@ -1065,8 +1066,9 @@ function envCommand(words: readonly string[], i: number, g: EnvGrammar): number 
 }
 
 // #1169, #1171: the readings of a segment's words: as killWord gives them, and after the outer shell's quote removal as bash
-// does it and as zsh does it (a NUL ends a zsh word: a command name and an external program's argument end there).
-// Identical readings are read once.
+// does it and as zsh does it. In zsh's reading a NUL ends every word, as it ends a command name and an external program's
+// argument; the builtin kill's operands are cut there too, though zsh keeps the NUL in them (`kill $'-1\0'x`, where kill
+// gets an operand that is not a number, is a deliberate false stop). Identical readings are read once.
 function killReadings(tokens: readonly string[], pieces: readonly string[]): string[][] {
   const readings = [
     tokens.map(token => killWord(token, pieces)),
@@ -1651,12 +1653,18 @@ function killScan(command: string, scan: KillScan, runners: boolean): void {
   // One split is enough here: the seat-mods 0.3.1 split (TAG_COMMANDS) cuts only where COMMANDS cuts, so its segments
   // are unions of COMMANDS segments and its heads are COMMANDS heads. The rail walks its own heads (see KILL_HEADS).
   const segments = segmentsFor(joinSubstitutions(text), pieces, COMMANDS, true)
-  const visit = (tokens: readonly string[], depth: number): void => {
-    // Two heads that put xargs's command at the same word read it once.
-    const xargsFrom = new Set<number>()
-    for (const head of killHead(tokens, pieces, depth === 0)) visitHead(tokens, depth, head, xargsFrom)
+  // `walked`: one segment's xargs walk. Each word that starts an xargs command is walked once and keeps its walk's height:
+  // how many levels below the walk's start its deepest xargs head sat (-1: it read no xargs). A word the readings read
+  // differently can put xargs's command at two words, at every level of a chain, so without it a chain branches. A walk
+  // reads the same heads from any depth, so a word met again is not walked again, and it throws where walking it from here
+  // would pass 8 deep. Every token list walked is a tail of the segment's, so the count of words left names the start
+  // word. visit and visitHead return the height of what they read.
+  const visit = (tokens: readonly string[], depth: number, walked: Map<number, number>): number => {
+    let height = -1
+    for (const head of killHead(tokens, pieces, depth === 0)) height = Math.max(height, visitHead(tokens, depth, head, walked))
+    return height
   }
-  const visitHead = (tokens: readonly string[], depth: number, head: { name: string; args: string[] }, xargsFrom: Set<number>): void => {
+  const visitHead = (tokens: readonly string[], depth: number, head: { name: string; args: string[] }, walked: Map<number, number>): number => {
     const { name, args } = head
     // The raw tokens of the same words, for a runner's literal (its quotes are what mark it).
     const rest = tokens.slice(tokens.length - args.length)
@@ -1678,13 +1686,19 @@ function killScan(command: string, scan: KillScan, runners: boolean): void {
       const at = xargsCommand(args)
       // Each level maps every word again: a chain past 8 is unread, not walked (fails closed in the glues).
       if (depth >= 8) throw new Error('xargs nested more than 8 deep')
-      if (at < args.length && !xargsFrom.has(rest.length - at)) { xargsFrom.add(rest.length - at); visit(rest.slice(at), depth + 1) }
+      if (at === args.length) return 0
+      const from = rest.length - at
+      let below = walked.get(from)
+      if (below === undefined) walked.set(from, below = visit(rest.slice(at), depth + 1, walked))
+      else if (depth + 1 + below >= 8) throw new Error('xargs nested more than 8 deep')
+      return 1 + below
     } else if (runners && (name === 'eval' || name === 'fish' || KILL_SHELLS.has(name))) {
       // killRead holds its own throws; this hold only keeps a future throw in runnerTexts from escaping.
       for (const inner of runnerTexts(name, args, rest, pieces)) deferred(scan, () => killRead(inner, scan, false))
     }
+    return -1
   }
-  for (const segment of segments) deferred(scan, () => visit(killHeads(tokensOf(segment)), 0))
+  for (const segment of segments) deferred(scan, () => visit(killHeads(tokensOf(segment)), 0, new Map()))
 }
 
 // A command and every substitution in it, each read as a command of its own.
