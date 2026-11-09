@@ -10,7 +10,7 @@
 # under a marketplace dir named with the byte. Enumeration never hands the engine such a path: Claude Code names the
 # marketplace and plugin dirs from JSON, and a plugin key holding the byte reaches membrane through jq as U+FFFD, so
 # that plugin is a PROVENANCE-002 and is not scanned. Once fingerprint.sh normalizes a path, an enabled plugin's id
-# holds no byte before `:hooks/`, so no row through enumeration can tell a bare `=~` at rule-engine.sh:72 or :74 from
+# holds no byte before `:hooks/`, so no row through enumeration can tell a bare `=~` in _csa_hook_target_mode from
 # the helper. The row stays as the only behaviour check on those two tests.
 set -u
 source "$(dirname "$0")/_helpers.sh"
@@ -86,7 +86,7 @@ test_uid_on_a_path_with_the_byte_is_normalized() {
   mv "$PD" "${PD%/*}/1.0.1"
   assert_eq "$want" "$(_run rule_engine_scan_all "$P" all 2>/dev/null | jq -rs "$q")" "uid at 1.0.1 in $_U8" || return 1
 }
-# rule-engine.sh:72 and :74, through the normalized path: a plugin whose version dir holds the byte has its
+# _csa_hook_target_mode's two tests, through the normalized path: a plugin whose version dir holds the byte has its
 # hooks/hooks.json and .claude-plugin/plugin.json hook entries read (HOOK-001, HOOK-002, HOOK-006).
 test_plugin_hook_entries_under_a_version_dir_with_the_byte() {
   _ready; case $? in 0) ;; 1) return 0 ;; *) return 1 ;; esac
@@ -97,7 +97,7 @@ test_plugin_hook_entries_under_a_version_dir_with_the_byte() {
     "$(_run rule_engine_scan_all "$P" all 2>/dev/null | jq -rs '[.[] | select(.rule_id | startswith("HOOK")) | "\(.rule_id) \(.file | sub(".*/"; ""))"] | sort | join(",")')" \
     "hook entries read" || return 1
 }
-# rule-engine.sh:72 and :74 directly: a hooks.json and a plugin.json whose normalized id holds the byte (a marketplace
+# _csa_hook_target_mode's two tests directly: a hooks.json and a plugin.json whose normalized id holds the byte (a marketplace
 # dir named with it) are walked. Enumeration cannot reach this input; see the header.
 test_hook_target_mode_on_an_id_with_the_byte() {
   _ready; case $? in 0) ;; 1) return 0 ;; *) return 1 ;; esac
@@ -118,6 +118,19 @@ test_no_bare_regex_in_the_plugin_path_libs() {
   assert_eq 5 "$(cat "$CSA_LIB_DIR/fingerprint.sh" "$CSA_LIB_DIR/hook-entries.sh" "$CSA_LIB_DIR/rule-engine.sh" | grep -c '_csa_re_bytes "')" "5 tests through _csa_re_bytes" || return 1
   assert_eq "local LC_ALL=C" "$(sed -n '/^_csa_re_bytes() {/,/^}/p' "$CSA_LIB_DIR/helpers.sh" | sed -n 2p | sed 's/^ *//')" "the helper's first line" || return 1
 }
+# _csa_re_bytes matches the byte, sets BASH_REMATCH, and leaves the caller's locale as it was: a set LC_ALL is set
+# again (and `.` misses the byte again), an unset one is unset again. Run in a child bash that loads helpers.sh only.
+test_helper_restores_the_callers_locale() {
+  _ready; case $? in 0) ;; 1) return 0 ;; *) return 1 ;; esac
+  local out
+  out="$(LC_ALL="$_U8" bash -c 'source "$1/helpers.sh"; _csa_re_bytes "x/caf"$'"'"'\351'"'"'"/y" "^x/([^/]+)/y$" || exit 3
+    r="${BASH_REMATCH[1]}"; s=$'"'"'a\351'"'"'; [[ $s =~ ^a.$ ]] && m=dot || m=nodot
+    [[ "$r" == "caf"$'"'"'\351'"'"' ]] && r=ok; printf "%s|%s|%s" "$LC_ALL" "$r" "$m"' _ "$CSA_LIB_DIR")"
+  assert_eq "$_U8|ok|nodot" "$out" "LC_ALL set: restored, BASH_REMATCH[1] is caf<\\351>, \`.\` misses the byte again" || return 1
+  out="$(env -u LC_ALL LANG="$_U8" bash -c 'source "$1/helpers.sh"; _csa_re_bytes "ab" "^a(b)$" || exit 3
+    printf "%s|%s" "${LC_ALL+set}" "${BASH_REMATCH[1]}"' _ "$CSA_LIB_DIR")"
+  assert_eq "|b" "$out" "LC_ALL unset: still unset after the call" || return 1
+}
 
 csa_test_run test_plugin_hook_handlers_named_with_the_byte              || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_plugin_path_with_the_byte_normalizes                  || _csa_failed=$((_csa_failed + 1))
@@ -125,4 +138,5 @@ csa_test_run test_uid_on_a_path_with_the_byte_is_normalized             || _csa_
 csa_test_run test_plugin_hook_entries_under_a_version_dir_with_the_byte || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_hook_target_mode_on_an_id_with_the_byte               || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_no_bare_regex_in_the_plugin_path_libs                 || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_helper_restores_the_callers_locale                     || _csa_failed=$((_csa_failed + 1))
 [[ "$_csa_failed" -eq 0 ]] || exit 1

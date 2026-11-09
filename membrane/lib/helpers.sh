@@ -58,7 +58,7 @@ csa_mkdir_lock() {
 # by =~. In a UTF-8 locale `.` and a negated bracket ([^/]) never match a byte that is not UTF-8 (\351, a Latin-1
 # e-acute), on bash 5.2 and 5.3 (#1166). LC_ALL=C is local to this function, so the caller keeps its locale. A prefix
 # assignment cannot do it: `LC_ALL=C [[ ... ]]` runs a command named `[[`, rc 127, which under `if` or `||` is a
-# silent false in every locale.
+# false (with `command not found` on stderr) in every locale.
 _csa_re_bytes() {
   local LC_ALL=C
   [[ "$1" =~ $2 ]]

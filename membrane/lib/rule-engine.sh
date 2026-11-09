@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # lib/rule-engine.sh — runs rule files against target files.
 # Per SPEC §8.1 (rule contract) and §12 (T2-G rule-load failure visibility).
-# Requires: lib/helpers.sh (_csa_re_bytes; without it the plugin hook-entry tests are a silent false) and
+# Requires: lib/helpers.sh (_csa_re_bytes; without it the plugin hook-entry tests are false, with `command not found` on stderr) and
 # lib/fingerprint.sh (csa_normalize_path). bin/csa sources every lib.
 
 # The structural hook-entry reader (#427); bin/csa sources every lib, a test may not.
