@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # lib/rule-engine.sh — runs rule files against target files.
 # Per SPEC §8.1 (rule contract) and §12 (T2-G rule-load failure visibility).
+# Requires: lib/helpers.sh (_csa_re_bytes; without it the plugin hook-entry tests are false, with `command not found` on stderr) and
+# lib/fingerprint.sh (csa_normalize_path). bin/csa sources every lib.
 
 # The structural hook-entry reader (#427); bin/csa sources every lib, a test may not.
 if ! declare -F csa_hook_entries >/dev/null 2>&1; then
@@ -69,9 +71,9 @@ _csa_hook_target_mode() {
   n="$(csa_normalize_path "$t")"
   local re_h='^@plugin:[^:/]+@[^:/]+:hooks/hooks\.json$'
   local re_m='^@plugin:[^:/]+@[^:/]+:\.claude-plugin/plugin\.json$'
-  if [[ "$n" =~ $re_h ]]; then
+  if _csa_re_bytes "$n" "$re_h"; then
     printf 'plugin-hooks'
-  elif [[ "$n" =~ $re_m ]]; then
+  elif _csa_re_bytes "$n" "$re_m"; then
     printf 'plugin-manifest'
   fi
   return 0

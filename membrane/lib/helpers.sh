@@ -54,6 +54,16 @@ csa_mkdir_lock() {
   return 1
 }
 
+# _csa_re_bytes <string> <ere> — [[ <string> =~ <ere> ]] read byte by byte in every locale; BASH_REMATCH is set as
+# by =~. In a UTF-8 locale `.` and a negated bracket ([^/]) never match a byte that is not UTF-8 (\351, a Latin-1
+# e-acute), on bash 5.2 and 5.3 (#1166). LC_ALL=C is local to this function, so the caller keeps its locale. A prefix
+# assignment cannot do it: `LC_ALL=C [[ ... ]]` runs a command named `[[`, rc 127, which under `if` or `||` is a
+# false (with `command not found` on stderr) in every locale.
+_csa_re_bytes() {
+  local LC_ALL=C
+  [[ "$1" =~ $2 ]]
+}
+
 # csa_is_version_name <name> — exit 0 if <name> looks like a plugin version
 # directory: semver-ish (`1.2.3`, `v2.0`, `1.0.0-beta.1`), a 7-40 char lowercase
 # hex commit digest, or `unknown`. Claude Code names a cached version one of

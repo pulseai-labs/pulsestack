@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # lib/fingerprint.sh — two-layer fingerprint per SPEC §9.1 + T2-I.
-# Requires: lib/helpers.sh (csa_sha256, csa_is_version_name), lib/redact.sh (csa_redact).
+# Requires: lib/helpers.sh (csa_sha256, csa_is_version_name, _csa_re_bytes), lib/redact.sh (csa_redact).
 
 # _csa_squeeze_excerpt <match_text> — whitespace runs to one space, ends trimmed. Nothing else.
 _csa_squeeze_excerpt() {
@@ -28,7 +28,7 @@ csa_normalize_path() {
   local p="$1"
   local re3='/\.claude/plugins/cache/([^/]+)/([^/]+)/([^/]+)/(.+)$'
   local re2='/\.claude/plugins/cache/([^/]+)/[^/]+/(.+)$'
-  if [[ "$p" =~ $re3 ]]; then
+  if _csa_re_bytes "$p" "$re3"; then
     # csa_is_version_name runs its own =~, which would clobber BASH_REMATCH.
     local mkt="${BASH_REMATCH[1]}" plug="${BASH_REMATCH[2]}" ver="${BASH_REMATCH[3]}" rest="${BASH_REMATCH[4]}"
     if ! csa_is_version_name "$plug" || csa_is_version_name "$ver"; then
@@ -36,7 +36,7 @@ csa_normalize_path() {
       return
     fi
   fi
-  if [[ "$p" =~ $re2 ]]; then
+  if _csa_re_bytes "$p" "$re2"; then
     printf '@plugin:%s:%s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
     return
   fi
