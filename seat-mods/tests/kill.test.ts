@@ -784,9 +784,6 @@ function cyrb53(str: string): number {
   return 4294967296 * (2097151 & h2) + (h1 >>> 0)
 }
 const DIGEST = 5974084756761064
-// The grid tests read every grid form through every reading; under CI load one took 6.6 s, past bun's 5 s default.
-const GRID_TIMEOUT_MS = 60_000
-
 describe('killRule: the grid adds no refusal and every name is read alike', () => {
   const forms: string[][] = []
   const grow = (prefix: string[]): void => {
@@ -794,24 +791,25 @@ describe('killRule: the grid adds no refusal and every name is read alike', () =
     if (prefix.length < 3) for (const w of GRID_WORDS) grow([...prefix, w])
   }
   grow([])
-  // A throw is not a refusal: a form origin refused that now throws fails these tests.
-  const refuses = (command: string): boolean => {
-    try { return killRule(command) !== undefined } catch { return false }
-  }
-  const unreadBy = (command: string): boolean => {
-    try { killRule(command); return false } catch { return true }
+  // A throw is not a refusal: a form origin refused that now throws fails these tests. Each verdict is R (refused),
+  // P (passed) or T (thrown). The verdicts are read here, while the describe body runs, and not in the tests: a test
+  // has a 5 s limit, and one pass over the grid took 6.6 s under CI load.
+  const verdict = (command: string): 'R' | 'P' | 'T' => {
+    try { return killRule(command) !== undefined ? 'R' : 'P' } catch { return 'T' }
   }
   const commands: string[] = []
   for (const form of forms)
     for (const kill of ['S1', 'S2', 'all'])
       commands.push(form.map(w => (w === 'S1' || w === 'S2') && (kill === 'all' || kill === w) ? "'kill -1'" : /^S\d$/.test(w) ? `'echo ${w}'` : w).join(' '))
+  const verdicts = (name: string): ('R' | 'P' | 'T')[] => commands.map(c => verdict(`${name} ${c}`))
+  const shVerdicts = verdicts('sh')
   test('the refused commands under sh are the 8342 the earlier reader refused', () => {
-    const refused = commands.map(c => `sh ${c}`).filter(refuses)
-    expect(commands.filter(c => unreadBy(`sh ${c}`))).toEqual([])
+    const refused = commands.filter((c, k) => shVerdicts[k] === 'R').map(c => `sh ${c}`)
+    expect(commands.filter((c, k) => shVerdicts[k] === 'T').map(c => `sh ${c}`)).toEqual([])
     expect(refused.length).toBe(8342)
     expect(cyrb53(refused.join('\n'))).toBe(DIGEST)
-  }, GRID_TIMEOUT_MS)
-  const base = commands.map(c => refuses(`sh ${c}`))
+  })
+  const base = shVerdicts.map(v => v === 'R')
   // A name with its own reading refuses every form sh refuses (a throw is not a refusal) and adds a frozen set of forms:
   // the count and the digest of the set. Most of the extras are forms where the real shell runs no string at all (an
   // unknown option or value, -s, -D, -n), a deliberate false stop; the rest are forms whose string the shell runs.
@@ -820,18 +818,20 @@ describe('killRule: the grid adds no refusal and every name is read alike', () =
     lksh: [241, 4915069328647694], 'mksh-static': [241, 8961682949933950], yash: [236, 5489139783732189],
   }
   for (const name of Object.keys(OWN)) {
+    const own = verdicts(name)
     test(`${name} refuses every form sh refuses, and its own reading adds the frozen set`, () => {
-      const extra = commands.filter((c, k) => !base[k] && refuses(`${name} ${c}`))
-      const lost = commands.filter((c, k) => base[k] && !refuses(`${name} ${c}`))
+      const extra = commands.filter((c, k) => !base[k] && own[k] === 'R')
+      const lost = commands.filter((c, k) => base[k] && own[k] !== 'R')
       expect({ lost: lost.length, first: lost.slice(0, 3) }).toEqual({ lost: 0, first: [] })
       expect({ count: extra.length, hash: cyrb53(extra.map(c => `${name} ${c}`).join('\n')) }).toEqual({ count: OWN[name]![0], hash: OWN[name]![1] })
-    }, GRID_TIMEOUT_MS)
+    })
   }
   for (const name of [...GRID_NAMES.slice(1), 'busybox sh'].filter(n => !Object.hasOwn(OWN, n))) {
+    const theirs = verdicts(name)
     test(`${name} gets the verdict sh gets, for every form`, () => {
-      const differ = commands.filter((c, k) => refuses(`${name} ${c}`) !== base[k]).map(c => `${name} ${c}`)
+      const differ = commands.filter((c, k) => (theirs[k] === 'R') !== base[k]).map(c => `${name} ${c}`)
       expect({ differing: differ.length, first: differ.slice(0, 3) }).toEqual({ differing: 0, first: [] })
-    }, GRID_TIMEOUT_MS)
+    })
   }
 })
 
