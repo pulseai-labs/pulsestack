@@ -585,6 +585,7 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ["function { kill -1 }", "zsh: an anonymous function (#1170)"],
   ["bash -c $'echo\\C-jkill -1'", "under a zsh outer shell, $'…' decodes \\C-x and \\M-x (#1171)"],
   ["bash -c $'kill -1\\0'x", "under a zsh outer shell, a NUL in $'…' ends the whole word (#1171)"],
+  ["bash -c $'system\\ctl --user exit'", "under a zsh outer shell, $'…' hands on \\cX as cX (#1171)"],
 ]
 
 describe('killRule: refuse, with a near-miss control beside each row', () => {
