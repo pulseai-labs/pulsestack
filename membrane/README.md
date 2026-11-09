@@ -137,6 +137,8 @@ Critical findings **cannot be suppressed**; they must be remediated. A Critical 
 
 **Upgrading to 0.8.3.** Docs only: the skill no longer says an audit records the tamper checks' baseline. `/security-audit` neither runs the tamper checks nor records a value in `self_integrity` (a new `state.json` holds zeros there), as in 0.8.2. Nothing else changes. See the CHANGELOG.
 
+**Upgrading to 0.8.4.** `csa state_update_self_integrity` records the `state.json` mtime that the file it writes keeps, so `csa state_check_tamper` no longer reports TAMPER-001 on a `state.json` nobody edited; run the check before any other membrane call and the record after the last one, since any later write to either file, membrane's own included, is reported. `/security-audit` still runs neither. On bash 5.2 (Ubuntu 24.04) in a UTF-8 locale, a file or directory name that ends in a byte that is not valid UTF-8 (Latin-1 text, say) no longer hides the next name from the audit or drops itself: every executable below `.claude/hooks/` and `.opencode/` is read, and every hook symlink, unreadable directory and plugin `hooks/` file named with a newline is a stop. Expect new findings only where such a name hid one before; a PROVENANCE-002 for a plugin whose only version dir has such a name goes away. No existing finding changes its id. See the CHANGELOG.
+
 ## Composition
 
 `membrane` is fully standalone. It runs in any Claude Code project, with or without other plugins. It has no integration with any other plugin in v0.1.

@@ -27,10 +27,11 @@ reviews:
           `.omp-plugin/` manifest. When the diff changes a shipped file of a plugin (anything
           under its `skills/`, `commands/`, `agents/`, `hooks/`, `bin/`, `lib/` or its
           manifests), check: its `version` changes in `.claude-plugin/plugin.json`; its
-          `.codex-plugin/plugin.json`, if present, has the same version; its `CHANGELOG.md`
-          has a heading for that version; and the root `README.md` shows that version in the
-          plugin's table row and in its Layout line. Fail and name each missing one. Pass when
-          no shipped plugin file changed. Changes only under a plugin's `tests/` need no bump.
+          `.codex-plugin/plugin.json`, if present, has the same version; and its `CHANGELOG.md`
+          has a heading for that version. The root `README.md` carries no plugin versions
+          (`tests/test-root-readme.sh` fails if one is added), so do not ask for one there. Fail
+          and name each missing one. Pass when no shipped plugin file changed. Changes only
+          under a plugin's `tests/` need no bump.
       - name: No process records in this repo
         mode: warning
         instructions: |

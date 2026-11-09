@@ -297,6 +297,9 @@ _first_audit() {
   assert_eq "$(jq -r '.finding_uid // empty' "$d/raw-file" | sort -u | tr '\n' ' ')" "$(jq -r '.findings | keys[]' "$st" | sort | tr '\n' ' ')" "state.json registers every uid of the scan" || return 1
   assert_eq critical "$(jq -r '.findings[] | select(.rule_id == "PERM-004") | .severity' "$st")" "state.json holds the Critical" || return 1
   assert_eq 1 "$(jq '.audit_history | length' "$st")" "the run is recorded" || return 1
+  # The skill's steps record no value in self_integrity: it holds a new state.json's zeros after the audit.
+  assert_eq '{"state_mtime_at_last_audit":0,"suppressions_mtime_at_last_audit":0,"git_tracked_check":{"state_json_tracked":false,"suppressions_json_tracked":false,"checked_at":null}}' \
+    "$(jq -c '.self_integrity' "$st")" "the audit leaves self_integrity at a new state.json's zeros" || return 1
   local did uid
   while IFS=$'\t' read -r did uid; do
     assert_contains "$(cat "$rp")" "$did" "the report prints $did" || return 1

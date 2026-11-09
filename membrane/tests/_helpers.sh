@@ -78,8 +78,10 @@ export CSA_RULES_DIR="$CSA_LIB_DIR/rules"
 export CSA_FIXTURES_DIR="$CSA_PLUGIN_ROOT/fixtures"
 
 # csa_audit_harness <project_root> [focus]
-# Runs the full audit flow end-to-end and emits findings JSONL on stdout.
-# Sets CSA_PROJECT_ROOT = project_root so libs that look at it pick it up.
+# The audit's lib calls in this shell, not the skill's steps: scan, tag NEW/PERSISTED, filter suppressions, record
+# the run. No display ids, report or bin/csa; errors are swallowed. Like the shipped flow it records no value in
+# self_integrity. Emits the filtered findings JSONL on stdout. _first_audit in test-suppress-remove-stale.sh runs
+# the skill's steps as written. Sets CSA_PROJECT_ROOT = project_root so libs that look at it pick it up.
 csa_audit_harness() {
   local root="$1"; local focus="${2:-all}"
   export CSA_PROJECT_ROOT="$root"
@@ -120,9 +122,6 @@ csa_audit_harness() {
   run_index=$((run_index + 1))
   local findings_content; findings_content="$(cat "$tagged")"
   csa_state_record_audit "$root" "$run_index" ".claude/audits/run-$run_index.md" "$findings_content" "$focus" >/dev/null 2>&1 || true
-
-  # 5. Update self-integrity after state write
-  csa_state_update_self_integrity "$root" >/dev/null 2>&1 || true
 
   # Emit final findings JSONL
   cat "$filtered"

@@ -1,6 +1,6 @@
 {
   "name": "membrane",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "Static-analysis security audit for agent project configs, marketplaces, hooks, MCP, and secrets.",
   "author": {
     "name": "Pras"

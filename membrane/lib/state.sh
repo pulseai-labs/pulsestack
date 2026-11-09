@@ -418,7 +418,8 @@ csa_state_update_self_integrity() {
   local suppressions_file; suppressions_file="$(csa_suppressions_path "$root")"
   local now; now="$(csa_iso_now)"
 
-  # Get state.json mtime (read AFTER any writes have settled).
+  # state.json's mtime, recorded inside state.json: the rewrite below gets this same mtime back (`touch -r` from the
+  # file it replaces; `mv` keeps it), so the record matches the file it is written into (#1164).
   local state_mtime; state_mtime="$(csa_file_mtime "$state_file")"
 
   # Get suppressions.json mtime (0 if missing).
@@ -453,7 +454,7 @@ csa_state_update_self_integrity() {
      .self_integrity.git_tracked_check.state_json_tracked = $state_tracked |
      .self_integrity.git_tracked_check.suppressions_json_tracked = $suppressions_tracked |
      .self_integrity.git_tracked_check.checked_at = $now' \
-    "$state_file" > "$tmp" && mv "$tmp" "$state_file"
+    "$state_file" > "$tmp" && touch -r "$state_file" "$tmp" && mv "$tmp" "$state_file"
 }
 
 # ---------------------------------------------------------------------------

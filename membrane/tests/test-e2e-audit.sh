@@ -63,6 +63,7 @@ test_e2e_unresolved_plugin_is_a_recorded_high_finding() {
   [[ "$uid" == FUID-* ]] || { printf '    no finding_uid: %s\n' "$out" >&2; return 1; }
   local reg; reg="$(jq -r --arg u "$uid" '.findings[$u].rule_id // empty' "$tmp/.claude/audits/state.json")"
   assert_eq "PROVENANCE-002" "$reg" "the state registry holds it" || return 1
+  assert_eq 0 "$(jq -r '.self_integrity.state_mtime_at_last_audit' "$tmp/.claude/audits/state.json")" "the harness, like the flow, records no self_integrity" || return 1
   mkdir -p "$tmp/home/.claude/plugins/cache"
   cp -R "$tmp/.fake-plugin-cache/clean-sample-plugin" "$tmp/home/.claude/plugins/cache/clean-sample-plugin"
   out="$(HOME="$tmp/home" csa_audit_harness "$tmp" 2>/dev/null)"

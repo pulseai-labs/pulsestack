@@ -13,7 +13,7 @@ csa_enum_codex_project_targets() {
          \( -name '*.md' -o -name '*.json' -o -name '*.toml' -o -name '*.sh' \
             -o -name '*.py' -o -name '*.js' -o -name '*.ts' \
             -o -name '*.mjs' -o -name '*.cjs' -o -name '*.tsx' -o -name '*.jsx' -o -name '*.mts' -o -name '*.cts' \) 2>/dev/null
-    find "$root/.codex" -type l 2>/dev/null | while read -r sl; do
+    find "$root/.codex" -type l 2>/dev/null | while LC_ALL=C read -r sl; do
       printf 'info: symlink at %s not followed\n' "$sl" >&2
     done
   fi
@@ -48,7 +48,7 @@ csa_enum_opencode_project_targets() {
        -print 2>/dev/null
   find "$root/.opencode" \
        \( -path "$oq/node_modules" -o -path "$oq/audits" \) -prune -o \
-       -type l -print 2>/dev/null | while read -r sl; do
+       -type l -print 2>/dev/null | while LC_ALL=C read -r sl; do
     printf 'info: symlink at %s not followed\n' "$sl" >&2
   done
 }
@@ -68,7 +68,7 @@ _csa_enum_unlisted_hook_handlers() {
   [[ -d "$hooks" ]] || return 0
 
   # The HOOK-005 lines are held until the walk ends, so a refusal prints only its own message.
-  find "$hooks" -type f -print0 2>/dev/null | { while IFS= read -r -d '' handler; do
+  find "$hooks" -type f -print0 2>/dev/null | { while LC_ALL=C IFS= read -r -d '' handler; do
     case "${handler##*/}" in
       *.md|*.json|*.sh|*.py|*.js|*.ts) : ;;
       *) code=0
@@ -111,7 +111,7 @@ csa_enum_project_targets() {
     local -a split=( \( -path "$hq/*"$'\n'"*" -o -path "$hq/*"$'\t'"*" \)
                      \( -name '*.py' -o -name '*.js' -o -name '*.ts' \) )
     find "$root/.claude/hooks" -type f "${split[@]}" -print0 2>/dev/null \
-      | while IFS= read -r -d '' f; do _csa_enum_unread_hook_file "" "$f" >&2; done || :
+      | while LC_ALL=C IFS= read -r -d '' f; do _csa_enum_unread_hook_file "" "$f" >&2; done || :
     # Exclude .claude/audits/ — it holds audit state/reports and must not be scanned. The root is glob-quoted (#1148).
     # The six module suffixes below .claude/hooks/ are emitted by _csa_enum_unlisted_hook_handlers, so not here (#1141).
     local aq; aq="$(_csa_enum_glob_quote "$root/.claude/audits")"
@@ -128,7 +128,7 @@ csa_enum_project_targets() {
                   ! -path "$hq/*" \) \) \
          ! \( "${split[@]}" \) 2>/dev/null || :
     find "$root/.claude" -type l \
-         -not -path "$aq/*" 2>/dev/null | while read -r sl; do
+         -not -path "$aq/*" 2>/dev/null | while LC_ALL=C read -r sl; do
       printf 'info: symlink at %s not followed\n' "$sl" >&2
     done
     _csa_enum_unreadable_dirs "" "$root/.claude" "$aq" >&2
@@ -195,7 +195,7 @@ _csa_enum_hook_symlinks() {
   fi
   q="$(_csa_enum_glob_quote "$dir")"
   find "$dir" -mindepth 1 -type l ! -path "$q/node_modules/*" ! -path "$q/*/node_modules/*" -print0 2>/dev/null \
-    | while IFS= read -r -d '' l; do _csa_enum_unread_hook_file "$key" "$l" symlink; done || :
+    | while LC_ALL=C IFS= read -r -d '' l; do _csa_enum_unread_hook_file "$key" "$l" symlink; done || :
   return 0
 }
 
@@ -211,7 +211,7 @@ _csa_enum_unreadable_dirs() {
   local key="$1" dir="$2" prune="${3-}" d
   local -a skip=()
   [[ -z "$prune" ]] || skip=( -path "$prune" -prune -o )
-  find "$dir" ${skip[@]+"${skip[@]}"} -type d -print0 2>/dev/null | while IFS= read -r -d '' d; do
+  find "$dir" ${skip[@]+"${skip[@]}"} -type d -print0 2>/dev/null | while LC_ALL=C IFS= read -r -d '' d; do
     [[ -r "$d" && -x "$d" ]] \
       || printf 'finding: SCANNER-003\t%s\t%s\n' "$(_csa_enum_oneline "$key")" "$(_csa_enum_oneline "$d")"
   done || :
@@ -332,7 +332,7 @@ _csa_enum_record_lookup() {
     return 2
   }
   phys_root="$(cd -- "$root" 2>/dev/null && pwd -P)" || phys_root="${root%/}"
-  while IFS=$'\t' read -r scope ppath ipath; do
+  while LC_ALL=C IFS=$'\t' read -r scope ppath ipath; do
     [[ -n "$scope" ]] || continue
     if [[ "$scope" == user ]]; then
       printf '%s\n' "$ipath"
@@ -403,7 +403,7 @@ _csa_enum_pick_version() {
     printf '%s/%s\n' "$dir" "$v"
     return 0
   fi
-  while IFS= read -r c; do
+  while LC_ALL=C IFS= read -r c; do
     [[ -n "$c" ]] || continue
     count=$((count + 1))
     only="$c"
@@ -493,7 +493,7 @@ csa_enum_targets_all() {
   # Resolve every plugin in this shell, not inside the output pipeline below: an
   # unreadable install record is rc 2, which a pipeline subshell would drop.
   local resolved="" plugin_name plugin_path rc
-  while IFS= read -r plugin_name; do
+  while LC_ALL=C IFS= read -r plugin_name; do
     [[ -z "$plugin_name" ]] && continue
     rc=0
     plugin_path="$(csa_enum_resolve_plugin_path "$plugin_name" "$root")" || rc=$?
@@ -512,14 +512,14 @@ csa_enum_targets_all() {
   local hpat f
   {
     [[ -n "$project_targets" ]] && printf '%s\n' "$project_targets"
-    while IFS=$'\t' read -r plugin_name plugin_path; do
+    while LC_ALL=C IFS=$'\t' read -r plugin_name plugin_path; do
       [[ -z "$plugin_name" ]] && continue
       hpat="$(_csa_enum_glob_quote "$plugin_path")/hooks/*"
       _csa_enum_hook_symlinks "$plugin_name" "$plugin_path/hooks" >&2
       # A plugin with no hooks/ makes this find fail: `|| :` keeps that from
       # ending the group under bin/csa's `set -euo pipefail`.
       find "$plugin_path/hooks" -type f \( -path "$hpat"$'\n'"*" -o -path "$hpat"$'\t'"*" \) -print0 2>/dev/null \
-        | while IFS= read -r -d '' f; do _csa_enum_unread_hook_file "$plugin_name" "$f" >&2; done || :
+        | while LC_ALL=C IFS= read -r -d '' f; do _csa_enum_unread_hook_file "$plugin_name" "$f" >&2; done || :
       # A dir find cannot read makes it exit 1: `|| :` keeps that from ending the group under bin/csa's
       # `set -euo pipefail` and dropping the plugins after this one, and each such dir is one SCANNER-003 (#1149).
       find "$plugin_path" -type f ! -path "$hpat"$'\n'"*" ! -path "$hpat"$'\t'"*" 2>/dev/null \
@@ -598,7 +598,7 @@ csa_enum_paranoid_candidates() {
       rm -f "$top_file" "$sub_file" "$names_file"
       return 2
     fi
-    while IFS= read -r -d '' a; do
+    while LC_ALL=C IFS= read -r -d '' a; do
       base="${a##*/}"
       case "$base" in temp_git_*) continue ;; esac
       if _csa_enum_is_flat_plugin_dir "$a"; then
@@ -610,7 +610,7 @@ csa_enum_paranoid_candidates() {
         rm -f "$top_file" "$sub_file" "$names_file"
         return 2
       fi
-      while IFS= read -r -d '' b; do
+      while LC_ALL=C IFS= read -r -d '' b; do
         printf '%s@%s\0' "${b##*/}" "$base" >> "$names_file"
       done < "$sub_file"
     done < "$top_file"

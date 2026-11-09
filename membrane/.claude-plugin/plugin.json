@@ -1,6 +1,6 @@
 {
   "name": "membrane",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "Static-analysis security audit for Claude Code project configurations and enabled plugins. 28 rules across 7 aspects (secrets, permissions incl. PERM-005 schema-typo, hooks, MCP, CLAUDE.md, prompt-injection, marketplace). Two-flag auto-fix + 5-layer defense-in-depth (T2-H). Durable finding_uid survives whitespace edits (T2-I). Self-tamper checks (T1-F) as a csa call, not run by /security-audit. Zero ambient surface (T1-C — SessionStart reminder is opt-in). Inspired by AgentShield in Everything Claude Code (Mustafa, 2026; MIT).",
   "author": {
     "name": "Pras"
