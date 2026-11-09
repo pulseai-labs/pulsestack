@@ -370,6 +370,66 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   // a --name word is a cluster busybox ends at its second -, and --rcfile takes no value
   ["busybox sh -c -b --rcfile 'kill -1' x", "busybox sh -c -b --rcfile 'kill 123' x"],
   ["sh -c -b --rcfile 'kill -1' x", "sh -c -b --rcfile 'kill 123' x"],
+  // the -c or eval word as the outer shell hands it on: a backslash escape, '…', "…", $'…' (ANSI-C, a NUL ends its part)
+  // and $"…" are undone, so an escaped blank, an escaped ; and mixed quoting read as the shell runs them
+  ["bash -c kill\\ -1", "bash -c kill\\ 123"],
+  ["sh -c kill\\ -1", "sh -c kill\\ 123"],
+  ["zsh -c kill\\ -1", "zsh -c kill\\ 123"],
+  ["eval kill\\ -1", "eval kill\\ 123"],
+  ["bash -c time\\ !\\ kill\\ -1", "bash -c time\\ !\\ kill\\ 123"],
+  ["fish -c kill\\ -1", "fish -c kill\\ 123"],
+  ["eval kill \\ -1", "eval kill \\ 123"],
+  ["bash -c ps\\;kill\\ 123", "bash -c ls\\;kill\\ 123"],
+  ["bash -c $'kill -1'", "bash -c $'kill 123'"],
+  ["bash -c $'kill\\x20-1'", "bash -c $'kill\\x20123'"],
+  ["bash -c $\"kill -1\"", "bash -c $\"kill 123\""],
+  ["bash -c 'kill'\\ '-1'", "bash -c 'kill'\\ '123'"],
+  ["bash -c kill\\ \"-1\\\"\\\"\"", "bash -c kill\\ \"123\\\"\\\"\""],
+  ["bash -c $'kill\\0x'\\ -1", "bash -c $'kill\\0x'\\ 123"],
+  ["bash -c 'kill -1'\\;", "bash -c 'kill 123'\\;"],
+  // zsh's reserved `repeat <count>` and `nocorrect` (unquoted), and its precommand modifiers `noglob` and `-` (quoted or
+  // not), at a command's head, after assignments and after `builtin`, `exec` and `time`; `repeat` before a head word
+  ["repeat 1 kill -1", "repeat 1 kill 123"],
+  ["nocorrect kill -1", "nocorrect kill 123"],
+  ["noglob kill -1", "noglob kill 123"],
+  ["- kill -1", "- kill 123"],
+  ["time repeat 1 kill -1", "time repeat 1 kill 123"],
+  ["repeat 1 time ! kill -1", "repeat 1 time ! kill 123"],
+  ["repeat 1 ! kill -1", "repeat 1 ! kill 123"],
+  ["repeat 1 do kill -1; done", "repeat 1 do kill 123; done"],
+  ["repeat 1 { kill -1 }", "repeat 1 { kill 123 }"],
+  ["time noglob kill -1", "time noglob kill 123"],
+  ["time nocorrect kill -1", "time nocorrect kill 123"],
+  ["A=1 noglob kill -1", "A=1 noglob kill 123"],
+  ["A=1 nocorrect kill -1", "A=1 nocorrect kill 123"],
+  ["'noglob' kill -1", "'noglob' kill 123"],
+  ["builtin noglob kill -1", "builtin noglob kill 123"],
+  ["exec noglob kill -1", "exec noglob kill 123"],
+  ["noglob - kill -1", "noglob - kill 123"],
+  ["nocorrect noglob kill -1", "nocorrect noglob kill 123"],
+  // the other kill rules are read behind them too, and inside eval and a -c word
+  ["ps aux; noglob kill 123", "ls; noglob kill 123"],
+  ["noglob pkill -u dev", "noglob pkill node"],
+  ["eval 'repeat 1 kill -1'", "eval 'repeat 1 kill 123'"],
+  ["zsh -c noglob\\ kill\\ -1", "zsh -c noglob\\ kill\\ 123"],
+  // a fish -c, -C or --command= value attached to its option word gets the same quote removal as a separate one
+  ["fish -ckill\\ -1", "fish -ckill\\ 123"],
+  ["fish --command=kill\\ -1", "fish --command=kill\\ 123"],
+  ["fish -c$'kill\\x20-1'", "fish -c$'kill\\x20123'"],
+  ["fish -c'kill'\\ '-1'", "fish -c'kill'\\ '123'"],
+  ["fish -Ckill\\ -1", "fish -Ckill\\ 123"],
+  // $'…' decodes each escape as bash does: \c takes an escaped backslash as its character (\c\\ is one control
+  // character), \u and \U, \x with at most two digits, octal with at most three digits kept to eight bits, \t, \' and \cX
+  ["bash -c $'x\\c\\\\\\x3bkill -1'", "bash -c $'x\\c\\\\\\x3bkill 123'"],
+  ["bash -c $'echo\\c\\\\\\nkill -1'", "bash -c $'echo\\c\\\\\\nkill 123'"],
+  ["bash -c $'\\u006bill -1'", "bash -c $'\\u006bill 123'"],
+  ["bash -c $'\\U0000006bill -1'", "bash -c $'\\U0000006bill 123'"],
+  ["bash -c $'kill \\x2d1'", "bash -c $'kill \\x3123'"],
+  ["bash -c $'\\553ill -1'", "bash -c $'\\553ill 123'"],
+  ["bash -c $'\\153ill -1'", "bash -c $'\\153ill 123'"],
+  ["bash -c $'kill\\t-1'", "bash -c $'kill\\t123'"],
+  ["bash -c $'kill \\'-1\\''", "bash -c $'kill \\'123\\''"],
+  ["bash -c $'echo hi\\cJkill -1'", "bash -c $'echo hi\\cJkill 123'"],
 ]
 
 // What a seat does legitimately, and text that only mentions kill.
@@ -423,6 +483,21 @@ const ALLOW: readonly string[] = [
   'busybox kill 123', "ash -c-o pipefail 'echo ok'", "ash -c- -e 'echo ok'",
   // the narrowed ash reading is only for a cluster with an inner -: zsh runs the first string here, whose $0 is the kill text
   "zsh -cO -oshwordsplit -c 'echo S1' 'kill -1'",
+  // the shell keeps these backslashes, or splits at the newline, so the string runs no kill
+  "bash -c 'kill\\ -1'", "bash -c \"kill\\ -1\"", "bash -c \\\"kill\\ -1\\\"", "eval 'kill\\' -1", "bash -c $'kill\\\\ -1'",
+  "bash -c $'kill\\n-1'", "bash -c echo\\ hi",
+  // $'…' keeps the backslash of an escape bash does not know, so the string's kill\ -1 is one word
+  "bash -c $'kill\\ -1'",
+  // an attached fish value with a harmless string
+  "fish -cecho\\ hi", "fish --command=echo\\ hi",
+  // after any other wrapper, or under xargs, a zsh word names a program, and so does a quoted `repeat` or `nocorrect` or
+  // one after an assignment
+  "nohup noglob kill -1", "env noglob kill -1", "xargs noglob kill -1", "xargs repeat 1 kill -1", "command noglob kill -1",
+  "'repeat' 1 kill -1", "'nocorrect' kill -1", "A=1 repeat 1 kill -1", "/usr/bin/noglob kill -1",
+  // zsh rejects these or runs a program named by the next word: `noglob` and `nocorrect` are not head words
+  "noglob ! kill -1", "noglob { kill -1 }", "noglob repeat 1 kill -1", "nocorrect repeat 1 kill -1", "nocorrect ! kill -1", "noglob -x kill -1",
+  // a harmless command behind them
+  "repeat 1 echo kill -1", "noglob echo kill -1",
 ]
 
 // Known limits: forms the rail does not read. Each is allowed here, and the README names it. A later
@@ -497,6 +572,20 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['kill 123 $(case x in a) echo 1;; esac) -1', "a case pattern's ) inside $(…) ends the span early"],
   ['kill 123 $(echo ${x:-)}) -1', 'a ) inside ${…} inside $(…) ends the span early'],
   ["pkill node '.*'", "a second pkill operand (procps rejects it; BSD and macOS pkill take several)"],
+  ["bash -c kill\\ \\\n-1", "a -c or eval word split by a line continuation"],
+  ["env - kill -1", "env's bare - (#1168)"],
+  ["$'\\x6bill' -1", "quote removal on the command word (#1169)"],
+  ["kill $'\\x2d1'", "quote removal on an operand (#1169)"],
+  ["kill \\ -1", "an escaped blank in an operand (#1169)"],
+  ["{kill -1}", "zsh: a brace with no blank (#1170)"],
+  ["repeat 1 {kill -1}", "zsh: a brace with no blank after repeat (#1170)"],
+  ["if [[ 1 ]] kill -1", "zsh: the short if (#1170)"],
+  ["while [[ 1 ]] { kill -1; break }", "zsh: the short while (#1170)"],
+  ["{ true } always { kill -1 }", "zsh: an always block (#1170)"],
+  ["function { kill -1 }", "zsh: an anonymous function (#1170)"],
+  ["bash -c $'echo\\C-jkill -1'", "under a zsh outer shell, $'…' decodes \\C-x and \\M-x (#1171)"],
+  ["bash -c $'kill -1\\0'x", "under a zsh outer shell, a NUL in $'…' ends the whole word (#1171)"],
+  ["bash -c $'system\\ctl --user exit'", "under a zsh outer shell, $'…' hands on \\cX as cX (#1171)"],
 ]
 
 describe('killRule: refuse, with a near-miss control beside each row', () => {
@@ -730,6 +819,31 @@ describe('killRule: deliberate false stops of the reserved time', () => {
   }
 })
 
+// The -c or eval word is also read as before, with its quote characters taken off and every backslash kept, so the stops
+// of that reading stay: here bash hands on `kill --\ -1`, and kill gets the one operand `-- -1`. zsh's words are read in
+// every shell, and `repeat`'s count is not evaluated: `repeat 0` and a count that is not a number run nothing in zsh,
+// a backslash in `repeat` or `nocorrect` names a program there (the reader drops the backslash), `nocorrect` after
+// `noglob` is a program, and dash runs a program named `noglob`. A vertical tab or form feed that $'…' hands on inside a
+// -c word is not a blank to the shell (kill gets the one operand `123<VT>-1`), but the rail splits at it.
+describe('killRule: deliberate false stops of the quote removal and the zsh words', () => {
+  const rows: ReadonlyArray<readonly [string, string]> = [
+    ["bash -c k'ill '$'--\\\\ -1'", "bash -c k'ill '$'--\\\\ 123'"],
+    ["repeat 0 kill -1", "repeat 0 kill 123"],
+    ["repeat echo kill -1", "repeat echo kill 123"],
+    ["\\repeat 1 kill -1", "\\repeat 1 kill 123"],
+    ["re\\peat 1 kill -1", "re\\peat 1 kill 123"],
+    ["nocorrec\\t kill -1", "nocorrec\\t kill 123"],
+    ["bash -c $'kill 123\\v-1'", "bash -c $'echo 123\\v-1'"],
+    ["bash -c $'kill 123\\f-1'", "bash -c $'echo 123\\f-1'"],
+    ["noglob nocorrect kill -1", "noglob nocorrect kill 123"],
+    ["dash -c 'noglob kill -1'", "dash -c 'noglob kill 123'"],
+  ]
+  for (const [command, control] of rows) {
+    test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
+    test(`control: ${JSON.stringify(control)} is allowed`, () => { expect(killRule(control)).toBeUndefined() })
+  }
+})
+
 // A name speaks only for its own grammar: a form another name's reading refuses is not refused under it.
 describe('killRule: an extra reading speaks for its own name only', () => {
   const forms = ["'kill -1'", "-e 'kill -1'", "-o -c 'kill -1'", "-T /dev/tty2 -c 'kill -1'", "-o '' 'kill -1'", "--profile p -c 'kill -1'", "--cmd 'kill -1'", "-o cmdline 'kill -1'", "+ 'kill -1'"]
@@ -863,6 +977,13 @@ describe('killRule: bounds', () => {
   test('a substitution that never closes is unread: it throws', () => {
     expect(() => killRule('kill 123 $(echo 1')).toThrow()
     expect(() => killRule('kill 123 $((1+1')).toThrow()
+  })
+  test('a -c or eval word whose quote removal leaves an unclosed $( is unread: it throws', () => {
+    expect(() => killRule('bash -c echo\\ \\$\\(')).toThrow()
+    expect(() => killRule('eval echo cost: \\$\\(5')).toThrow()
+  })
+  test('control: the same word with its $( closed is read and allowed', () => {
+    expect(killRule('bash -c echo\\ \\$\\(true\\)')).toBeUndefined()
   })
   test('the first refusal stands: a later refused command of another kind does not replace its text', () => {
     expect(killRule('kill -1; killall5')).toContain('kill -1')

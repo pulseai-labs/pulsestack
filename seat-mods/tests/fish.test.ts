@@ -233,13 +233,14 @@ describe('killRule: the fish grid never loosens, and other names keep their verd
     })
   }
   // The verdicts of every other runner name on the same grid, frozen before fish was read; a name the rail does not
-  // read refuses only what its tail refuses. A change to any of them shows here.
+  // read refuses only what its tail refuses. A change to any of them shows here. eval's set holds six `eval - …` forms
+  // (`eval - 'kill -1' 'echo S2'`, and with `- -` and `-- -`), since zsh's `-` runs the next word.
   // [refused, digest of the refused forms, thrown]
   const OTHER: Readonly<Record<string, readonly [number, number, number]>> = {
     fish2: [1368, 4024114021318640, 0], rfish: [1368, 4024114021318640, 0], 'fish.sh': [1368, 4024114021318640, 0],
     sh: [1728, 4946657913147325, 240], bash: [1728, 4946657913147325, 240], zsh: [1728, 4946657913147325, 240],
     dash: [1728, 4946657913147325, 240], 'busybox sh': [1728, 4946657913147325, 240], ksh: [2196, 2847645446119219, 552],
-    mksh: [1926, 1008651996436649, 372], yash: [1800, 3279893687628280, 288], eval: [1370, 725721267385697, 1026],
+    mksh: [1926, 1008651996436649, 372], yash: [1800, 3279893687628280, 288], eval: [1376, 3056538263733080, 1026],
     rbash: [1728, 4946657913147325, 240], ash: [1728, 4946657913147325, 240], 'static-sh': [1728, 4946657913147325, 240],
     ksh93: [2196, 2847645446119219, 552], lksh: [1926, 1008651996436649, 372], 'mksh-static': [1926, 1008651996436649, 372],
   }
