@@ -2,6 +2,20 @@
 
 Named `claude-security-audit` through 0.3.1.
 
+## 0.8.3 (2026-11-09)
+
+**Docs only (#1157): the skill no longer says the audit flow records the tamper checks' baseline.** SKILL step 9 said `csa state_record_audit` sets `self_integrity.state_mtime_at_last_audit`. It does not: a new `state.json` holds zeros in `self_integrity`, and only `csa state_update_self_integrity` records a value there, which `/security-audit` does not call. The audit flow does not run the tamper checks either (`csa state_check_tamper`), as `references/auto-fix-policy.md` has said since 0.8.2. The operator ruled on 2026-11-09 to keep it that way rather than wire the checks in: run from the flow, the tracked-status read would run git in every audited project (the FIFO hang and dubious-ownership limits of 0.8.2), and anyone who can edit `state.json` can also edit `self_integrity`.
+
+### Fixed
+- `skills/auditing-claude-configs/SKILL.md` step 9: `state_record_audit` updates the last-audit date and the findings registry, not `self_integrity`; the flow runs no tamper check.
+- `references/auto-fix-policy.md` §Self-tamper detection, Limitations: `/security-audit` runs none of the three checks and records no baseline; where they are run, an attacker who can write `.claude/audits/` can rewrite `self_integrity` too. The stale "v0.1" and "v0.2 signed-state" wording is gone (membrane has no signed state).
+- `README.md`: the `state.json` line says a value in `self_integrity` is recorded only by `csa state_update_self_integrity`.
+- `references/auto-fix-policy.md`: the checks are also silent while `self_integrity` holds a new `state.json`'s zeros.
+- The plugin and marketplace descriptions say the self-tamper checks are a `csa` call the audit flow does not run.
+
+### Migration
+- Nothing changes: no code, rule, uid or state format moves.
+
 ## 0.8.2 (2026-11-08)
 
 **Security fix (#1152): membrane's git calls no longer run a command that the audited repository's config names.** The tracked-status check behind TAMPER-003 (`csa state_update_self_integrity` and `csa state_check_tamper`) runs `git ls-files` inside the project under audit, so git read that project's config, and a `core.fsmonitor` set there (in `.git/config`, through `include.path` or `includeIf`, or in the gitdir that a `.git` file points at) ran its command on every call. Both functions are dispatchable through `csa`, and `references/auto-fix-policy.md` told the reader to run `git check-ignore -q` in the project, which runs it too. `/security-audit` does not call them. Four more fixes ride with it (#1156, #1151, #1153, #1154).

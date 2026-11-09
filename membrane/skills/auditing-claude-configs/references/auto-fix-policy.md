@@ -63,7 +63,7 @@ else:
 
 ## Self-tamper detection (T1-F)
 
-Three checks, run by `csa state_check_tamper "$PWD"` (skipped silently on first-ever run when state.json doesn't exist). `/security-audit` does not run them today: they run only when `csa state_check_tamper` is called, and they compare against what `csa state_update_self_integrity "$PWD"` last recorded.
+Three checks, run by `csa state_check_tamper "$PWD"` (skipped silently when state.json doesn't exist, and silent while `self_integrity` holds only the zeros of a new `state.json`). `/security-audit` does not run them today: they run only when `csa state_check_tamper` is called, and they compare against what `csa state_update_self_integrity "$PWD"` last recorded.
 
 - **Check 1 — state.json mtime drift**: if actual mtime ≠ `state.json.self_integrity.state_mtime_at_last_audit`, emit `TAMPER-001` (High). The finding carries only its message and the file; it shows no diff, and none is to be made with `git` (Check 3).
 - **Check 2 — suppressions.json mtime drift**: same pattern → `TAMPER-002` (High).
@@ -73,4 +73,4 @@ Where the checks are used, record with `csa state_update_self_integrity "$PWD"` 
 
 **Race-window suppression refusal**: when user runs `/security-audit --suppress <id>`, check `findings[finding_uid].first_seen`. If within 60 seconds of current time, refuse with the message in SPEC §9.5. Blocks attacker who introduces malicious file + immediately pre-suppresses the finding.
 
-**Limitations**: an attacker who can write to .claude/audits/ can also forge mtime. v0.1 catches *opportunistic* tampering; *deliberate* tampering needs the v0.2 signed-state mechanism.
+**Limitations**: `/security-audit` runs none of the three checks, and its `state_record_audit` records no value in `self_integrity` (a new `state.json` holds zeros there), so a project audited only through the skill has nothing recorded to compare against. Where the checks are run, an attacker who can write to .claude/audits/ can also forge mtime and rewrite `self_integrity`. The checks catch only *opportunistic* tampering; *deliberate* tampering would need signed state, which membrane does not have.
