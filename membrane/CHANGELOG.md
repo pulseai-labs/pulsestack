@@ -7,7 +7,7 @@ Named `claude-security-audit` through 0.3.1.
 **Docs only (#1157): the skill no longer says the audit flow records the tamper checks' baseline.** SKILL step 9 said `csa state_record_audit` sets `self_integrity.state_mtime_at_last_audit`. It does not: a new `state.json` holds zeros in `self_integrity`, and only `csa state_update_self_integrity` records a value there, which `/security-audit` does not call. The audit flow does not run the tamper checks either (`csa state_check_tamper`), as `references/auto-fix-policy.md` has said since 0.8.2. The operator ruled on 2026-11-09 to keep it that way rather than wire the checks in: run from the flow, the tracked-status read would run git in every audited project (the FIFO hang and dubious-ownership limits of 0.8.2), and anyone who can edit `state.json` can also edit `self_integrity`.
 
 ### Fixed
-- `skills/auditing-claude-configs/SKILL.md` step 9: `state_record_audit` updates the last-audit date and the findings registry, not `self_integrity`; the flow runs no tamper check.
+- `skills/auditing-claude-configs/SKILL.md` step 9: `state_record_audit` updates the last-audit date, audit history, finding counts, enabled-plugin snapshot and findings registry, not `self_integrity`; the flow runs no tamper check. Its References line and the threat model say the same.
 - `references/auto-fix-policy.md` §Self-tamper detection, Limitations: `/security-audit` runs none of the three checks and records no baseline; where they are run, an attacker who can write `.claude/audits/` can rewrite `self_integrity` too. The stale "v0.1" and "v0.2 signed-state" wording is gone (membrane has no signed state).
 - `README.md`: the `state.json` line says a value in `self_integrity` is recorded only by `csa state_update_self_integrity`.
 - `references/auto-fix-policy.md`: the checks are also silent while `self_integrity` holds a new `state.json`'s zeros.
@@ -15,6 +15,11 @@ Named `claude-security-audit` through 0.3.1.
 
 ### Migration
 - Nothing changes: no code, rule, uid or state format moves.
+
+### Known limits
+- The shipped `/security-audit` has no tamper detection: the checks exist only as `csa state_check_tamper` and `csa state_update_self_integrity`, run by hand.
+- Run that way, `state_update_self_integrity` records `state.json`'s mtime from before its own rewrite, so a check more than a second later reports TAMPER-001 on an untouched file, and a later membrane write to `state.json` or `suppressions.json` is not re-recorded (#1164).
+- `references/severity-rubric.md` still says how a `TAMPER-*` finding ages in the registry; the flow never records one.
 
 ## 0.8.2 (2026-11-08)
 
