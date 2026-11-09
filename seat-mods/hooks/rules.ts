@@ -1031,17 +1031,23 @@ function skipWrapper(name: string, words: readonly string[], i: number): number 
 }
 
 // The command a segment runs: assignments and wrappers skipped, quotes and a path removed from its word.
-function killHead(tokens: readonly string[], pieces: readonly string[]): { name: string; args: string[] } | undefined {
+function killHead(tokens: readonly string[], pieces: readonly string[], head = true): { name: string; args: string[] } | undefined {
   const words = tokens.map(token => killWord(token, pieces))
   let i = 0
+  // zsh's precommand modifiers `noglob` and `-` (quoted or not) and its reserved `nocorrect` (unquoted) run the next word, at a
+  // command's head: after assignments and after `builtin`, `exec` and `time`. After any other wrapper, and after xargs, the
+  // word names a program (#1160).
+  let zsh = head
   for (;;) {
     const word = words[i]
     if (word === undefined) return undefined
     if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) { i += 1; continue }
+    if (zsh && (word === 'noglob' || word === '-' || tokens[i] === 'nocorrect')) { i += 1; continue }
     const name = word.replace(/^.*\//, '')
     if (!Object.hasOwn(KILL_WRAPPER_SHAPES, name)) return { name, args: words.slice(i + 1) }
     // `command -v NAME` and `command -V NAME` print what NAME is and run nothing.
     if (name === 'command' && /^-[A-Za-z]*[vV]/.test(words[i + 1] ?? '')) return undefined
+    zsh &&= word === 'builtin' || word === 'exec' || word === 'time'
     i = skipWrapper(name, words, i + 1)
   }
 }
@@ -1058,6 +1064,12 @@ function killLiteral(token: string, pieces: readonly string[]): string {
 // the options and as zsh reads them. The shells disagree, and a name is not a closed input (sh is dash, bash or zsh on the hosts probed, and busybox ash
 // elsewhere), so every name in KILL_SHELLS gets all three readings and the rail refuses if any string is refused. ksh, ksh93, mksh, lksh, mksh-static and yash get a fourth (ksh a fourth and a fifth: ksh93's and mksh's), for their own grammar, keyed on the name: `sh` on a host where it is mksh or ksh93 does not get it. fish gets its own reading only (fishTexts).
 function runnerTexts(name: string, args: readonly string[], raw: readonly string[], pieces: readonly string[]): string[] {
+  // #1162: each reading runs twice, on the raw words and on the words after the shell's full quote removal (each wrapped
+  // in single quotes, which killLiteral takes off whole), and the rail reads every string either finds.
+  const unquoted = raw.map(token => `'${killUnquote(token, pieces)}'`)
+  return [...new Set([...runnerReadings(name, args, raw, pieces), ...runnerReadings(name, args, unquoted, pieces)])]
+}
+function runnerReadings(name: string, args: readonly string[], raw: readonly string[], pieces: readonly string[]): string[] {
   if (name === 'eval') return [(args[0] === '--' ? raw.slice(1) : raw).map(token => killLiteral(token, pieces)).join(' ')]
   if (name === 'fish') return [...new Set(fishTexts(args, raw, pieces).flatMap(text => [text, fishHeads(text)]))]
   if (!KILL_SHELLS.has(name)) return []
@@ -1065,6 +1077,31 @@ function runnerTexts(name: string, args: readonly string[], raw: readonly string
   // Further readings for a name whose own grammar the three miss (#1126); they speak only for that name.
   for (const own of KILL_OWN_READINGS[name] ?? []) texts.push(own(args, raw, pieces))
   return [...new Set(texts.filter((text): text is string => text !== undefined))]
+}
+
+// #1162: a word as the outer shell hands it on, after its full quote removal. `token` is a raw token of the blanked text,
+// so a backslash before a word character is already gone and every other quoted part is one piece: a backslash escape
+// (the character), '…' (its text), $'…' (decoded as bash decodes it), "…" and $"…" (their text, with \$ \` \" \\ undone)
+// and anything else (a substitution, $$) as it stands. A NUL ends its $'…' part, as in bash.
+const ANSI_C: Readonly<Record<string, string>> = { a: '\x07', b: '\b', e: '\x1b', E: '\x1b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' }
+function ansiC(body: string): string {
+  const point = (hex: string) => { const n = parseInt(hex, 16); return n <= 0x10ffff ? String.fromCodePoint(n) : '' }
+  return body.replace(/\\(?:x([0-9A-Fa-f]{1,2})|u([0-9A-Fa-f]{1,4})|U([0-9A-Fa-f]{1,8})|([0-7]{1,3})|c([\s\S])|([\s\S]))/g,
+    (all, x?: string, u?: string, U?: string, o?: string, c?: string, ch?: string) =>
+      x !== undefined ? String.fromCharCode(parseInt(x, 16)) : u !== undefined ? point(u) : U !== undefined ? point(U)
+        : o !== undefined ? String.fromCharCode(parseInt(o, 8) & 0xff) : c !== undefined ? (c === '?' ? '\x7f' : String.fromCharCode(c.charCodeAt(0) & 0x1f))
+        : ANSI_C[ch!] ?? all).split('\u0000')[0]!
+}
+function killUnquote(token: string, pieces: readonly string[]): string {
+  const out = token.replace(/(\$?)\u0000(\d+)\u0000/g, (_, dollar: string, i: string) => {
+    const piece = pieces[Number(i)] ?? ''
+    if (piece.length === 2 && piece[0] === '\\') return dollar + piece[1]
+    if (piece.length >= 2 && piece[0] === "'" && piece.endsWith("'")) return dollar + expand(piece.slice(1, -1), pieces)
+    if (piece.length >= 3 && piece.startsWith("$'") && piece.endsWith("'")) return dollar + ansiC(piece.slice(2, -1))
+    if (piece.length >= 2 && piece[0] === '"' && piece.endsWith('"')) return expand(piece.slice(1, -1).replace(/\\([$`"\\])/g, '$1'), pieces)
+    return dollar + expand(piece, pieces)
+  })
+  return out
 }
 
 // fish's reading (probed on fish 4.2.1, #1127). fish is not a POSIX shell, so it gets this reading only, not the three, and
@@ -1420,11 +1457,13 @@ function killHeads(tokens: string[]): string[] {
   let i = 0
   for (;;) {
     while (KILL_HEADS.has(tokens[i] ?? '')) i += 1
+    // zsh's reserved `repeat` (unquoted) takes a count, then a command, which may start with a head word (#1160).
+    if (tokens[i] === 'repeat' && i + 1 < tokens.length) { i += 2; continue }
     if (tokens[i] !== 'time') break
     let j = i + 1
     if (tokens[j] === '-p') j += 1
     if (tokens[j] === '--') j += 1
-    if (!KILL_HEADS.has(tokens[j] ?? '') && tokens[j] !== 'time') break
+    if (!KILL_HEADS.has(tokens[j] ?? '') && tokens[j] !== 'time' && tokens[j] !== 'repeat') break
     i = j
   }
   return tokens.slice(i)
@@ -1469,7 +1508,7 @@ function killScan(command: string, scan: KillScan, runners: boolean): void {
   // are unions of COMMANDS segments and its heads are COMMANDS heads. The rail walks its own heads (see KILL_HEADS).
   const segments = segmentsFor(joinSubstitutions(text), pieces, COMMANDS, true)
   const visit = (tokens: readonly string[], depth: number): void => {
-    const head = killHead(tokens, pieces)
+    const head = killHead(tokens, pieces, depth === 0)
     if (head === undefined) return
     const { name, args } = head
     // The raw tokens of the same words, for a runner's literal (its quotes are what mark it).
