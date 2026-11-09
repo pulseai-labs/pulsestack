@@ -953,8 +953,8 @@ export function invalidText(value: string): string {
 // wherever each sits in the call, substitutions included; (b) kill with -1, 0, or a negative operand that holds a
 // `$`; (c) pkill and killall by user, with no pattern, or with a pattern that matches every name of a fixed probe
 // set; (d) killall5, and the session-wide systemctl and loginctl verbs. It reads a literal `eval '…'` or
-// `sh|bash|rbash|zsh|dash|ash|static-sh|ksh|ksh93|mksh|lksh|mksh-static|yash -c '…'` string once, as a command (a shell's options read as bash reads them, as zsh reads them and, for a cluster with an inner `-`, as Debian busybox ash reads them, refused if any string is; ksh, ksh93, mksh, lksh, mksh-static and yash also get a reading of their own grammar, for that name only; ksh gets ksh93's and mksh's), and every `fish -c`/`-C` string as POSIX text with fish's command prefixes dropped, reads `busybox` as its applet, removes quotes from a command word, and skips the wrappers
-// below. Everything else it does not read is a known limit, listed in the README and pinned by tests/kill.test.ts.
+// `sh|bash|rbash|zsh|dash|ash|static-sh|ksh|ksh93|mksh|lksh|mksh-static|yash -c '…'` string once, as a command (a shell's options read as bash reads them, as zsh reads them and, for a cluster with an inner `-`, as Debian busybox ash reads them, refused if any string is; ksh, ksh93, mksh, lksh, mksh-static and yash also get a reading of their own grammar, for that name only; ksh gets ksh93's and mksh's), and every `fish -c`/`-C` string as POSIX text with fish's command prefixes dropped, reads `busybox` as its applet, reads every word of a command with its quote characters taken off and after bash's and zsh's quote removal, and skips the wrappers
+// below (env also as GNU, busybox and uutils read it and as FreeBSD and macOS read it). Everything else it does not read is a known limit, listed in the README and pinned by tests/kill.test.ts.
 // ---------------------------------------------------------------------------------------------------------
 
 export const KILL_REMEDY = 'List first, read the PIDs, then kill by literal PID in a separate call (kill 12345). To stop your own job use `write proc://<id>/kill` (OMP) or TaskStop (Claude Code). Never signal processes you did not name.'
@@ -1030,26 +1030,81 @@ function skipWrapper(name: string, words: readonly string[], i: number): number 
   return Math.min(words.length, i + shape.pos)
 }
 
-// The command a segment runs: assignments and wrappers skipped, quotes and a path removed from its word.
-function killHead(tokens: readonly string[], pieces: readonly string[], head = true): { name: string; args: string[] } | undefined {
-  const words = tokens.map(token => killWord(token, pieces))
-  let i = 0
-  // zsh's precommand modifiers `noglob` and `-` (quoted or not) and its reserved `nocorrect` (unquoted) run the next word, at a
-  // command's head: after assignments and after `builtin`, `exec` and `time`. After any other wrapper, and after xargs, the
-  // word names a program (#1160).
-  let zsh = head
-  for (;;) {
-    const word = words[i]
-    if (word === undefined) return undefined
-    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) { i += 1; continue }
-    if (zsh && (word === 'noglob' || word === '-' || tokens[i] === 'nocorrect')) { i += 1; continue }
-    const name = word.replace(/^.*\//, '')
-    if (!Object.hasOwn(KILL_WRAPPER_SHAPES, name)) return { name, args: words.slice(i + 1) }
-    // `command -v NAME` and `command -V NAME` print what NAME is and run nothing.
-    if (name === 'command' && /^-[A-Za-z]*[vV]/.test(words[i + 1] ?? '')) return undefined
-    zsh &&= word === 'builtin' || word === 'exec' || word === 'time'
-    i = skipWrapper(name, words, i + 1)
+// #1168: env's own grammars, each read beside skipWrapper's (probed on GNU coreutils 9.7, uutils coreutils 0.8.0 and
+// busybox 1.37; FreeBSD's and macOS's read from source). Options end at `--` or at the first word that is not one; a long
+// name is any prefix of one. A bare `-` is -i: on GNU, busybox and uutils it ends the options, and after them any number of
+// `-` may stand among the assignments (uutils); on FreeBSD and macOS it is an option among the others, and after `--` it is
+// the command. An assignment is any word that holds `=`. An option an env rejects is read as a flag.
+type EnvGrammar = { values: string; long: readonly string[]; dashOption: boolean; dashes: boolean }
+const ENV_GRAMMARS: readonly EnvGrammar[] = [
+  { values: 'uCSaf', long: ['unset', 'chdir', 'split-string', 'argv0', 'file'], dashOption: false, dashes: true }, // GNU, busybox, uutils
+  { values: 'CLPSUu', long: [], dashOption: true, dashes: false }, // FreeBSD, macOS
+]
+// The index of the command after env's own words, from `i`.
+function envCommand(words: readonly string[], i: number, g: EnvGrammar): number {
+  for (; i < words.length; i++) {
+    const word = words[i]!
+    if (word === '--') { i += 1; break }
+    if (word === '-') { if (g.dashOption) continue; break }
+    if (!word.startsWith('-')) break
+    if (word.startsWith('--') && g.long.length > 0) {
+      const bare = word.slice(2)
+      if (!bare.includes('=') && g.long.some(long => long.startsWith(bare))) i += 1
+      continue
+    }
+    // A short cluster: an option that takes a value takes the rest of the word, or the next word.
+    for (let k = 1; k < word.length; k++) if (g.values.includes(word[k]!)) { if (k === word.length - 1) i += 1; break }
   }
+  for (; i < words.length; i++) {
+    const word = words[i]!
+    if (word === '-' && g.dashes) continue
+    if (word.includes('=')) continue
+    break
+  }
+  return i
+}
+
+// #1169, #1171: the readings of a segment's words: as killWord gives them, and after the outer shell's quote removal as bash
+// does it and as zsh does it (a NUL ends a zsh word: a command name and an external program's argument end there).
+// Identical readings are read once.
+function killReadings(tokens: readonly string[], pieces: readonly string[]): string[][] {
+  const readings = [
+    tokens.map(token => killWord(token, pieces)),
+    tokens.map(token => killUnquote(token, pieces)),
+    tokens.map(token => killUnquote(token, pieces, true).split('\u0000')[0]!),
+  ]
+  const seen = new Set<string>()
+  return readings.filter(words => { const key = JSON.stringify(words); return !seen.has(key) && !!seen.add(key) })
+}
+
+// The commands a segment runs: assignments and wrappers skipped, quotes and a path removed from its word. One head per
+// reading of its words, each walked with skipWrapper's env and, when a word names env, with each of env's own grammars.
+// Reserved words are syntax only unquoted, so `nocorrect` is tested on the raw token.
+function killHead(tokens: readonly string[], pieces: readonly string[], head = true): Array<{ name: string; args: string[] }> {
+  const heads = new Map<string, { name: string; args: string[] }>()
+  killReadings(tokens, pieces).forEach((words, reading) => {
+    const grammars = words.some(word => word.replace(/^.*\//, '') === 'env') ? [undefined, ...ENV_GRAMMARS] : [undefined]
+    for (const grammar of grammars) {
+      let i = 0
+      // zsh's precommand modifiers `noglob` and `-` (quoted or not) and its reserved `nocorrect` (unquoted) run the next word, at a
+      // command's head: after assignments and after `builtin`, `exec` and `time`. After any other wrapper, and after xargs, the
+      // word names a program (#1160).
+      let zsh = head
+      for (;;) {
+        const word = words[i]
+        if (word === undefined) break
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) { i += 1; continue }
+        if (zsh && (word === 'noglob' || word === '-' || tokens[i] === 'nocorrect')) { i += 1; continue }
+        const name = word.replace(/^.*\//, '')
+        if (!Object.hasOwn(KILL_WRAPPER_SHAPES, name)) { heads.set(`${reading} ${i}`, { name, args: words.slice(i + 1) }); break }
+        // `command -v NAME` and `command -V NAME` print what NAME is and run nothing.
+        if (name === 'command' && /^-[A-Za-z]*[vV]/.test(words[i + 1] ?? '')) break
+        zsh &&= word === 'builtin' || word === 'exec' || word === 'time'
+        i = grammar !== undefined && name === 'env' ? envCommand(words, i + 1, grammar) : skipWrapper(name, words, i + 1)
+      }
+    }
+  })
+  return [...heads.values()]
 }
 
 // A shell string as the shell hands it on: one quoted token with its quotes taken off.
@@ -1069,7 +1124,12 @@ function runnerTexts(name: string, args: readonly string[], raw: readonly string
   // reads its options from the unquoted words too, so a value attached to its option word (`fish -ckill\ -1`) is unquoted.
   const words = raw.map(token => killUnquote(token, pieces))
   const unquoted = words.map(word => `'${word}'`)
-  return [...new Set([...runnerReadings(name, args, raw, pieces), ...runnerReadings(name, words, unquoted, pieces)])]
+  // #1171: and as zsh hands the words on. A NUL ends an external program's argument; eval, a zsh builtin, keeps it inside
+  // its word, where it ends only a command name: read there as a blank.
+  const zshWords = raw.map(token => killUnquote(token, pieces, true))
+    .map(word => name === 'eval' ? word.replace(/\u0000/g, ' ') : word.split('\u0000')[0]!)
+  return [...new Set([...runnerReadings(name, args, raw, pieces), ...runnerReadings(name, words, unquoted, pieces),
+    ...runnerReadings(name, zshWords, zshWords.map(word => `'${word}'`), pieces)])]
 }
 function runnerReadings(name: string, args: readonly string[], raw: readonly string[], pieces: readonly string[]): string[] {
   if (name === 'eval') return [(args[0] === '--' ? raw.slice(1) : raw).map(token => killLiteral(token, pieces)).join(' ')]
@@ -1083,7 +1143,8 @@ function runnerReadings(name: string, args: readonly string[], raw: readonly str
 
 // #1162: a word as the outer shell hands it on, after its full quote removal. `token` is a raw token of the blanked text,
 // so a backslash before a word character is already gone and every other quoted part is one piece: a backslash escape
-// (the character), '…' (its text), $'…' (decoded as bash decodes it), "…" and $"…" (their text, with \$ \` \" \\ undone)
+// (the character), '…' (its text), $'…' (decoded as bash decodes it; as zsh does in killUnquote's zsh reading), "…" and
+// $"…" (their text, with \$ \` \" \\ undone)
 // and anything else (a substitution, $$) as it stands. A NUL ends its $'…' part, and \c takes an escaped backslash
 // (`\c\\` is one control character), as in bash.
 const ANSI_C: Readonly<Record<string, string>> = { a: '\x07', b: '\b', e: '\x1b', E: '\x1b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' }
@@ -1095,13 +1156,71 @@ function ansiC(body: string): string {
         : o !== undefined ? String.fromCharCode(parseInt(o, 8) & 0xff) : c !== undefined ? (c === '?' ? '\x7f' : String.fromCharCode(c.charCodeAt(0) & 0x1f))
         : ANSI_C[ch!] ?? all).split('\u0000')[0]!
 }
-function killUnquote(token: string, pieces: readonly string[]): string {
+// #1171: $'…' as zsh 5.9 decodes it (getkeystring, Src/utils.c). An escape it does not know loses its backslash (`\ ` is
+// a blank, `\;` a `;`, `\cX` is `cX`, `\8` is `8`); \C and \C- make the next character a control character, and \M and \M-
+// set its eighth bit; \x reads the next two characters as zstrtol does (blanks and a sign first, so `\x-B` is 0xf5 and
+// `\x-` is a NUL); \x, \u and \U with no digit are a NUL, and \u and \U leave a pending \C or \M for the character after
+// them; octal is kept to eight bits. The NUL stays in the text: the caller says where it ends the word.
+const ANSI_ZSH: Readonly<Record<string, string>> = { a: '\x07', b: '\b', e: '\x1b', E: '\x1b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v' }
+function ansiCZsh(body: string): string {
+  let out = ''
+  let control = false
+  let meta = 0 // 2: \M came after \C, so it applies first
+  const strtol = (text: string, base: number): { value: number; used: number } => {
+    let at = 0
+    while (at < text.length && ' \t\n'.includes(text[at]!)) at += 1
+    const neg = text[at] === '-'
+    if (neg || text[at] === '+') at += 1
+    let value = 0
+    for (; at < text.length; at++) {
+      const digit = parseInt(text[at]!, base)
+      if (Number.isNaN(digit)) break
+      value = value * base + digit
+    }
+    return { value: neg ? -value : value, used: at }
+  }
+  for (let i = 0; i < body.length; i++) {
+    let char = body[i]!
+    if (char === '\\' && i + 1 < body.length) {
+      const next = body[++i]!
+      if (next === 'C' || next === 'M') {
+        if (body[i + 1] === '-') i += 1
+        if (next === 'C') control = true
+        else meta = control ? 2 : 1
+        continue
+      }
+      if (next === 'u' || next === 'U') {
+        const hex = /^[0-9A-Fa-f]*/.exec(body.slice(i + 1, i + 1 + (next === 'u' ? 4 : 8)))![0]
+        const n = hex === '' ? 0 : parseInt(hex, 16)
+        out += n <= 0x10ffff ? String.fromCodePoint(n) : ''
+        i += hex.length
+        continue
+      }
+      if (next === 'x' || (next >= '0' && next <= '7')) {
+        const { value, used } = next === 'x' ? strtol(body.slice(i + 1, i + 3), 16) : strtol(body.slice(i, i + 3), 8)
+        char = String.fromCharCode(value & 0xff)
+        i += next === 'x' ? used : used - 1
+      } else char = ANSI_ZSH[next] ?? next
+    }
+    let code = char.charCodeAt(0)
+    if (meta === 2) code |= 0x80
+    if (control) code = code === 0x3f ? 0x7f : code & 0x9f
+    if (meta === 1) code |= 0x80
+    if (meta !== 0 || control) char = String.fromCharCode(code & 0xff)
+    control = false
+    meta = 0
+    out += char
+  }
+  return out
+}
+// `zsh`: as zsh hands the word on, which decodes $'…' with ansiCZsh and hands on $"…" as `$` and its text.
+function killUnquote(token: string, pieces: readonly string[], zsh = false): string {
   const out = token.replace(/(\$?)\u0000(\d+)\u0000/g, (_, dollar: string, i: string) => {
     const piece = pieces[Number(i)] ?? ''
     if (piece.length === 2 && piece[0] === '\\') return dollar + piece[1]
     if (piece.length >= 2 && piece[0] === "'" && piece.endsWith("'")) return dollar + expand(piece.slice(1, -1), pieces)
-    if (piece.length >= 3 && piece.startsWith("$'") && piece.endsWith("'")) return dollar + ansiC(piece.slice(2, -1))
-    if (piece.length >= 2 && piece[0] === '"' && piece.endsWith('"')) return expand(piece.slice(1, -1).replace(/\\([$`"\\])/g, '$1'), pieces)
+    if (piece.length >= 3 && piece.startsWith("$'") && piece.endsWith("'")) return dollar + (zsh ? ansiCZsh(piece.slice(2, -1)) : ansiC(piece.slice(2, -1)))
+    if (piece.length >= 2 && piece[0] === '"' && piece.endsWith('"')) return (zsh ? dollar : '') + expand(piece.slice(1, -1).replace(/\\([$`"\\])/g, '$1'), pieces)
     return dollar + expand(piece, pieces)
   })
   return out
@@ -1533,8 +1652,11 @@ function killScan(command: string, scan: KillScan, runners: boolean): void {
   // are unions of COMMANDS segments and its heads are COMMANDS heads. The rail walks its own heads (see KILL_HEADS).
   const segments = segmentsFor(joinSubstitutions(text), pieces, COMMANDS, true)
   const visit = (tokens: readonly string[], depth: number): void => {
-    const head = killHead(tokens, pieces, depth === 0)
-    if (head === undefined) return
+    // Two heads that put xargs's command at the same word read it once.
+    const xargsFrom = new Set<number>()
+    for (const head of killHead(tokens, pieces, depth === 0)) visitHead(tokens, depth, head, xargsFrom)
+  }
+  const visitHead = (tokens: readonly string[], depth: number, head: { name: string; args: string[] }, xargsFrom: Set<number>): void => {
     const { name, args } = head
     // The raw tokens of the same words, for a runner's literal (its quotes are what mark it).
     const rest = tokens.slice(tokens.length - args.length)
@@ -1556,7 +1678,7 @@ function killScan(command: string, scan: KillScan, runners: boolean): void {
       const at = xargsCommand(args)
       // Each level maps every word again: a chain past 8 is unread, not walked (fails closed in the glues).
       if (depth >= 8) throw new Error('xargs nested more than 8 deep')
-      if (at < args.length) visit(rest.slice(at), depth + 1)
+      if (at < args.length && !xargsFrom.has(rest.length - at)) { xargsFrom.add(rest.length - at); visit(rest.slice(at), depth + 1) }
     } else if (runners && (name === 'eval' || name === 'fish' || KILL_SHELLS.has(name))) {
       // killRead holds its own throws; this hold only keeps a future throw in runnerTexts from escaping.
       for (const inner of runnerTexts(name, args, rest, pieces)) deferred(scan, () => killRead(inner, scan, false))

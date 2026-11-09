@@ -430,6 +430,66 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ["bash -c $'kill\\t-1'", "bash -c $'kill\\t123'"],
   ["bash -c $'kill \\'-1\\''", "bash -c $'kill \\'123\\''"],
   ["bash -c $'echo hi\\cJkill -1'", "bash -c $'echo hi\\cJkill 123'"],
+  // env read as GNU coreutils, busybox and uutils read it: a bare - after the options or --, and (uutils) more than one
+  // and among the assignments; value options -a/--argv0 and -f/--file; a long name by any prefix; any word with = an
+  // assignment
+  ["env - kill -1", "env - echo hi"],
+  ["env - kill -1", "env - kill 123"],
+  ["env -- - kill -1", "env -- - kill 123"],
+  ["env -i - kill -1", "env -i - kill 123"],
+  ["env - - kill -1", "env - - kill 123"],
+  ["env A=1 - kill -1", "env A=1 - kill 123"],
+  ["env --uns XQ -ax kill -1", "env --uns XQ -ax kill 123"],
+  ["env -a xq kill -1", "env -a xq kill 123"],
+  ["env --argv0 xq kill -1", "env --argv0 xq kill 123"],
+  ["env -f /dev/null kill -1", "env -f /dev/null kill 123"],
+  ["env --file /dev/null kill -1", "env --file /dev/null kill 123"],
+  ["env --uns XQ kill -1", "env --uns XQ kill 123"],
+  ["env --ch / kill -1", "env --ch / kill 123"],
+  ["env a-b=1 kill -1", "env a-b=1 kill 123"],
+  // env read as FreeBSD and macOS read it: a bare - is an option among the others, and -P, -L and -U take a value
+  ["env - -i kill -1", "env - -i kill 123"],
+  ["env - -uXQ kill -1", "env - -uXQ kill 123"],
+  ["env -P /usr/bin kill -1", "env -P /usr/bin kill 123"],
+  ["env -L root kill -1", "env -L root kill 123"],
+  ["env -U root kill -1", "env -U root kill 123"],
+  // the other kill rules behind env's bare -: pkill by user, a listing, under xargs, and a -c string
+  ["env - pkill -u dev", "env - pkill node"],
+  ["ps aux; env - kill 123", "ls; env - kill 123"],
+  ["xargs env - kill -1", "xargs env - kill 123"],
+  ["env - bash -c 'kill -1'", "env - bash -c 'kill 123'"],
+  // every word of a command after the outer shell's quote removal as bash does it: the command word, its operands, a
+  // wrapper, a runner name, a listing and a session verb
+  ["$'\\x6bill' -1", "$'\\x6bill' 123"],
+  ["kill $'\\x2d1'", "kill $'\\x3123'"],
+  ["kill \\ -1", "kill \\ 123"],
+  ["kill -9 $'\\x2d1'", "kill -9 $'\\x3123'"],
+  ["kill $'\\t-1'", "kill $'\\t123'"],
+  ["$'\\x70s' aux; kill 123", "$'\\x6cs'; kill 123"],
+  ["pkill $'\\x2e'", "pkill $'\\x6eode'"],
+  ["systemctl --user $'\\x65xit'", "systemctl --user $'\\x73tatus'"],
+  ["$'\\x62ash' -c 'kill -1'", "$'\\x62ash' -c 'kill 123'"],
+  ["env $'\\x2d' kill -1", "env $'\\x2d' kill 123"],
+  ["$'k\\0zz'ill -1", "$'k\\0zz'ill 123"],
+  // the same words as zsh decodes them: an escape zsh does not know loses its backslash, \cX is cX, and a NUL ends the word
+  ["$'\\k\\i\\l\\l' -1", "$'\\k\\i\\l\\l' 123"],
+  ["$'kill\\0'x -1", "$'kill\\0'x 123"],
+  ["$'system\\ctl' --user exit", "$'system\\ctl' --user status"],
+  // a -c or eval word as zsh hands it on: \C-x, \Cx (control), an unknown escape's backslash dropped (zsh runs
+  // kill\ -1 as kill -1), a NUL that ends the word, \x and \u with no digit a NUL, octal kept to eight bits, \cX as cX
+  ["bash -c $'echo\\C-jkill -1'", "bash -c $'echo\\C-jkill 123'"],
+  ["bash -c $'kill -1\\0'x", "bash -c $'kill 123\\0'x"],
+  ["bash -c $'system\\ctl --user exit'", "bash -c $'system\\ctl --user status'"],
+  ["bash -c $'kill\\ -1'", "bash -c $'kill\\ 123'"],
+  ["bash -c $'echo\\Cjkill -1'", "bash -c $'echo\\Cjkill 123'"],
+  ["eval $'echo\\C-jkill -1'", "eval $'echo\\C-jkill 123'"],
+  ["bash -c $'\\k\\i\\l\\l\\ \\-1'", "bash -c $'\\k\\i\\l\\l\\ 123'"],
+  ["bash -c $'kill -1\\xg'", "bash -c $'kill 123\\xg'"],
+  ["bash -c $'login\\ctl kill-user dev'", "bash -c $'login\\ctl list-users'"],
+  ["bash -c $'kill -1\\ug'", "bash -c $'kill 123\\ug'"],
+  ["bash -c $'kill -1\\400'x", "bash -c $'kill 123\\400'x"],
+  // zsh's eval keeps a NUL inside its word, where it ends a command name: the rail reads it there as a blank
+  ["eval $'kill\\0zz'$'\\ \\-1'", "eval $'kill\\0zz'$'\\ 123'"],
 ]
 
 // What a seat does legitimately, and text that only mentions kill.
@@ -486,8 +546,6 @@ const ALLOW: readonly string[] = [
   // the shell keeps these backslashes, or splits at the newline, so the string runs no kill
   "bash -c 'kill\\ -1'", "bash -c \"kill\\ -1\"", "bash -c \\\"kill\\ -1\\\"", "eval 'kill\\' -1", "bash -c $'kill\\\\ -1'",
   "bash -c $'kill\\n-1'", "bash -c echo\\ hi",
-  // $'…' keeps the backslash of an escape bash does not know, so the string's kill\ -1 is one word
-  "bash -c $'kill\\ -1'",
   // an attached fish value with a harmless string
   "fish -cecho\\ hi", "fish --command=echo\\ hi",
   // after any other wrapper, or under xargs, a zsh word names a program, and so does a quoted `repeat` or `nocorrect` or
@@ -498,6 +556,16 @@ const ALLOW: readonly string[] = [
   "noglob ! kill -1", "noglob { kill -1 }", "noglob repeat 1 kill -1", "nocorrect repeat 1 kill -1", "nocorrect ! kill -1", "noglob -x kill -1",
   // a harmless command behind them
   "repeat 1 echo kill -1", "noglob echo kill -1",
+  // env's grammars: a harmless command after the bare -, a -i or -- that every env runs as the command, a - that is an
+  // operand of the command, and a harmless -S string
+  "env - echo kill -1", "env -- -i kill -1", "env true - kill -1", "env -i -- -- kill -1", "env -S 'echo hi'",
+  // quote removal on the words: a decoded word that is an operand of echo, a quoted `time` (the time program, which runs
+  // a program named !), a decoded backslash, a signal name's value and an xargs command with no operand
+  "echo $'\\x6bill' -1", "$'\\x74ime' ! kill -1", "kill $'\\x5c'-1", "kill -s $'\\x2d1' 123", "echo 1 | xargs $'\\x6bill'",
+  // zsh's $'…': \M and \C together give 0x8a, not a newline, in either order; a NUL at the start leaves an empty word;
+  // \x-1 is 0xff; zsh hands on $"…" with its $
+  "bash -c $'echo\\M-\\C-jkill -1'", "bash -c $'echo\\C-\\M-jkill -1'", "bash -c $'\\0kill -1'", "eval $'kill \\x-1'",
+  "bash -c $\"kill\"$'\\ -1'",
 ]
 
 // Known limits: forms the rail does not read. Each is allowed here, and the README names it. A later
@@ -535,8 +603,9 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['pkill "$PATTERN"', 'a pattern held in a variable'],
   ['pkill "foo("', 'a pattern that is not a regular expression'],
   ['script -c "kill -1" /dev/null', 'script -c'],
-  ["env -S 'kill -1'", 'env -S (the value is the command)'],
-  ["env --split-string='kill -1'", 'env --split-string'],
+  ["env -S 'kill -1'", 'env -S (env splits the value into the command, #1173)'],
+  ["env --split-string='kill -1'", 'env --split-string (#1173)'],
+  ["env -S'kill -1'", 'env -S with its value attached (#1173)'],
   ["flock /tmp/l -c 'kill -1'", 'flock <file> -c'],
   ['coproc kill -1', 'coproc'],
   ['doas kill -1', 'a wrapper not in the list (doas)'],
@@ -573,19 +642,12 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['kill 123 $(echo ${x:-)}) -1', 'a ) inside ${…} inside $(…) ends the span early'],
   ["pkill node '.*'", "a second pkill operand (procps rejects it; BSD and macOS pkill take several)"],
   ["bash -c kill\\ \\\n-1", "a -c or eval word split by a line continuation"],
-  ["env - kill -1", "env's bare - (#1168)"],
-  ["$'\\x6bill' -1", "quote removal on the command word (#1169)"],
-  ["kill $'\\x2d1'", "quote removal on an operand (#1169)"],
-  ["kill \\ -1", "an escaped blank in an operand (#1169)"],
   ["{kill -1}", "zsh: a brace with no blank (#1170)"],
   ["repeat 1 {kill -1}", "zsh: a brace with no blank after repeat (#1170)"],
   ["if [[ 1 ]] kill -1", "zsh: the short if (#1170)"],
   ["while [[ 1 ]] { kill -1; break }", "zsh: the short while (#1170)"],
   ["{ true } always { kill -1 }", "zsh: an always block (#1170)"],
   ["function { kill -1 }", "zsh: an anonymous function (#1170)"],
-  ["bash -c $'echo\\C-jkill -1'", "under a zsh outer shell, $'…' decodes \\C-x and \\M-x (#1171)"],
-  ["bash -c $'kill -1\\0'x", "under a zsh outer shell, a NUL in $'…' ends the whole word (#1171)"],
-  ["bash -c $'system\\ctl --user exit'", "under a zsh outer shell, $'…' hands on \\cX as cX (#1171)"],
 ]
 
 describe('killRule: refuse, with a near-miss control beside each row', () => {
@@ -824,10 +886,20 @@ describe('killRule: deliberate false stops of the reserved time', () => {
 // every shell, and `repeat`'s count is not evaluated: `repeat 0` and a count that is not a number run nothing in zsh,
 // a backslash in `repeat` or `nocorrect` names a program there (the reader drops the backslash), `nocorrect` after
 // `noglob` is a program, and dash runs a program named `noglob`. A vertical tab or form feed that $'…' hands on inside a
-// -c word is not a blank to the shell (kill gets the one operand `123<VT>-1`), but the rail splits at it.
+// -c word is not a blank to the shell (kill gets the one operand `123<VT>-1`), but the rail splits at it, and so on an
+// operand (`kill $'\v-1'`). Every word of a command is also read as before, with its quote characters taken off: bash
+// hands on `'-1` here. bash's quote removal and zsh's are both read, in every shell: `$"kill" -1` runs `$kill` under zsh,
+// and the zsh-only rows above run nothing under bash. zsh's eval keeps a NUL inside its word, and the rail reads it as a
+// blank: zsh runs an empty command name in `eval $'\0 kill -1'`, and gives kill an operand that is not a number in the
+// last row.
 describe('killRule: deliberate false stops of the quote removal and the zsh words', () => {
   const rows: ReadonlyArray<readonly [string, string]> = [
     ["bash -c k'ill '$'--\\\\ -1'", "bash -c k'ill '$'--\\\\ 123'"],
+    ["kill $'\\v-1'", "kill $'\\v123'"],
+    ["kill \"'\"-1", "kill \"'\"123"],
+    ["$\"kill\" -1", "$\"kill\" 123"],
+    ["eval $'\\0 kill -1'", "eval $'\\0 kill 123'"],
+    ["eval $'\\k\\i\\l\\l\\ '$'-1\\0zz'", "eval $'\\k\\i\\l\\l\\ '$'123\\0zz'"],
     ["repeat 0 kill -1", "repeat 0 kill 123"],
     ["repeat echo kill -1", "repeat echo kill 123"],
     ["\\repeat 1 kill -1", "\\repeat 1 kill 123"],
@@ -837,6 +909,24 @@ describe('killRule: deliberate false stops of the quote removal and the zsh word
     ["bash -c $'kill 123\\f-1'", "bash -c $'echo 123\\f-1'"],
     ["noglob nocorrect kill -1", "noglob nocorrect kill 123"],
     ["dash -c 'noglob kill -1'", "dash -c 'noglob kill 123'"],
+  ]
+  for (const [command, control] of rows) {
+    test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
+    test(`control: ${JSON.stringify(control)} is allowed`, () => { expect(killRule(control)).toBeUndefined() })
+  }
+})
+
+// env is read three ways, and the rail refuses if any reading does. An option an env rejects is read as a flag, though
+// that env runs nothing: an unknown letter, -0 with a command, a GNU-only option beside a BSD-only one. The generic
+// reading keeps its own stops: GNU runs -1 with argv0 `kill` in `env -a kill -1`, and every env runs -i in
+// `env A=1 -i kill -1`.
+describe("killRule: deliberate false stops of env's grammars", () => {
+  const rows: ReadonlyArray<readonly [string, string]> = [
+    ['env -x kill -1', 'env -x kill 123'],
+    ['env - -0 kill -1', 'env - -0 kill 123'],
+    ['env -ax -P /usr/bin kill -1', 'env -ax -P /usr/bin kill 123'],
+    ['env -a kill -1', 'env -a kill 123'],
+    ['env A=1 -i kill -1', 'env A=1 -i kill 123'],
   ]
   for (const [command, control] of rows) {
     test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
