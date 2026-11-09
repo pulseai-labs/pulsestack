@@ -1065,9 +1065,11 @@ function killLiteral(token: string, pieces: readonly string[]): string {
 // elsewhere), so every name in KILL_SHELLS gets all three readings and the rail refuses if any string is refused. ksh, ksh93, mksh, lksh, mksh-static and yash get a fourth (ksh a fourth and a fifth: ksh93's and mksh's), for their own grammar, keyed on the name: `sh` on a host where it is mksh or ksh93 does not get it. fish gets its own reading only (fishTexts).
 function runnerTexts(name: string, args: readonly string[], raw: readonly string[], pieces: readonly string[]): string[] {
   // #1162: each reading runs twice, on the raw words and on the words after the shell's full quote removal (each wrapped
-  // in single quotes, which killLiteral takes off whole), and the rail reads every string either finds.
-  const unquoted = raw.map(token => `'${killUnquote(token, pieces)}'`)
-  return [...new Set([...runnerReadings(name, args, raw, pieces), ...runnerReadings(name, args, unquoted, pieces)])]
+  // in single quotes, which killLiteral takes off whole), and the rail reads every string either finds. The second reading
+  // reads its options from the unquoted words too, so a value attached to its option word (`fish -ckill\ -1`) is unquoted.
+  const words = raw.map(token => killUnquote(token, pieces))
+  const unquoted = words.map(word => `'${word}'`)
+  return [...new Set([...runnerReadings(name, args, raw, pieces), ...runnerReadings(name, words, unquoted, pieces)])]
 }
 function runnerReadings(name: string, args: readonly string[], raw: readonly string[], pieces: readonly string[]): string[] {
   if (name === 'eval') return [(args[0] === '--' ? raw.slice(1) : raw).map(token => killLiteral(token, pieces)).join(' ')]
@@ -1082,11 +1084,12 @@ function runnerReadings(name: string, args: readonly string[], raw: readonly str
 // #1162: a word as the outer shell hands it on, after its full quote removal. `token` is a raw token of the blanked text,
 // so a backslash before a word character is already gone and every other quoted part is one piece: a backslash escape
 // (the character), '…' (its text), $'…' (decoded as bash decodes it), "…" and $"…" (their text, with \$ \` \" \\ undone)
-// and anything else (a substitution, $$) as it stands. A NUL ends its $'…' part, as in bash.
+// and anything else (a substitution, $$) as it stands. A NUL ends its $'…' part, and \c takes an escaped backslash
+// (`\c\\` is one control character), as in bash.
 const ANSI_C: Readonly<Record<string, string>> = { a: '\x07', b: '\b', e: '\x1b', E: '\x1b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' }
 function ansiC(body: string): string {
   const point = (hex: string) => { const n = parseInt(hex, 16); return n <= 0x10ffff ? String.fromCodePoint(n) : '' }
-  return body.replace(/\\(?:x([0-9A-Fa-f]{1,2})|u([0-9A-Fa-f]{1,4})|U([0-9A-Fa-f]{1,8})|([0-7]{1,3})|c([\s\S])|([\s\S]))/g,
+  return body.replace(/\\(?:x([0-9A-Fa-f]{1,2})|u([0-9A-Fa-f]{1,4})|U([0-9A-Fa-f]{1,8})|([0-7]{1,3})|c(\\\\|[\s\S])|([\s\S]))/g,
     (all, x?: string, u?: string, U?: string, o?: string, c?: string, ch?: string) =>
       x !== undefined ? String.fromCharCode(parseInt(x, 16)) : u !== undefined ? point(u) : U !== undefined ? point(U)
         : o !== undefined ? String.fromCharCode(parseInt(o, 8) & 0xff) : c !== undefined ? (c === '?' ? '\x7f' : String.fromCharCode(c.charCodeAt(0) & 0x1f))
@@ -1117,7 +1120,8 @@ const FISH_LONG: Readonly<Record<string, 'string' | 'value' | 'flag'>> = {
 }
 function fishTexts(args: readonly string[], raw: readonly string[], pieces: readonly string[]): string[] {
   const texts: string[] = []
-  // A value attached to its option word: the raw word past the option's own `from` characters, when those are unquoted.
+  // A value attached to its option word: the raw word past the option's own `from` characters, when those are unquoted;
+  // otherwise, and always in the unquoted reading (whose raw words are quoted whole), the read word past them.
   const attached = (k: number, from: number): string => {
     const whole = expand(raw[k]!, pieces)
     return whole.slice(0, from) === args[k]!.slice(0, from) ? killLiteral(whole.slice(from), []) : args[k]!.slice(from)
@@ -1155,9 +1159,8 @@ function fishTexts(args: readonly string[], raw: readonly string[], pieces: read
 // A text the blanker cannot read is returned as it is: the plain reading still holds it, and its throw.
 const FISH_PREFIXES: ReadonlySet<string> = new Set(['and', 'or', 'not', 'begin'])
 // A keyword counts only where it is itself a head (after a head and up to 8 keywords before it): `echo time {` is an argument.
-// The bound keeps the lookbehind linear; a longer keyword chain is a known limit.
+// A longer keyword chain is a known limit.
 const FISH_KEYWORD = String.raw`(?:if|while|else|!|time)`
-const FISH_HEAD = String.raw`(^|[;&|\n(]|(?=${FISH_KEYWORD}[ \t])(?<=(?:^|[;&|\n(])[ \t]*(?:${FISH_KEYWORD}[ \t]+){0,8})${FISH_KEYWORD}[ \t])([ \t]*)`
 function fishHeads(text: string, depth = 0): string {
   let read: { text: string; pieces: string[] }
   try { read = blank(text) } catch { return text }
@@ -1178,13 +1181,35 @@ function fishHeads(text: string, depth = 0): string {
     })
     return plain ? out : undefined
   }
-  // A keyword head is not taken as the word, so the prefix after it is still found in the same pass.
-  const prefix = new RegExp(FISH_HEAD + String.raw`(?!${FISH_KEYWORD}[ \t])((?:[^\s;&|(){}\u0000]|\u0000\d+\u0000)+)(?=[ \t;\n&|]|$)`, 'g')
-  const brace = new RegExp(FISH_HEAD + String.raw`\{`, 'g')
-  let out = blanked.replace(/(?<=\S)\}/g, ' }')
-  for (let before = ''; before !== out;) {
-    before = out
-    out = out.replace(brace, '$1$2;').replace(prefix, (all, head: string, blanks: string, word: string) => FISH_PREFIXES.has(unquoted(word) ?? '') ? head + blanks : all)
+  // One walk, left to right, so a run of prefixes costs one pass. At a head, blanks are kept, a `{` becomes `;` (a new
+  // head), a keyword followed by a blank is kept and leaves a head after it, and a prefix word ending at a blank, `;`, a
+  // newline, `&`, `|` or the end is dropped; any other word ends the head, and the text up to the next `;`, `&`, `|`,
+  // newline or `(` is kept as it stands.
+  const keyword = new RegExp(String.raw`${FISH_KEYWORD}[ \t]`, 'y')
+  const word = /(?:[^\s;&|(){}\u0000]|\u0000\d+\u0000)+/y
+  const separator = /[;&|\n(]/g
+  const spaced = blanked.replace(/(?<=\S)\}/g, ' }')
+  let out = ''
+  let head = true
+  let keywords = 0
+  for (let i = 0; i < spaced.length;) {
+    const char = spaced[i]!
+    if (';&|\n('.includes(char)) { out += char; i += 1; head = true; keywords = 0; continue }
+    if (!head) {
+      separator.lastIndex = i
+      const end = separator.exec(spaced)?.index ?? spaced.length
+      out += spaced.slice(i, end)
+      i = end
+      continue
+    }
+    if (char === ' ' || char === '\t') { out += char; i += 1; continue }
+    if (char === '{') { out += ';'; i += 1; keywords = 0; continue }
+    keyword.lastIndex = i
+    if (keyword.test(spaced)) { out += spaced.slice(i, keyword.lastIndex); i = keyword.lastIndex; head = keywords < 9; keywords += 1; continue }
+    word.lastIndex = i
+    const found = word.exec(spaced)
+    if (found !== null && /^[ \t;\n&|]?$/.test(spaced[word.lastIndex] ?? '') && FISH_PREFIXES.has(unquoted(found[0]) ?? '')) { i = word.lastIndex; continue }
+    head = false
   }
   try { return expand(out, pieces) } catch { return text }
 }
