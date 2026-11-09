@@ -69,9 +69,9 @@ _csa_hook_target_mode() {
   n="$(csa_normalize_path "$t")"
   local re_h='^@plugin:[^:/]+@[^:/]+:hooks/hooks\.json$'
   local re_m='^@plugin:[^:/]+@[^:/]+:\.claude-plugin/plugin\.json$'
-  if [[ "$n" =~ $re_h ]]; then
+  if _csa_re_bytes "$n" "$re_h"; then
     printf 'plugin-hooks'
-  elif [[ "$n" =~ $re_m ]]; then
+  elif _csa_re_bytes "$n" "$re_m"; then
     printf 'plugin-manifest'
   fi
   return 0

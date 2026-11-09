@@ -28,7 +28,7 @@ csa_normalize_path() {
   local p="$1"
   local re3='/\.claude/plugins/cache/([^/]+)/([^/]+)/([^/]+)/(.+)$'
   local re2='/\.claude/plugins/cache/([^/]+)/[^/]+/(.+)$'
-  if [[ "$p" =~ $re3 ]]; then
+  if _csa_re_bytes "$p" "$re3"; then
     # csa_is_version_name runs its own =~, which would clobber BASH_REMATCH.
     local mkt="${BASH_REMATCH[1]}" plug="${BASH_REMATCH[2]}" ver="${BASH_REMATCH[3]}" rest="${BASH_REMATCH[4]}"
     if ! csa_is_version_name "$plug" || csa_is_version_name "$ver"; then
@@ -36,7 +36,7 @@ csa_normalize_path() {
       return
     fi
   fi
-  if [[ "$p" =~ $re2 ]]; then
+  if _csa_re_bytes "$p" "$re2"; then
     printf '@plugin:%s:%s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
     return
   fi

@@ -247,7 +247,7 @@ csa_hook_handler_file() {
   [[ "$t" == */hooks/* ]] || return 1
   declare -F csa_normalize_path >/dev/null 2>&1 && n="$(csa_normalize_path "$t")"
   if [[ "$n" == @plugin:* ]]; then
-    [[ "$n" =~ ^@plugin:[^:/]+@[^:/]+:hooks/(.+)$ ]] || return 1
+    _csa_re_bytes "$n" '^@plugin:[^:/]+@[^:/]+:hooks/(.+)$' || return 1
     rel="${BASH_REMATCH[1]}"
     _csa_hook_rel_is_code "$rel" && return 0
     _csa_hook_rel_skipped "$rel" && return 1
