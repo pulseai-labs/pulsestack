@@ -130,7 +130,7 @@ _csa_rule_run_text() {
       _csa_rule_text_once "$rule_file" "$target" "$entry"
     fi
   else
-    while IFS= read -r entry; do
+    while LC_ALL=C IFS= read -r entry; do
       [[ -z "$entry" ]] && continue
       _csa_rule_text_once "$rule_file" "$target" "$entry"
     done < "$cf"
@@ -165,11 +165,11 @@ _csa_rule_text_once() {
 # of the SCANNER-002 count that drives the "rule(s) failed" banner.
 _csa_unreadable_targets_findings() {
   local target_line target rule_file aspect
-  while IFS= read -r target_line; do
+  while LC_ALL=C IFS= read -r target_line; do
     [[ -z "$target_line" ]] && continue
     target="${target_line##*$'\t'}"
     [[ -r "$target" ]] && continue
-    while read -r rule_file; do
+    while LC_ALL=C read -r rule_file; do
       [[ -z "$rule_file" ]] && continue
       aspect="$(_csa_rule_aspect_from_file "$rule_file")"
       if [[ -z "$aspect" ]] || _csa_target_matches_aspect "$target" "$aspect"; then
@@ -200,7 +200,7 @@ csa_rule_run_many() {
     fi
     local has_text=0
     declare -f detect_text >/dev/null && has_text=1
-    while IFS= read -r target_line; do
+    while LC_ALL=C IFS= read -r target_line; do
       [[ -z "$target_line" ]] && continue
       local target="${target_line##*$'\t'}"
       local out ec=0 mode=""
@@ -330,7 +330,7 @@ _csa_rule_engine_validate_focus() {
 # notes) are dropped, as they always were on success.
 _csa_enum_stderr_to_findings() {
   local line rest key reason fuid file why head tab=$'\t'
-  while IFS= read -r line; do
+  while LC_ALL=C IFS= read -r line; do
     case "$line" in
       "finding: PROVENANCE-002 plugin "*" enabled but "*)
         rest="${line#finding: PROVENANCE-002 plugin }"
@@ -472,7 +472,7 @@ csa_rule_engine_scan_all() {
   # reader could not use).
   _csa_enum_stderr_to_findings "$enum_error" >> "$findings_out"
   _csa_unreadable_targets_findings "$targets_file" "$rules_glob" >> "$findings_out"
-  while read -r rule_file; do
+  while LC_ALL=C read -r rule_file; do
     [[ -z "$rule_file" ]] && continue
     local aspect; aspect="$(_csa_rule_aspect_from_file "$rule_file")"
     # Build a filtered targets file for this rule's aspect.
@@ -484,7 +484,7 @@ csa_rule_engine_scan_all() {
       continue
     fi
     if [[ -n "$aspect" ]]; then
-      while IFS= read -r target_line; do
+      while LC_ALL=C IFS= read -r target_line; do
         [[ -z "$target_line" ]] && continue
         local target="${target_line##*$'\t'}"
         if _csa_target_matches_aspect "$target" "$aspect"; then
