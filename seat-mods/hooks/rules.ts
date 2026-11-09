@@ -1558,16 +1558,27 @@ function killByName(name: 'pkill' | 'killall', args: readonly string[]): string 
   return undefined
 }
 
-// kill's operands: the reason to refuse, or undefined.
+// kill's operands: the reason to refuse, or undefined. An operand is read as bash's kill reads a pid (legal_number):
+// blanks may stand before the sign and after the digits, and the sign may be +, so `-1 `, ` 0 ` and `+0` are -1 and 0
+// (zsh's kill takes no blank after the digits; the rail refuses what either runs). The blanks are C's: space, tab,
+// newline, vertical tab, form feed and carriage return, as bash 5.3's `exit '<blank>7<blank>'` reads each. A word that
+// starts with a blank is never one of bash's kill options, so ` -0` is the pid 0 without `--` too. -1's leading test
+// stays \s, which also takes a no-break space.
+const PID_BLANK = '[ \\t\\n\\v\\f\\r]'
+const KILL_MINUS_ONE = new RegExp(`^\\s*-0*1${PID_BLANK}*$`)
+const KILL_ZERO = new RegExp(`^${PID_BLANK}*\\+?0+${PID_BLANK}*$`)
+const KILL_MINUS_ZERO = new RegExp(`^(${PID_BLANK}*)-0+${PID_BLANK}*$`)
+const KILL_NEGATIVE = new RegExp(`^${PID_BLANK}*-`)
 function killOperands(args: readonly string[]): string | undefined {
   let dashed = false
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!
     if (arg === '--') { dashed = true; continue }
     if (!dashed && (arg === '-s' || arg === '-n' || arg === '--signal')) { i += 1; continue }
-    if (/^\s*-0*1$/.test(arg)) return 'kill -1 signals every process the user may signal'
-    if (/^0+$/.test(arg) || (dashed && /^-0+$/.test(arg))) return 'kill 0 signals the caller\'s whole process group'
-    if (arg.startsWith('-') && (arg.includes('$') || arg.includes('`')) && !/^(?:-[sn]|--.)/.test(arg)) return `kill with a negative operand held in a variable (${arg}): empty or -1 it signals everything`
+    if (KILL_MINUS_ONE.test(arg)) return 'kill -1 signals every process the user may signal'
+    const minusZero = KILL_MINUS_ZERO.exec(arg)
+    if (KILL_ZERO.test(arg) || (minusZero !== null && (dashed || minusZero[1] !== ''))) return 'kill 0 signals the caller\'s whole process group'
+    if (KILL_NEGATIVE.test(arg) && (arg.includes('$') || arg.includes('`')) && !/^(?:-[sn]|--.)/.test(arg)) return `kill with a negative operand held in a variable (${arg}): empty or -1 it signals everything`
   }
   return undefined
 }
