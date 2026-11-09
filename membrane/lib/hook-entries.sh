@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # lib/hook-entries.sh — structural reader for hook entries declared in JSON (#427).
-# Requires: jq; lib/helpers.sh (csa_sha256), lib/redact.sh, lib/fingerprint.sh for
+# Requires: jq; lib/helpers.sh (csa_sha256, _csa_re_bytes), lib/redact.sh, lib/fingerprint.sh for
 # the finding helpers. Bash 3.2+ compatible (macOS portability).
 #
 # Skill-first (docs/conventions/skill-first.md): this is question 3. Walking a

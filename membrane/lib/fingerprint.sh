@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # lib/fingerprint.sh — two-layer fingerprint per SPEC §9.1 + T2-I.
-# Requires: lib/helpers.sh (csa_sha256, csa_is_version_name), lib/redact.sh (csa_redact).
+# Requires: lib/helpers.sh (csa_sha256, csa_is_version_name, _csa_re_bytes), lib/redact.sh (csa_redact).
 
 # _csa_squeeze_excerpt <match_text> — whitespace runs to one space, ends trimmed. Nothing else.
 _csa_squeeze_excerpt() {

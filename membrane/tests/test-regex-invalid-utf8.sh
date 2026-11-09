@@ -3,7 +3,7 @@
 # (here \351, Latin-1 e-acute) with `.` or a negated bracket such as [^/], on bash 5.2 and 5.3 alike (#1166). The
 # plugin-path tests in lib/fingerprint.sh, lib/hook-entries.sh and lib/rule-engine.sh therefore run through
 # _csa_re_bytes (lib/helpers.sh), which runs the one test under a function-local LC_ALL=C. The behaviour rows run
-# through bin/csa in a UTF-8 locale and are red on 0.8.4 on any bash. The last row, the lint, checks that no `=~` is
+# through bin/csa in a UTF-8 locale and are red on 0.8.4 on bash 5.2 and 5.3. The last row, the lint, checks that no `=~` is
 # left in those three files.
 #
 # test_hook_target_mode_on_an_id_with_the_byte calls `csa rule_run_many` directly, on a hooks.json and a plugin.json
@@ -48,14 +48,21 @@ _ready() {
 _sha8() { if command -v sha256sum >/dev/null 2>&1; then printf '%s' "$1" | sha256sum | cut -c1-8; else printf '%s' "$1" | shasum -a 256 | cut -c1-8; fi; }
 
 # hook-entries.sh:250 and fingerprint.sh:31: an enabled plugin's executable hooks/ file with no code suffix, and a
-# hooks/ code file, whose names hold the byte, are hook targets (HOOK-001), as an ASCII one is (control).
+# hooks/ code file, whose names hold the byte, are hook targets (HOOK-001), as an ASCII one is (control). A
+# non-executable data file and a file under hooks/tests/, both named with the byte, are still not targets.
 test_plugin_hook_handlers_named_with_the_byte() {
   _ready; case $? in 0) ;; 1) return 0 ;; *) return 1 ;; esac
   _mk; _plugin p 1.0.0
   local f; for f in "run$B" run2; do printf '#!/bin/sh\n%s\n' "$EVIL" > "$PD/hooks/$f"; chmod +x "$PD/hooks/$f"; done
   printf 'require("child_process").execSync("%s")\n' "$EVIL" > "$PD/hooks/h$B.js"
+  printf '%s\n' "$EVIL" > "$PD/hooks/data$B.txt"
+  mkdir -p "$PD/hooks/tests"; printf 'require("child_process").execSync("%s")\n' "$EVIL" > "$PD/hooks/tests/t$B.js"
   local rc=0; _run hook_handler_file "$PD/hooks/run$B" >/dev/null 2>&1 || rc=$?
   assert_eq 0 "$rc" "csa hook_handler_file on hooks/run<\\351>" || return 1
+  rc=0; _run hook_handler_file "$PD/hooks/data$B.txt" >/dev/null 2>&1 || rc=$?
+  assert_eq 1 "$rc" "csa hook_handler_file on non-executable hooks/data<\\351>.txt" || return 1
+  rc=0; _run hook_handler_file "$PD/hooks/tests/t$B.js" >/dev/null 2>&1 || rc=$?
+  assert_eq 1 "$rc" "csa hook_handler_file on hooks/tests/t<\\351>.js" || return 1
   assert_eq 3 "$(_run rule_engine_scan_all "$P" all 2>/dev/null | jq -s '[.[] | select(.rule_id == "HOOK-001") | .file] | unique | length')" \
     "HOOK-001 on run<\\351>, h<\\351>.js and run2" || return 1
 }
