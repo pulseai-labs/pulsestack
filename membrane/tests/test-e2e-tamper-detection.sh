@@ -136,6 +136,28 @@ test_record_matches_an_untouched_state_json() {
   assert_contains "$out" "TAMPER-001" "a later touch is still a TAMPER-001" || return 1
 }
 
+# ---------------------------------------------------------------------------
+# test_record_matches_a_symlinked_state_json, through bin/csa
+# state.json is a symlink whose own mtime differs from its target's: the record holds the target's mtime, the file it
+# is written into keeps that mtime, and the check reports nothing.
+# ---------------------------------------------------------------------------
+test_record_matches_a_symlinked_state_json() {
+  _next_scratch; local project="$_CSA_TMP/t$_test_n/project" real="$_CSA_TMP/t$_test_n/real" csa="$CSA_PLUGIN_ROOT/bin/csa"
+  mkdir -p "$project/.claude/audits" "$real"
+  local sf="$project/.claude/audits/state.json" out
+  (cd "$project" && "$csa" state_init "$project") || return 1
+  mv "$sf" "$real/state.json" && touch -t 202001010000 "$real/state.json" && ln -s "$real/state.json" "$sf" || return 1
+  touch -h -t 202201010000 "$sf" || return 1
+  local target_m; target_m="$(csa_file_mtime "$real/state.json")"
+  [[ -L "$sf" && "$(stat -c %Y "$sf" 2>/dev/null || stat -f %m "$sf")" != "$target_m" ]] \
+    || { printf '    state.json is not a symlink with its own mtime\n' >&2; return 1; }
+  (cd "$project" && GIT_CEILING_DIRECTORIES="$_CSA_TMP" "$csa" state_update_self_integrity "$project" </dev/null) || return 1
+  assert_eq "$target_m" "$(jq -r '.self_integrity.state_mtime_at_last_audit' "$sf")" "the record holds the target's mtime" || return 1
+  assert_eq "$target_m" "$(csa_file_mtime "$sf")" "the file written keeps that mtime" || return 1
+  out="$(cd "$project" && GIT_CEILING_DIRECTORIES="$_CSA_TMP" "$csa" state_check_tamper "$project" </dev/null 2>&1)"
+  assert_eq "" "$out" "a symlinked state.json nobody edited is no TAMPER-001" || return 1
+}
+
 # _one_second_back <file> : moves <file>'s mtime one second back, with POSIX `touch -t` (the stamp from GNU or BSD
 # date), so a row can put a write one second before the next without sleeping.
 _one_second_back() {
@@ -191,6 +213,7 @@ csa_test_run test_tamper_001_state_json_mtime_drift        || _csa_failed=$((_cs
 csa_test_run test_tamper_002_suppressions_json_mtime_drift  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_tamper_003_git_tracked_status_drift      || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_record_matches_an_untouched_state_json   || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_record_matches_a_symlinked_state_json    || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_record_a_second_after_the_audit          || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_a_later_membrane_write_is_reported       || _csa_failed=$((_csa_failed + 1))
 
