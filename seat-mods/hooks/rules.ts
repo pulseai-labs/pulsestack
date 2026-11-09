@@ -1041,29 +1041,94 @@ const ENV_GRAMMARS: readonly EnvGrammar[] = [
   { values: 'uCSaf', long: ['unset', 'chdir', 'split-string', 'argv0', 'file'], dashOption: false, dashes: true }, // GNU, busybox, uutils
   { values: 'CLPSUu', long: [], dashOption: true, dashes: false }, // FreeBSD, macOS
 ]
-// The index of the command after env's own words, from `i`.
-function envCommand(words: readonly string[], i: number, g: EnvGrammar): number {
+// The index of the command after env's own words, from `i`. `onSplit` hears the first -S string and the index of the
+// word after it (#1173): GNU env restarts its options there, so a later -S is read in the string's own reading.
+function envCommand(words: readonly string[], i: number, g: EnvGrammar, onSplit?: (text: string, rest: number) => void): number {
+  let split = onSplit
+  const once = (text: string, rest: number) => { split?.(text, rest); split = undefined }
+  let dashed = false
   for (; i < words.length; i++) {
     const word = words[i]!
-    if (word === '--') { i += 1; break }
+    if (word === '--') { i += 1; dashed = true; break }
     if (word === '-') { if (g.dashOption) continue; break }
     if (!word.startsWith('-')) break
     if (word.startsWith('--') && g.long.length > 0) {
       const bare = word.slice(2)
+      const name = bare.split('=')[0]!
+      if (name !== '' && 'split-string'.startsWith(name)) {
+        if (bare.includes('=')) once(bare.slice(name.length + 1), i + 1)
+        else if (i + 1 < words.length) once(words[i + 1]!, i + 2)
+      }
       if (!bare.includes('=') && g.long.some(long => long.startsWith(bare))) i += 1
       continue
     }
     // A short cluster: an option that takes a value takes the rest of the word, or the next word.
-    for (let k = 1; k < word.length; k++) if (g.values.includes(word[k]!)) { if (k === word.length - 1) i += 1; break }
+    for (let k = 1; k < word.length; k++) if (g.values.includes(word[k]!)) {
+      if (word[k] === 'S') {
+        if (k < word.length - 1) once(word.slice(k + 1), i + 1)
+        else if (i + 1 < words.length) once(words[i + 1]!, i + 2)
+      }
+      if (k === word.length - 1) i += 1
+      break
+    }
   }
   for (; i < words.length; i++) {
     const word = words[i]!
     if (word === '-' && g.dashes) continue
+    // uutils splits a word that starts with -S among the assignments too, but not after `--` (`env A=1 -S'kill -1'`); a
+    // bare -S is dropped.
+    if (word.startsWith('-S') && g.dashes && !dashed) { if (word.length > 2) once(word.slice(2), i + 1); continue }
     if (word.includes('=')) continue
     break
   }
   return i
 }
+
+// #1175: an assignment before the command word, as bash and zsh take one: NAME=, NAME+=, and an array element NAME[…]=
+// or NAME[…]+= (the subscript may hold any character, `]` included, as bash's quoted subscripts do).
+const KILL_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*(?:\[[^]*\])?\+?=/
+
+// #1173: env -S's string as words, read as GNU coreutils 9.7 and uutils 0.8.0 split it (FreeBSD's read from source): blanks
+// part words outside quotes; '…' is literal but for \\ and \'; "…" and bare text take \_ (a blank in "…", else a break),
+// \c (the end), \f \n \r \t \v, and any other escaped character as itself (GNU rejects most: a reading of more words
+// only adds stops); a backslash-newline is dropped (uutils); a # that starts a word skips to the next newline (uutils;
+// GNU and FreeBSD end the string there, and their words are the start of these); ${NAME} and $NAME are read empty;
+// an open quote runs to the end.
+const ENV_ESCAPES: Readonly<Record<string, string>> = { f: '\f', n: '\n', r: '\r', t: '\t', v: '\v' }
+const ENV_VARIABLE = /\$(?:\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)/y
+function envSplit(text: string): string[] {
+  const words: string[] = []
+  let word: string | undefined
+  let sq = false
+  let dq = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]!
+    if (sq) {
+      if (c === "'") sq = false
+      else if (c === '\\' && (text[i + 1] === '\\' || text[i + 1] === "'")) word += text[++i]!
+      else word += c
+      continue
+    }
+    if (c === "'" && !dq) { sq = true; word ??= ''; continue }
+    if (c === '"') { dq = !dq; word ??= ''; continue }
+    if (!dq && /[ \t\n\v\f\r]/.test(c)) { if (word !== undefined) words.push(word); word = undefined; continue }
+    if (!dq && c === '#' && word === undefined) { const nl = text.indexOf('\n', i); if (nl < 0) break; i = nl; continue }
+    if (c === '\\') {
+      const next = text[++i]
+      if (next === undefined || next === 'c') break
+      if (next === '\n') continue
+      if (next === '_' && !dq) { if (word !== undefined) words.push(word); word = undefined; continue }
+      word = (word ?? '') + (next === '_' ? ' ' : ENV_ESCAPES[next] ?? next)
+      continue
+    }
+    if (c === '$') { ENV_VARIABLE.lastIndex = i; if (ENV_VARIABLE.test(text)) { i = ENV_VARIABLE.lastIndex - 1; continue } }
+    word = (word ?? '') + c
+  }
+  if (word !== undefined) words.push(word)
+  return words
+}
+// A word quoted whole for the shell, so a split string can be read again as a command line.
+const shellQuote = (word: string) => `'${word.replace(/'/g, `'\\''`)}'`
 
 // #1169, #1171: the readings of a segment's words: as killWord gives them, and after the outer shell's quote removal as bash
 // does it and as zsh does it. In zsh's reading a NUL ends every word, as it ends a command name and an external program's
@@ -1082,7 +1147,11 @@ function killReadings(tokens: readonly string[], pieces: readonly string[]): str
 // The commands a segment runs: assignments and wrappers skipped, quotes and a path removed from its word. One head per
 // reading of its words, each walked with skipWrapper's env and, when a word names env, with each of env's own grammars.
 // Reserved words are syntax only unquoted, so `nocorrect` is tested on the raw token.
-function killHead(tokens: readonly string[], pieces: readonly string[], head = true): Array<{ name: string; args: string[] }> {
+// #1173: each env -S string found is put in `splits` as a command line to read again: `env`, the string's words and the
+// words after it, as GNU env restarts its options over them (`env -S '-i kill -1'`).
+function killHead(tokens: readonly string[], pieces: readonly string[], head = true, splits?: Set<string>): Array<{ name: string; args: string[] }> {
+  const split = (text: string, rest: number) =>
+    splits?.add(['env', ...envSplit(text).map(shellQuote), ...tokens.slice(rest).map(token => expand(token, pieces))].join(' '))
   const heads = new Map<string, { name: string; args: string[] }>()
   killReadings(tokens, pieces).forEach((words, reading) => {
     const grammars = words.some(word => word.replace(/^.*\//, '') === 'env') ? [undefined, ...ENV_GRAMMARS] : [undefined]
@@ -1095,14 +1164,14 @@ function killHead(tokens: readonly string[], pieces: readonly string[], head = t
       for (;;) {
         const word = words[i]
         if (word === undefined) break
-        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) { i += 1; continue }
+        if (KILL_ASSIGNMENT.test(word)) { i += 1; continue }
         if (zsh && (word === 'noglob' || word === '-' || tokens[i] === 'nocorrect')) { i += 1; continue }
         const name = word.replace(/^.*\//, '')
         if (!Object.hasOwn(KILL_WRAPPER_SHAPES, name)) { heads.set(`${reading} ${i}`, { name, args: words.slice(i + 1) }); break }
         // `command -v NAME` and `command -V NAME` print what NAME is and run nothing.
         if (name === 'command' && /^-[A-Za-z]*[vV]/.test(words[i + 1] ?? '')) break
         zsh &&= word === 'builtin' || word === 'exec' || word === 'time'
-        i = grammar !== undefined && name === 'env' ? envCommand(words, i + 1, grammar) : skipWrapper(name, words, i + 1)
+        i = grammar !== undefined && name === 'env' ? envCommand(words, i + 1, grammar, split) : skipWrapper(name, words, i + 1)
       }
     }
   })
@@ -1569,15 +1638,36 @@ const KILL_MINUS_ONE = new RegExp(`^\\s*-0*1${PID_BLANK}*$`)
 const KILL_ZERO = new RegExp(`^${PID_BLANK}*\\+?0+${PID_BLANK}*$`)
 const KILL_MINUS_ZERO = new RegExp(`^(${PID_BLANK}*)-0+${PID_BLANK}*$`)
 const KILL_NEGATIVE = new RegExp(`^${PID_BLANK}*-`)
+// zsh's kill reads its first word as options (an -s or -n there takes the next word), drops one - or --… after them,
+// and reads every later word made only of digits and - as a pid with atoi: strtol's sign and the digits up to the first
+// other -, held to a 64-bit long, then cut to a 32-bit int (glibc and macOS). So `kill 123 -`, `kill -9 0-1`,
+// `kill -9 123 --`, `kill -9 -1-` and `kill 4294967295` signal 0 or -1 there.
+const ZSH_PID = /^(-?)(\d*)[-\d]*$/
+function zshAtoi(sign: string, digits: string): number {
+  const significant = digits.replace(/^0+/, '')
+  const long = (1n << 63n) - 1n
+  let value = significant.length > 19 ? long + 1n : BigInt(significant || '0')
+  if (sign === '-') value = -value
+  return Number(BigInt.asIntN(32, value > long ? long : value < -long - 1n ? -long - 1n : value))
+}
 function killOperands(args: readonly string[]): string | undefined {
   let dashed = false
+  let zsh = args[0]?.startsWith('-') ? (args[0] === '-s' || args[0] === '-n' ? 2 : 1) : 0
+  if (args[zsh]?.startsWith('-') && (args[zsh]!.length === 1 || args[zsh]![1] === '-')) zsh += 1
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!
+    const pid = i >= zsh && arg !== '' ? ZSH_PID.exec(arg) : null
+    const zshPid = pid === null ? undefined : zshAtoi(pid[1]!, pid[2]!)
+    if (zshPid === -1) return 'kill -1 signals every process the user may signal'
+    if (zshPid === 0) return 'kill 0 signals the caller\'s whole process group'
     if (arg === '--') { dashed = true; continue }
-    if (!dashed && (arg === '-s' || arg === '-n' || arg === '--signal')) { i += 1; continue }
+    // #1176: kill's options are read at its first word only. zsh reads the first word alone as options (an -s or -n
+    // there takes the next word); bash reads one -word as the signal and ends its options at the first operand, so a
+    // later -0, or a later -s and the word after it, is an operand to some shell.
+    if (!dashed && i === 0 && (arg === '-s' || arg === '-n' || arg === '--signal')) { i += 1; continue }
     if (KILL_MINUS_ONE.test(arg)) return 'kill -1 signals every process the user may signal'
     const minusZero = KILL_MINUS_ZERO.exec(arg)
-    if (KILL_ZERO.test(arg) || (minusZero !== null && (dashed || minusZero[1] !== ''))) return 'kill 0 signals the caller\'s whole process group'
+    if (KILL_ZERO.test(arg) || (minusZero !== null && (dashed || i > 0 || minusZero[1] !== ''))) return 'kill 0 signals the caller\'s whole process group'
     if (KILL_NEGATIVE.test(arg) && (arg.includes('$') || arg.includes('`')) && !/^(?:-[sn]|--.)/.test(arg)) return `kill with a negative operand held in a variable (${arg}): empty or -1 it signals everything`
   }
   return undefined
@@ -1653,13 +1743,14 @@ function joinSubstitutions(text: string): string {
 // `unread`: the first throw met while reading. It is held, not thrown, so that a refusal in another reading, segment,
 // runner string or substitution still wins; killRule throws it only when nothing refused. An unclosed `$(` outside quotes
 // makes its whole string unread before any segment is read, so a refusal earlier in that same string is not found.
-type KillScan = { lists: boolean; signals: boolean; reason: string | undefined; unread?: unknown }
+// `splits`: each env -S line read again, with the least -S nesting it was read at (see killScan).
+type KillScan = { lists: boolean; signals: boolean; reason: string | undefined; unread?: unknown; splits?: Map<string, number> }
 function deferred(scan: KillScan, read: () => void): void {
   try { read() } catch (err) { scan.unread ??= err }
 }
 
 // One command (a call, or a substitution of it, or a literal runner string) read segment by segment.
-function killScan(command: string, scan: KillScan, runners: boolean): void {
+function killScan(command: string, scan: KillScan, runners: boolean, splitLevel = 0): void {
   const { text, pieces } = blank(command)
   // One split is enough here: the seat-mods 0.3.1 split (TAG_COMMANDS) cuts only where COMMANDS cuts, so its segments
   // are unions of COMMANDS segments and its heads are COMMANDS heads. The rail walks its own heads (see KILL_HEADS).
@@ -1672,7 +1763,20 @@ function killScan(command: string, scan: KillScan, runners: boolean): void {
   // word. visit and visitHead return the height of what they read.
   const visit = (tokens: readonly string[], depth: number, walked: Map<number, number>): number => {
     let height = -1
-    for (const head of killHead(tokens, pieces, depth === 0)) height = Math.max(height, visitHead(tokens, depth, head, walked))
+    const splits = new Set<string>()
+    for (const head of killHead(tokens, pieces, depth === 0, splits)) height = Math.max(height, visitHead(tokens, depth, head, walked))
+    // #1173: each env -S string is read again as a command line; a string nested more than 8 deep is unread. A line is
+    // read once per call at the least nesting it is met at: the readings and env's grammars can each split a different
+    // -S and carry the same words after it, so without it the lines branch at every level. A line read less deep has
+    // found all a deeper reading of it would.
+    for (const line of splits) deferred(scan, () => {
+      const key = `${runners ? 'r' : '-'}${line}`
+      const least = (scan.splits ??= new Map()).get(key)
+      if (least !== undefined && least <= splitLevel) return
+      if (splitLevel >= 8) throw new Error('env -S nested more than 8 deep')
+      scan.splits.set(key, splitLevel)
+      killScan(line, scan, runners, splitLevel + 1)
+    })
     return height
   }
   const visitHead = (tokens: readonly string[], depth: number, head: { name: string; args: string[] }, walked: Map<number, number>): number => {

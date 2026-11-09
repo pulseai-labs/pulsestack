@@ -178,7 +178,7 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ['kill -s $(echo KILL) -1', 'kill -s $(echo KILL) 123'],
   ['kill -9 $(cat p) -1', 'kill -9 $(cat p) 123'],
   ['kill 123 $(cat p) 0', 'kill 123 $(cat p) 456'],
-  ['kill $(echo 5) -- -1', 'kill $(echo 5) -- 123'],
+  ['kill $(echo 5) -- -1', 'kill $(echo 5) 123'],
   ['kill $((1+1)) -1', 'kill $((1+1)) 123'],
   ['xargs kill $(echo 1) -1', 'xargs kill $(echo 1) 123'],
   ['killall foo $(echo) -u dev', 'killall foo $(echo) bar'],
@@ -517,6 +517,84 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ["bash -c $'kill\\x 9-1'", "bash -c $'kill\\x 9123'"],
   // zsh's eval keeps a NUL inside its word, where it ends a command name: the rail reads it there as a blank
   ["eval $'kill\\0zz'$'\\ \\-1'", "eval $'kill\\0zz'$'\\ 123'"],
+  // kill's options are read at its first word only: a later -0 is the pid 0 (bash ends its options at the first operand
+  // and reads one -word as the signal; zsh reads the first word alone), and a later -s, -n or --signal is an operand,
+  // so the word after it is a pid too
+  ['kill -9 -0', 'kill -9 -123'],
+  ['kill -s 9 -0', 'kill -s 9 -- 123'],
+  ['kill -n 9 -0', 'kill -n 9 123'],
+  ['kill KILL -0', 'kill KILL 123'],
+  ['kill 123 -0', 'kill 123 -123'],
+  ['kill %1 -0', 'kill %1 %2'],
+  ['kill -9 -9 -0', 'kill -9 -9 123'],
+  ["kill -9 '-0 '", "kill -9 '-10 '"],
+  ['kill -9 -00', 'kill -9 -- 123'],
+  ['kill 123 -s -1', 'kill 123 -s 456'],
+  ['kill -9 -s -1', 'kill -9 -s 456'],
+  ['kill 123 --signal -1', 'kill 123 --signal 456'],
+  ['kill 123 -n -0', 'kill 123 -n 456'],
+  ['/bin/kill -9 -0', '/bin/kill -9 123'],
+  ['sudo kill -9 -0', 'sudo kill -9 123'],
+  ["bash -c 'kill -9 -0'", "bash -c 'kill -9 123'"],
+  // zsh's kill reads a later word of digits and - with atoi: the sign and the digits up to the next -, held to a long's
+  // range, then cut to an int, so a lone -, a --, 0-1, -1- and a number past the int's or the long's range can be 0 or -1
+  ['kill 123 -', 'kill 123 456'],
+  ['kill -9 0-1', 'kill -9 10-1'],
+  ['kill -9 -1-', 'kill -9 -12-'],
+  ['kill -9 123 --', 'kill -9 -- 123'],
+  ['kill $(echo 5) -- 123', 'kill $(echo 5) 123'],
+  ['kill 123 --1', 'kill 123 -12'],
+  ['kill 4294967295', 'kill 4294967294'],
+  ['kill 4294967296', 'kill 4294967297'],
+  ['kill -- -4294967297', 'kill -- -4294967298'],
+  ['kill -9 99999999999999999999', 'kill -9 2147483648'],
+  ['kill -9 -- -99999999999999999999', 'kill -9 -- -2147483648'],
+  ['kill 0004294967295', 'kill 0004294967294'],
+  ['kill 9223372036854775809', 'kill 9223372036854775806'],
+  ['kill -- -9223372036854775810', 'kill -- -9223372036854775807'],
+  // an assignment before the command word as bash and zsh skip one: NAME+=, NAME[…]= and NAME[…]+=, any character in
+  // the subscript (a ] inside quotes too)
+  ['A+=1 kill -1', 'A+=1 echo hi'],
+  ['a[1]=x kill -1', 'a[1]=x kill 123'],
+  ['a[1]+=x kill -1', 'a[1]+=x kill 123'],
+  ['a["]"]=1 kill -1', 'a["]"]=1 kill 123'],
+  ['a[$(echo 1)]=x kill -1', 'a[$(echo 1)]=x kill 123'],
+  ['a[$i]=x kill -1', 'a[$i]=x kill 123'],
+  ['A+=1 B=2 kill -1', 'A+=1 B=2 kill 123'],
+  ["A+=1 bash -c 'kill -1'", "A+=1 bash -c 'kill 123'"],
+  ['A+=1 sudo kill -1', 'A+=1 sudo kill 123'],
+  ['A+=1 noglob kill -1', 'A+=1 noglob kill 123'],
+  ['a[1]=x ps aux; kill 123', 'a[1]=x ls; kill 123'],
+  ['a[1]=x pkill -u dev', 'a[1]=x pkill node'],
+  // env -S and --split-string: the string is split as GNU, uutils and FreeBSD env split it, and read again as the
+  // command after env's options, with the words after it
+  ["env -S 'kill -1'", "env -S 'kill 123'"],
+  ["env --split-string='kill -1'", "env --split-string='kill 123'"],
+  ["env --split-string 'kill -1'", "env --split-string 'kill 123'"],
+  ["env --sp='kill -1'", "env --sp='kill 123'"],
+  ["env -S'kill -1'", "env -S'kill 123'"],
+  ["env -iS 'kill -1'", "env -iS 'kill 123'"],
+  ["env -S 'kill\\_-1'", "env -S 'kill\\_123'"],
+  ["env -S$'#c\\nkill -1'", "env -S$'#c\\nkill 123'"],
+  ["env -S$'ki\\\\\\nll -1'", "env -S$'ki\\\\\\nll 123'"],
+  ["env -S '\"kill\" -1'", "env -S '\"kill\" 123'"],
+  ["env -S \"'kill' -1\"", "env -S \"'kill' 123\""],
+  ["env -S 'k\"il\"l -1'", "env -S 'k\"il\"l 123'"],
+  ["env -S 'ki${X}ll -1'", "env -S 'ki${X}ll 123'"],
+  ["env -S 'kill' -1", "env -S 'kill' 123"],
+  ["env -S '-i kill -1'", "env -S '-i kill 123'"],
+  ["env -S '-S kill\\_-1'", "env -S '-S kill\\_123'"],
+  ["env -S 'bash -c \"kill -1\"'", "env -S 'bash -c \"kill 123\"'"],
+  ["env -S \"bash -c 'kill -1'\"", "env -S \"bash -c 'kill 123'\""],
+  ["env -S \"bash -c 'echo \\\\'x\\\\'; kill -1'\"", "env -S \"bash -c 'echo \\\\'x\\\\'; kill 123'\""],
+  ["env -S \"kill 'x\\\\'y' -1\"", "env -S \"kill 'x\\\\'y' 123\""],
+  ["env -S 'kill \"\\_-1\"'", "env -S 'kill \"\\_123\"'"],
+  ["env A=1 -S'kill -1'", "env A=1 -S'echo hi'"],
+  ["env -u X A=1 -S'kill -1'", "env -u X A=1 -S'kill 123'"],
+  ["env -S 'ps aux' kill 123", "env -S 'ls' kill 123"],
+  ["env -S 'xargs kill -1'", "env -S 'xargs kill 123'"],
+  ["sudo env -S 'kill -1'", "sudo env -S 'kill 123'"],
+  ["bash -c \"env -S 'kill -1'\"", "bash -c \"env -S 'kill 123'\""],
 ]
 
 // What a seat does legitimately, and text that only mentions kill.
@@ -593,6 +671,18 @@ const ALLOW: readonly string[] = [
   // \x-1 is 0xff; zsh hands on $"…" with its $
   "bash -c $'echo\\M-\\C-jkill -1'", "bash -c $'echo\\C-\\M-jkill -1'", "bash -c $'\\0kill -1'", "eval $'kill \\x-1'",
   "bash -c $\"kill\"$'\\ -1'",
+  // kill's first word is its options: a signal by -s, -n or a dash word, then a pid; a process group by its number; a
+  // number zsh's atoi cuts to an int other than 0 and -1; and a pid whose leading zeros run it past 19 digits
+  'kill -9 -- 123', 'kill -s KILL -- -4242', 'kill -n 9 -- 123', 'kill -9 -12-', 'kill 4294967294', 'kill 123 -12',
+  'kill 000000000000000000000123',
+  // an assignment before a harmless command, or before kill as an operand of echo
+  'A+=1 echo hi', 'a[1]=x echo kill -1', 'a[1]+=x kill 123',
+  // env -S strings no env runs as a kill: a comment, \c, a word env keeps whole (a tab, a quote taken in by \'), a -S
+  // after -- (the command's name), a command after the first -S that holds a later -S, and a string that is a command's
+  // operand
+  "env -S 'echo kill -1'", "env -S '#kill -1'", "env -S 'echo a; kill -1'", "env -S 'kill 123 \\c -1'", "env -S 'kill \\c-1'",
+  "env -S 'kill\\t-1'", "env -S \"'a\\\\' kill -1'\"", "env -- -S 'kill -1'", "env -- -S'kill -1'",
+  "env -S 'echo hi' -S 'kill -1'", "env echo -S 'kill -1'",
 ]
 
 // Known limits: forms the rail does not read. Each is allowed here, and the README names it. A later
@@ -630,9 +720,7 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['pkill "$PATTERN"', 'a pattern held in a variable'],
   ['pkill "foo("', 'a pattern that is not a regular expression'],
   ['script -c "kill -1" /dev/null', 'script -c'],
-  ["env -S 'kill -1'", 'env -S (env splits the value into the command, #1173)'],
-  ["env --split-string='kill -1'", 'env --split-string (#1173)'],
-  ["env -S'kill -1'", 'env -S with its value attached (#1173)'],
+  ["env --split-string='echo kill -1'", 'uutils 0.8.0 env --split-string= drops the first split word (#1173)'],
   ["flock /tmp/l -c 'kill -1'", 'flock <file> -c'],
   ['coproc kill -1', 'coproc'],
   ['doas kill -1', 'a wrapper not in the list (doas)'],
@@ -670,8 +758,12 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ["pkill node '.*'", "a second pkill operand (procps rejects it; BSD and macOS pkill take several)"],
   ["bash -c kill\\ \\\n-1", "a -c or eval word split by a line continuation"],
   ["kill -9 -\\\n1", "an operand split by a line continuation"],
-  ["A+=1 kill -1", "an append assignment before the command word (#1175)"],
-  ["a[1]=x kill -1", "an array element assignment before the command word (#1175)"],
+  ["a[1 2]=x kill -1", "an unquoted blank inside an assignment's subscript (bash)"],
+  ["a[ 1 ]=x kill -1", "an unquoted blank inside an assignment's subscript (bash)"],
+  ["a[(i)x]=1 kill -1", "a parenthesis inside an assignment's subscript (bash and zsh)"],
+  ["/bin/kill -9 -1234", "procps-ng 4.0.4 as released reads a later -<digit> word as -<digit> (#1180)"],
+  ["sudo a-b=1 kill -1", "sudo's own assignment grammar (#1181)"],
+  ["sudo A=1 -u root kill -1", "sudo's own assignment grammar (#1181)"],
   ["{kill -1}", "zsh: a brace with no blank (#1170)"],
   ["repeat 1 {kill -1}", "zsh: a brace with no blank after repeat (#1170)"],
   ["if [[ 1 ]] kill -1", "zsh: the short if (#1170)"],
@@ -974,6 +1066,46 @@ describe("killRule: deliberate false stops of env's grammars", () => {
   }
 })
 
+// kill's options are read at its first word only, and zsh's pid reading after it, so a -0 or a zsh pid word is read where
+// no shell signals: after a listing (`kill -l -0`), after a first word bash and zsh reject (`kill - -0`, `kill -sKILL 0-`,
+// where zsh takes sKILL as a signal name and bash's kill gets the operand 0-), and where one reading of the words spells
+// the signal and another does not (`kill $'\x2d\x39' - 1`: decoded, zsh drops the - and bash's kill rejects it; the
+// reading that only takes quotes off sees no option word, so the - is a zsh pid).
+describe("killRule: deliberate false stops of kill's operands", () => {
+  const rows: ReadonlyArray<readonly [string, string]> = [
+    ['kill -l -0', 'kill -l 9'],
+    ['kill - -0', 'kill - 123'],
+    ['kill -sKILL 0-', 'kill -sKILL 10-'],
+    ['kill -n9 -1-', 'kill -n9 -12-'],
+    ["kill $'\\x2d\\x39' - 1", "kill $'\\x2d\\x39' 1"],
+  ]
+  for (const [command, control] of rows) {
+    test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
+    test(`control: ${JSON.stringify(control)} is allowed`, () => { expect(killRule(control)).toBeUndefined() })
+  }
+})
+
+// An env -S string is read loosely, as the union of GNU's, uutils' and FreeBSD's grammars, so these are refused though no
+// env runs a kill: a # comment read to the next newline and a backslash-newline dropped, as uutils reads them, in the
+// separate-word form uutils does not split (GNU and FreeBSD end the string at the #, and reject the backslash-newline);
+// an escape or a $NAME GNU rejects; an open quote; and quotes the reading that takes them off drops (GNU runs a program
+// named `kill -1`; bash rejects the open quote of `echo '; kill -1`).
+describe('killRule: deliberate false stops of the env -S reading', () => {
+  const rows: ReadonlyArray<readonly [string, string]> = [
+    ["env -S $'#c\\nkill -1'", "env -S $'#c\\nkill 123'"],
+    ["env -S $'ki\\\\\\nll -1'", "env -S $'ki\\\\\\nll 123'"],
+    ["env -S 'kill \\q -1'", "env -S 'kill \\q 123'"],
+    ["env -S 'kill $HOME -1'", "env -S 'kill $HOME 123'"],
+    ["env -S 'kill \"-1'", "env -S 'kill \"123'"],
+    ["env -S \"'kill -1'\"", "env -S \"'kill 123'\""],
+    ["env -S \"bash -c 'echo \\\\'; kill -1'\"", "env -S \"bash -c 'echo \\\\'; kill 123'\""],
+  ]
+  for (const [command, control] of rows) {
+    test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
+    test(`control: ${JSON.stringify(control)} is allowed`, () => { expect(killRule(control)).toBeUndefined() })
+  }
+})
+
 // A name speaks only for its own grammar: a form another name's reading refuses is not refused under it.
 describe('killRule: an extra reading speaks for its own name only', () => {
   const forms = ["'kill -1'", "-e 'kill -1'", "-o -c 'kill -1'", "-T /dev/tty2 -c 'kill -1'", "-o '' 'kill -1'", "--profile p -c 'kill -1'", "--cmd 'kill -1'", "-o cmdline 'kill -1'", "+ 'kill -1'"]
@@ -1151,5 +1283,37 @@ describe('killRule: bounds', () => {
     const started = performance.now()
     try { killRule('ps | ' + 'xargs '.repeat(5000) + 'kill 1') } catch {}
     expect(performance.now() - started).toBeLessThan(1000)
+  })
+  // env -S strings, each nested in the one before with its own escapes: `nestSplit(n)` holds n -S strings inside the first
+  const nestSplit = (n: number, tail: string): string => {
+    let text = tail
+    for (let i = 0; i < n; i++) text = `-S ${text.replace(/\\/g, '\\\\').replace(/ /g, '\\_')}`
+    return `env -S '${text}'`
+  }
+  test('8 env -S strings nested are read and refused; 9 are unread', () => {
+    expect(killRule(nestSplit(7, 'kill -1'))).toContain('kill rail')
+    expect(killRule(nestSplit(7, 'kill 123'))).toBeUndefined()
+    expect(() => killRule(nestSplit(8, 'kill -1'))).toThrow()
+    expect(() => killRule(nestSplit(8, 'kill 123'))).toThrow()
+  })
+  test('400 -S words in one env -S string finish under a second', () => {
+    const started = performance.now()
+    try { killRule(`env -S '${Array(400).fill('-S').join(' ')} kill\\_-1'`) } catch {}
+    expect(performance.now() - started).toBeLessThan(1000)
+  })
+  test('env -S lines that branch at every level are each read once', () => {
+    // GNU's grammar takes -a's value and splits the second -S word, BSD's splits the first, and each line carries the same
+    // words after it. Against one -S with the same words after it, reading each line once is about 9 times the cost, and
+    // reading every line met about 250 times (on a quiet host, 0.1 s and 3 s). The bound sits between them, as a ratio, so
+    // a loaded host moves both sides.
+    const tail = `kill 123${' x'.repeat(10000)}`
+    const time = (command: string): number => {
+      const started = performance.now()
+      expect(killRule(command)).toBeUndefined()
+      return performance.now() - started
+    }
+    time(`env -S-i ${tail}`)
+    const one = time(`env -S-i ${tail}`)
+    expect(time(`env ${'-a -S-u -S-i '.repeat(8)}${tail}`)).toBeLessThan(50 * one)
   })
 })
