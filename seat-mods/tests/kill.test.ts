@@ -168,8 +168,8 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ['kill -9 -`cat /tmp/pgid`', 'kill -9 `cat /tmp/pgid`'],
   ['kill -- -"`cat /tmp/pgid`"', 'kill -- "`cat /tmp/pgid`"'],
   // fix r0 N4: an unquoted substitution reads as the pattern `$` (refused); the quoted one is not
-  ['pkill $(cat /tmp/name)', 'pkill "$(cat /tmp/name)"'],
-  ['killall -r $(cat /tmp/name)', 'killall -r "$(cat /tmp/name)"'],
+  ['pkill $(cat /tmp/name)', 'pkill "node$(cat /tmp/name)"'],
+  ['killall -r $(cat /tmp/name)', 'killall -r "node$(cat /tmp/name)"'],
   // fix r0 N6: pins for the mutants that survived the review
   ["pkill '[[:alpha:]]'", "pkill -x '[[:alpha:]]'"],
   ["pkill -i 'X|S|N|B'", "pkill 'X|S|N|B'"],
@@ -746,6 +746,33 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ['() { kill $1 } -1', '() { kill $1 } 123'],
   ['if [[ 1 ]] { kill -1 }; true', 'if [[ 1 ]] { kill 123 }; true'],
   ['if function f { true } kill -1', 'if function f { true } kill 123'],
+  // 0.16.0 (#1191): a by-pattern signal whose pattern holds an expansion and fewer than three letters or digits spelled
+  // out beside it (empty, it matches every process; the first two were known limits), and a `pkill -f` pattern that
+  // matches a command line by its punctuation alone
+  ['pkill "$PATTERN"', 'pkill -f "node $SCRIPT"'],
+  ['pkill "$(cat /tmp/name)"', 'pkill -f "$DIR/server.js"'],
+  ['pkill -f "$NAME"', "pkill -f '$NAME'"],
+  ['pkill "$A$B"', 'pkill "app$A$B"'],
+  ['pkill "${NAME:-}"', 'pkill "\\$NAME"'],
+  ['pkill $NAME', 'pkill node'],
+  ['pkill -f "`cat /tmp/name`"', "pkill -f '`cat /tmp/name`'"],
+  ['pkill "ab$NAME"', 'pkill "abc$NAME"'],
+  ['pkill -9 -- "$1"', 'pkill -9 -- "$1-app"'],
+  ['pkill "$((COUNT))"', "pkill $'\\x24NAME'"],
+  ['pkill "$[COUNT]"', 'pkill "app$[COUNT]"'],
+  ['pkill "$=NAME"', 'pkill "app$=NAME"'],
+  ['pkill "$123x"', 'pkill "$1abc"'],
+  ['pkill "x\u0000$X"', 'pkill "x\u0000abc$X"'],
+  ['killall -r "$NAME"', 'killall -r "node$NAME"'],
+  ['killall -r "$(cat /tmp/name)"', 'killall "$(cat /tmp/name)"'],
+  ['sudo pkill -f "$NAME"', 'sudo pkill -f "node $NAME"'],
+  ['bash -c \'pkill "$NAME"\'', 'bash -c \'pkill "node$NAME"\''],
+  ['pkill -f /', "pkill -f 'node server.js'"],
+  ["pkill -f ' '", "pkill -fx ' '"],
+  ['pkill -f -- --', 'pkill -f -- --port'],
+  ['pkill --full /', 'pkill /'],
+  ["pkill -fx '\\S+ \\S+'", "pkill -f '\\S+x \\S+'"],
+  ['pkill -f -- -', 'pkill -f -- -x'],
 ]
 
 // What a seat does legitimately, and text that only mentions kill.
@@ -765,6 +792,12 @@ const ALLOW: readonly string[] = [
   'echo $(ps) kill', 'echo $(pgrep x) kill 1', 'echo $(date) kill -1', 'pkill -f foo $(echo x)',
   "bash -- -c 'kill -1'", 'command -v pkill', 'command -V pkill', 'command -pv pkill', 'command -v killall', 'command -v pgrep >/dev/null && kill 123',
   "pkill --exact '[a-z]'",
+  // 0.16.0 (#1191): a pattern with three letters or digits spelled out beside its expansion, a `$` the shell keeps as
+  // text, a -f pattern that needs a letter or digit, and the line test's own scope (-x anchors it; without
+  // -f, and for killall, a pattern meets names only)
+  'pkill -f "$HOME/bin/app"', 'pkill -f "node $1"', "pkill '$NAME'", 'pkill -f node', 'pkill -f claude', "pkill -f 'bun test'",
+  'pkill -fx /', 'killall -r /', "killall -r ' '", 'pkill -f systemd', 'pkill -f -- --user', 'killall -rf /', 'killall -r --full /',
+  'pkill \\$ab', 'pkill -f "v1.2.3$X"', 'pkill -f "$DIR/日本語"', 'pkill -f "\\d\\d\\d$X"',
   // 0.14.1 (#1105): a word that is not an option ends the options before -c, so a script's own -c is not a shell string
   "bash -eo pipefail script.sh -c 'kill -1'", "bash -oe pipefail script.sh -c 'kill -1'",
   // after `--` the next word is the string, even one that looks like a cluster (bash runs it as the command)
@@ -916,7 +949,6 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['sudo systemctl stop user@1001.service', 'system-scope systemctl stop user@<uid>'],
   ['pkill -v node', 'pkill -v (inverted match)'],
   ['pkill s', 'a pattern the probe set does not all match'],
-  ['pkill "$PATTERN"', 'a pattern held in a variable'],
   ['pkill "foo("', 'a pattern that is not a regular expression'],
   ['script -c "kill -1" /dev/null', 'script -c'],
   ["env --split-string='echo kill -1'", 'uutils 0.8.0 env --split-string= drops the first split word (#1173)'],
@@ -931,7 +963,6 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['pkill --group 0', 'pkill --group'],
   ['pkill --pidfile /tmp/p', 'pkill --pidfile'],
   ['pkill -F /tmp/pidfile', 'pkill -F'],
-  ['pkill "$(cat /tmp/name)"', 'a pattern held in a quoted substitution'],
   // shells and applets outside KILL_SHELLS, and names the extra readings do not speak for (#1126, #1127)
   // fish's string grammar past its command prefixes: a fish string is read as POSIX text
   ["fish -c 'kill 123 (echo x) -1'", 'fish: an unquoted (…) substitution cuts the command'],
@@ -986,6 +1017,22 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ["if x=1 { kill -1 }; true", "zsh: a short form after a command that is only assignments"],
   ["set -- a; for x { kill -1 }", "zsh: for NAME with no list, then a {"],
   ["set -- a; for x do kill -1; done", "for NAME with no list, then do"],
+  // 0.16.0 (#1191): the audit's unnamed classes, one row each (its A3 is the row above), PR 1190 round 2's C17, and a
+  // killall name held in a variable
+  ["echo 'kill -1' | sh", 'a shell fed commands on its input, a here-string, <(…) or eval "$(…)"'],
+  ['strace kill -1', 'a wrapper not in the list (strace, chroot, unbuffer, gtimeout, caffeinate, rtk, nsenter, setpriv, prlimit, systemd-inhibit)'],
+  ['$(echo kill) -1', 'a command word from another expansion: a substitution, a glob, a default value'],
+  ['=kill -1', "zsh: an =word command word"],
+  ['KILL -1', 'a command word in another case, which a case-insensitive file system runs (macOS)'],
+  ['kill 123 <(true) -1', 'a (, ) or | inside a word cuts the command, so the operands after it are not read'],
+  ['kill -9 ${x:--1}', "an operand's value from a default value"],
+  ['pkill --older 0', 'pkill and killall criteria not read: --older, -r, --env, --cgroup, --inverse, killall -g, macOS killall -m'],
+  ['skill -u dev', 'a signaller not in the list (skill, snice)'],
+  ['kill $(lsof -t)', 'a lister not in the four (lsof -t, pstree, top, jobs, a /proc/[0-9]* glob, cgroup.procs)'],
+  ['systemctl --user start exit.target', 'another way to end the session (start exit.target, stop --all, poweroff, loginctl terminate-seat, busctl Exit)'],
+  ['{ echo a <<<${x:-a b}; kill -1}', 'zsh: a ${…} with a blank inside a redirection word, in a group closed by a glued }'],
+  ['killall "$NAME"', 'killall without -r: a name held in a variable (a name, not a pattern)'],
+  ['echo "${ kill -1; }"', 'a bash 5.3 funsub (#925)'],
 ]
 
 describe('killRule: refuse, with a near-miss control beside each row', () => {
@@ -1264,6 +1311,25 @@ describe('killRule: deliberate false stops of the quote removal and the zsh word
   }
 })
 
+// 0.16.0 (#1191): the literal-part test counts nothing inside an expansion, a ${…}'s default value included, and reads a
+// lone `$` as an expansion, since an unquoted $(…) is joined into one `$`: so a default spelled out, a `$` the shell keeps
+// as text, and bash's $"…" are refused when fewer than three letters or digits stand outside them. The group-0 rule is a
+// false stop on Claude Code, whose Bash tool shell leads its own process group; on OMP the shell is omp's own process.
+describe('killRule: deliberate false stops of the literal-part test and the group-0 rule', () => {
+  const rows: ReadonlyArray<readonly [string, string]> = [
+    ['pkill "${NAME:-node}"', 'pkill "${NAME:-node}app"'],
+    ['pkill "${A:-${B}x}yz"', 'pkill "${A:-${B}x}xyz"'],
+    ['pkill "${NAME:-"x"}"', 'pkill "${NAME:-"x"}abc"'],
+    ['pkill -x ab$', 'pkill -x abc$'],
+    ['pkill $"ab"', 'pkill $"abc"'],
+    ['kill 0', 'kill 10'],
+  ]
+  for (const [command, control] of rows) {
+    test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
+    test(`control: ${JSON.stringify(control)} is allowed`, () => { expect(killRule(control)).toBeUndefined() })
+  }
+})
+
 // env is read three ways, and the rail refuses if any reading does. An option an env rejects is read as a flag, though
 // that env runs nothing: an unknown letter, -0 with a command, a GNU-only option beside a BSD-only one. The generic
 // reading keeps its own stops: GNU runs -1 with argv0 `kill` in `env -a kill -1`, and every env runs -i in
@@ -1401,6 +1467,7 @@ describe("killRule: deliberate false stops of zsh's brace grammar and the close 
     ['end kill -1', 'end kill 123'],
     ['true; end kill -1', 'true; end kill 123'],
     ['{ echo ${x:-a; } kill -1}', '{ echo ${x:-a; } kill 123}'],
+    ['{ echo ${x:-(a b)} kill -1; }', '{ echo ${x:-(a b)} kill 123; }'],
     ['echo ${x:-a; } then kill -1', 'echo ${x:-a; } then kill 123'],
     ['echo ${x:-a ]] kill -1 }', 'echo ${x:-a ]] kill 123 }'],
     ['{ echo ${x:-a|b}; kill -1}', '{ echo ${x:-a|b}; kill 123}'],
