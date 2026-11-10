@@ -897,6 +897,7 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ["trap 'kill -1' EXIT", "a trap string the shell runs later (#1187)"],
   ["echo *(e:'kill -1':)", "zsh: code inside a word, a glob qualifier (#1188)"],
   ["function { kill $1 } -1", "zsh: an anonymous function's argument read as a parameter, a variable whose value is -1"],
+  ["{ coproc {true; }; kill -1}", "zsh: a { glued to the word after coproc is not counted as an opener (#1189)"],
 ]
 
 describe('killRule: refuse, with a near-miss control beside each row', () => {
