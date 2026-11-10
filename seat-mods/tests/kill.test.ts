@@ -632,7 +632,7 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   // zsh's brace grammar: a `{` glued to a head word opens a group (at a segment's start, after a head word, `repeat`,
   // `time`, `!`, a loop's or a case's words, inside $(…)), a `}` glued to a word's end closes an open group, the words
   // after a `]]` or a group's `}` are a command (the short if, while and until, and `if list { list }`), `always` after a
-  // group, and an anonymous function, which runs at once (`-T` and `--` before its `{`)
+  // group, and an anonymous function, which runs at once (at most one `-T`, then at most one `--`, before its `{`)
   ['{kill -1}', '{kill 123}'],
   ['repeat 1 {kill -1}', 'repeat 1 {kill 123}'],
   ['if [[ 1 ]] kill -1', 'if [[ 1 ]] kill 123'],
@@ -679,6 +679,18 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ['if false; then case x in x) true;; esac else kill -1; fi', 'if false; then case x in x) true;; esac else kill 123; fi'],
   ['if false; then f() { true; } else kill -1; fi', 'if false; then f() { true; } else kill 123; fi'],
   ["sh -c 'if { true; } then kill -1; fi'", "sh -c 'if { true; } then kill 123; fi'"],
+  // a sole `{` among a command's words opens a group too (`case WORD {`, a named function's body, `coproc {`), so its
+  // `}` closes that group and not the one around it, and a `}` glued to kill's last operand closes it
+  ['case x { x) kill -1}', 'case x { x) kill 123}'],
+  ['{ function f { true; }; kill -1}', '{ function f { true; }; kill 123}'],
+  ['{ coproc { true; }; kill -1}', '{ coproc { true; }; kill 123}'],
+  // a `}` at a head while the count is 0 (here it closes a glued `{` after `coproc`, which is not counted) leaves it at 0
+  ['coproc {true; }; { true; kill -1}', 'coproc {true; }; { true; kill 123}'],
+  // each `{` glued to a head word opens a group of its own; at most one `-T` and then at most one `--` before an
+  // anonymous function's `{`; `time` before `repeat`
+  ['{{true}; kill -1}', '{{true}; kill 123}'],
+  ['function -T -- { kill -1 }', 'function -T -- { kill 123 }'],
+  ['time repeat 1 {kill -1}', 'time repeat 1 {kill 123}'],
 ]
 
 // What a seat does legitimately, and text that only mentions kill.
@@ -789,6 +801,11 @@ const ALLOW: readonly string[] = [
   "{ true } 'always' { kill -1 }", '{ true } always kill -1', 'true; always { kill -1 }', 'if [[ 1 ]] always { kill -1 }',
   '{kill 123} -1', '{ echo kill -1}', 'kill -1}', 'true; kill -1}', 'true } kill -1', 'echo } kill -1', 'echo ${x}} kill -1',
   '{ true }; echo } kill -1', 'echo {a,b} kill -1', "fish -c 'echo {not,x} kill -1'",
+  // a named function's first command, glued `}` too; a second `-T` or a `--` before `-T` names the function (zsh takes
+  // one `-T`, then one `--`); a group a named function's `}` has closed is not open after it; a glued `{` that is not
+  // alone opens no group; `always` after a head word that follows the `}`
+  'function f { kill -1}', 'function -- -T { kill -1 }', 'function -T -T { kill -1 }', 'function -- -- { kill -1 }',
+  'function f { true; }; kill -1}', 'echo {a,b}; kill -1}', '{ true } ! always { kill -1 }',
   'echo ${X} kill -1', '{ echo ${X} kill -1 }', 'echo ${X:-a b} kill -1',
 ]
 
@@ -879,6 +896,7 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ["{,kill} -1", "brace expansion of the command word (bash, #1186)"],
   ["trap 'kill -1' EXIT", "a trap string the shell runs later (#1187)"],
   ["echo *(e:'kill -1':)", "zsh: code inside a word, a glob qualifier (#1188)"],
+  ["function { kill $1 } -1", "zsh: an anonymous function's argument read as a parameter, a variable whose value is -1"],
 ]
 
 describe('killRule: refuse, with a near-miss control beside each row', () => {
@@ -1250,9 +1268,18 @@ describe('killRule: deliberate false stops of the env -S reading', () => {
 // `repeat`, `while` or a function); zsh's `if [[ … ]] { … }` at the string's very end, which zsh parses only when a
 // separator follows; a backslash in `function` or `always`, which the reader drops as with `\time`; a redirection between
 // a close and the reserved word after it, which the reader drops; a glued group the line's other words make zsh reject;
-// and a condition the rail does not evaluate (`true || {kill -1}`, `{ exit 1 } always { kill -1 }`).
+// a condition the rail does not evaluate (`true || {kill -1}`, `{ exit 1 } always { kill -1 }`); a sole `{` that is an
+// operand, which opens a group for the reader, where bash and dash take it as a word and zsh rejects the `}` after it;
+// a named function's body past its first command, read as run, as a `name() { … }` body is; and `-p` or `--` after
+// `time` before a glued `{` (zsh takes neither, and bash and dash run a program named `{kill`).
 describe("killRule: deliberate false stops of zsh's brace grammar and the close words", () => {
   const rows: ReadonlyArray<readonly [string, string]> = [
+    ['while [[ 1 ]] { true } always { kill -1 }', 'while [[ 1 ]] { true } always { kill 123 }'],
+    ['echo { true } kill -1', 'echo { true } kill 123'],
+    ['echo {; kill -1}', 'echo {; kill 123}'],
+    ['function f { true; kill -1}', 'function f { true; kill 123}'],
+    ['time -p {kill -1}', 'time -p {kill 123}'],
+    ['time -- {kill -1}', 'time -- {kill 123}'],
     ["dash -c '{kill -1}'", "dash -c '{kill 123}'"],
     ['[[ 1 ]] kill -1', '[[ 1 ]] kill 123'],
     ['{ true; } kill -1', '{ true; } kill 123'],

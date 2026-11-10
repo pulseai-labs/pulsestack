@@ -1775,9 +1775,11 @@ function killHeads(tokens: string[]): string[] {
 // `]]` or a `}` may be a command (the short `if [[ 1 ]] kill -1`, `while [[ 1 ]] { kill -1 }`, `if { true } kill -1`),
 // with `always` before a `{` after a `}` (`{ true } always { kill -1 }`). zsh also reads a `{` glued to the head word as a
 // brace group (`{kill -1}`, `time {kill -1}`), a `}` glued to a word's end, while a group is open, as its close when the
-// word holds no `{` it closes (`{ kill -1}`; not `${X}` or `{a,b}`), and `function`, then `-T` or `--`, then a `{` as an
-// anonymous function, which runs at once (`function { kill -1 }`; a named one is defined only). `open.depth` counts the
-// groups opened at a head and not yet closed, over the segments of one command.
+// word holds no `{` it closes (`{ kill -1}`; not `${X}` or `{a,b}`), and `function`, then at most one `-T` and then at
+// most one `--`, then a `{` as an anonymous function, which runs at once (`function { kill -1 }`; a named one is defined
+// only). `open.depth` counts the groups opened and not yet closed, over the segments of one command: a `{` at a head or
+// glued to a head word, and a sole `{` among a command's words (`case x {`, `function f {`, `coproc {`; an operand `{`
+// too, which bash and dash take as a word and zsh rejects before its `}`: a deliberate false stop).
 const KILL_CLOSES = new Set(['fi', 'done', 'esac'])
 const braceCount = (word: string, brace: string) => word.split(brace).length - 1
 const closesGroup = (word: string) => word.length > 1 && word.endsWith('}') && braceCount(word, '}') > braceCount(word, '{')
@@ -1799,7 +1801,8 @@ function braceTails(tokens: readonly string[], open: { depth: number }): string[
       if (word.length > 1 && word.startsWith('{')) { const rest = word.replace(/^\{+(?=.)/, ''); open.depth += word.length - rest.length; word = rest; continue }
       if (word === 'function') {
         let j = k + 1
-        while (tokens[j] === '-T' || tokens[j] === '--') j += 1
+        if (tokens[j] === '-T') j += 1
+        if (tokens[j] === '--') j += 1
         if (tokens[j] === '{') { k = j; word = tokens[k]; continue }
       } else if (word === 'repeat' && k + 1 < tokens.length) { k += 2; word = tokens[k]; continue }
       else if (word === 'time') {
@@ -1813,12 +1816,14 @@ function braceTails(tokens: readonly string[], open: { depth: number }): string[
       break
     }
     if (head === undefined) break
-    // Its words, to a `]]`, or to a `}` (alone or glued to a word's end) while a group is open.
+    // Its words, to a `]]`, or to a `}` (alone or glued to a word's end) while a group is open. A sole `{` among them
+    // opens one.
     const tail: string[] = []
     let next: string | undefined = head
     for (;;) {
       if (next === undefined || next === ']]' || (next === '}' && open.depth > 0)) break
       if (open.depth > 0 && closesGroup(next)) { tail.push(next.slice(0, -1)); k += 1; open.depth -= 1; closed = true; break }
+      if (next === '{') open.depth += 1
       tail.push(next)
       next = tokens[++k]
     }
