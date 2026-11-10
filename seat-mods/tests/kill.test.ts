@@ -629,6 +629,56 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ['/bin/kill 123 +4294967296', '/bin/kill 123 +4294967297'],
   ['/bin/kill -s 9 +4294967295', '/bin/kill -s 9 +4294967294'],
   ["/bin/kill $'\\t4294967295'", "/bin/kill $'\\t4294967294'"],
+  // zsh's brace grammar: a `{` glued to a head word opens a group (at a segment's start, after a head word, `repeat`,
+  // `time`, `!`, a loop's or a case's words, inside $(…)), a `}` glued to a word's end closes an open group, the words
+  // after a `]]` or a group's `}` are a command (the short if, while and until, and `if list { list }`), `always` after a
+  // group, and an anonymous function, which runs at once (`-T` and `--` before its `{`)
+  ['{kill -1}', '{kill 123}'],
+  ['repeat 1 {kill -1}', 'repeat 1 {kill 123}'],
+  ['if [[ 1 ]] kill -1', 'if [[ 1 ]] kill 123'],
+  ['while [[ 1 ]] { kill -1; break }', 'while [[ 1 ]] { kill 123; break }'],
+  ['{ true } always { kill -1 }', '{ true } always { kill 123 }'],
+  ['function { kill -1 }', 'function { kill 123 }'],
+  ['{ kill -1}', '{ kill 123}'],
+  ['{ true; kill -1}', '{ true; kill 123}'],
+  ['true;{kill -1}', 'true;{kill 123}'],
+  ['! {kill -1}', '! {kill 123}'],
+  ['time {kill -1}', 'time {kill 123}'],
+  ['(){kill -1}', '(){kill 123}'],
+  ['for x (1) {kill -1}', 'for x (1) {kill 123}'],
+  ['case x { x) {kill -1} }', 'case x { x) {kill 123} }'],
+  ['if { true } kill -1', 'if { true } kill 123'],
+  ['until [[ -z 1 ]] kill -1', 'until [[ -z 1 ]] kill 123'],
+  ['if [[ -z 1 ]] { true } else { kill -1 }', 'if [[ -z 1 ]] { true } else { kill 123 }'],
+  ['function -T { kill -1 }', 'function -T { kill 123 }'],
+  ['function -- { kill -1 }', 'function -- { kill 123 }'],
+  ['function { kill -1 } a b', 'function { kill 123 } a b'],
+  ['repeat 1 function { kill -1 }', 'repeat 1 function { kill 123 }'],
+  ['{true} always {kill -1}', '{true} always {kill 123}'],
+  ['time {true} always {kill -1}', 'time {true} always {kill 123}'],
+  ['if [[ 1 && 1 ]] kill -1', 'if [[ 1 && 1 ]] kill 123'],
+  ['{{ kill -1 }}', '{{ kill 123 }}'],
+  ['echo $({kill -1})', 'echo $({kill 123})'],
+  ['ps aux; {kill 123}', 'ls; {kill 123}'],
+  ["zsh -c '{kill -1}'", "zsh -c '{kill 123}'"],
+  ["eval '{ true } always { kill -1 }'", "eval '{ true } always { kill 123 }'"],
+  // the count of open groups is carried over the command's segments, and a group closed at a head is no longer open
+  ['if { true; true } kill -1', 'if { true; true } kill 123'],
+  ['{ true; echo } always { kill -1 }', '{ true; echo } always { kill 123 }'],
+  ['function f { true; }; { true } always { kill -1 }', 'function f { true; }; { true } always { kill 123 }'],
+  // a reserved word after a compound command's close: `}`, `fi`, `done` and `esac` at a command's head and `]]`
+  // anywhere end the words before them (bash, dash and zsh)
+  ['if { true; } then kill -1; fi', 'if { true; } then kill 123; fi'],
+  ['if false; then { true; } else kill -1; fi', 'if false; then { true; } else kill 123; fi'],
+  ['until { false; } do kill -1; done', 'until { false; } do kill 123; done'],
+  ['if [[ 1 ]] then kill -1; fi', 'if [[ 1 ]] then kill 123; fi'],
+  ['while [[ 1 ]] do kill -1; done', 'while [[ 1 ]] do kill 123; done'],
+  ['if [[ 1 && 1 ]] then kill -1; fi', 'if [[ 1 && 1 ]] then kill 123; fi'],
+  ['if false; then for x in 1; do true; done else kill -1; fi', 'if false; then for x in 1; do true; done else kill 123; fi'],
+  ['if false; then if true; then true; fi else kill -1; fi', 'if false; then if true; then true; fi else kill 123; fi'],
+  ['if false; then case x in x) true;; esac else kill -1; fi', 'if false; then case x in x) true;; esac else kill 123; fi'],
+  ['if false; then f() { true; } else kill -1; fi', 'if false; then f() { true; } else kill 123; fi'],
+  ["sh -c 'if { true; } then kill -1; fi'", "sh -c 'if { true; } then kill 123; fi'"],
 ]
 
 // What a seat does legitimately, and text that only mentions kill.
@@ -727,6 +777,19 @@ const ALLOW: readonly string[] = [
   "env -S \"bash -c 'echo \\\\\\\\'; kill -1\"",
   // procps reads a pid past a long's range as an error and kills nothing
   '/bin/kill +9223372036854775808',
+  // zsh's brace grammar, where zsh runs no kill: a named function is defined, not run; a `{` glued to the function
+  // keyword, an option other than -T and -- before the `{` (a function named -x or -), and `time` before `function`;
+  // a glued `{` that is not at a head (an operand, after an assignment or `noglob`, quoted or escaped, or after `!` with
+  // no blank); two glued `}` where one group is open; a quoted `always`, `always` before no `{`, and `always` after no
+  // `}`; a `}` glued to a word while no group is open, or a sole `}` while none is (`${x}}`, `-1}`, brace expansion); and
+  // a `}` that closes a `{` of its own word (`${X}`)
+  'function f { kill -1 }', 'function f { kill -1; }', 'function {kill -1}', 'function -x { kill -1 }', 'function - { kill -1 }',
+  'time function { kill -1 }',
+  'echo {kill -1}', 'A=1 {kill -1}', 'noglob {kill -1}', '!{kill -1}', "'{'kill -1}", '\\{kill -1}', '{kill -1}}',
+  "{ true } 'always' { kill -1 }", '{ true } always kill -1', 'true; always { kill -1 }', 'if [[ 1 ]] always { kill -1 }',
+  '{kill 123} -1', '{ echo kill -1}', 'kill -1}', 'true; kill -1}', 'true } kill -1', 'echo } kill -1', 'echo ${x}} kill -1',
+  '{ true }; echo } kill -1', 'echo {a,b} kill -1', "fish -c 'echo {not,x} kill -1'",
+  'echo ${X} kill -1', '{ echo ${X} kill -1 }', 'echo ${X:-a b} kill -1',
 ]
 
 // Known limits: forms the rail does not read. Each is allowed here, and the README names it. A later
@@ -810,12 +873,12 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ["/bin/kill -9 -1234", "procps-ng 4.0.4 as released reads a later -<digit> word as -<digit> (#1180)"],
   ["sudo a-b=1 kill -1", "sudo's own assignment grammar (#1181)"],
   ["sudo A=1 -u root kill -1", "sudo's own assignment grammar (#1181)"],
-  ["{kill -1}", "zsh: a brace with no blank (#1170)"],
-  ["repeat 1 {kill -1}", "zsh: a brace with no blank after repeat (#1170)"],
-  ["if [[ 1 ]] kill -1", "zsh: the short if (#1170)"],
-  ["while [[ 1 ]] { kill -1; break }", "zsh: the short while (#1170)"],
-  ["{ true } always { kill -1 }", "zsh: an always block (#1170)"],
-  ["function { kill -1 }", "zsh: an anonymous function (#1170)"],
+  ["function TRAPEXIT { kill -1 }", "zsh: a named function zsh runs by itself (#1185)"],
+  ["function TRAPZERR { kill -1 }; false", "zsh: a named function zsh runs by itself (#1185)"],
+  ["{kill,-1}", "brace expansion of the command word (bash, #1186)"],
+  ["{,kill} -1", "brace expansion of the command word (bash, #1186)"],
+  ["trap 'kill -1' EXIT", "a trap string the shell runs later (#1187)"],
+  ["echo *(e:'kill -1':)", "zsh: code inside a word, a glob qualifier (#1188)"],
 ]
 
 describe('killRule: refuse, with a near-miss control beside each row', () => {
@@ -1181,6 +1244,43 @@ describe('killRule: deliberate false stops of the env -S reading', () => {
   }
 })
 
+// zsh's brace grammar and the close words are read in every shell, and also where zsh runs nothing, so these are refused
+// though no shell runs a kill: bash and dash run a program named `{kill`; a command word right after a close, where the
+// shell wants a separator; a `]]` that is an argument; `always` where zsh rejects it (a second `always`, after `if`,
+// `repeat`, `while` or a function); zsh's `if [[ … ]] { … }` at the string's very end, which zsh parses only when a
+// separator follows; a backslash in `function` or `always`, which the reader drops as with `\time`; a redirection between
+// a close and the reserved word after it, which the reader drops; a glued group the line's other words make zsh reject;
+// and a condition the rail does not evaluate (`true || {kill -1}`, `{ exit 1 } always { kill -1 }`).
+describe("killRule: deliberate false stops of zsh's brace grammar and the close words", () => {
+  const rows: ReadonlyArray<readonly [string, string]> = [
+    ["dash -c '{kill -1}'", "dash -c '{kill 123}'"],
+    ['[[ 1 ]] kill -1', '[[ 1 ]] kill 123'],
+    ['{ true; } kill -1', '{ true; } kill 123'],
+    ['if [[ 1 ]] then kill -1 fi', 'if [[ 1 ]] then kill 123 fi'],
+    ['echo ]] kill -1', 'echo ]] kill 123'],
+    ['if [[ x == ]] ]] kill -1', 'if [[ x == ]] ]] kill 123'],
+    ['{ true } always { true } always { kill -1 }', '{ true } always { true } always { kill 123 }'],
+    ['if [[ 1 ]] { true } always { kill -1 }', 'if [[ 1 ]] { true } always { kill 123 }'],
+    ['repeat 1 { true } always { kill -1 }', 'repeat 1 { true } always { kill 123 }'],
+    ['function { true } always { kill -1 }', 'function { true } always { kill 123 }'],
+    ['if [[ 1 ]] { kill -1 }', 'if [[ 1 ]] { kill 123 }'],
+    ['\\function { kill -1 }', '\\function { kill 123 }'],
+    ['func\\tion { kill -1 }', 'func\\tion { kill 123 }'],
+    ['{ true } \\always { kill -1 }', '{ true } \\always { kill 123 }'],
+    ['if false; then if true; then true; fi 2>/dev/null else kill -1; fi', 'if false; then if true; then true; fi 2>/dev/null else kill 123; fi'],
+    ['{kill -1} x', '{kill 123} x'],
+    ['{not,x} kill -1', '{not,x} kill 123'],
+    ['do {kill -1}', 'do {kill 123}'],
+    ['{kill -1;}{true}', '{kill 123;}{true}'],
+    ['true || {kill -1}', 'true || {kill 123}'],
+    ['{ exit 1 } always { kill -1 }', '{ exit 1 } always { kill 123 }'],
+  ]
+  for (const [command, control] of rows) {
+    test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
+    test(`control: ${JSON.stringify(control)} is allowed`, () => { expect(killRule(control)).toBeUndefined() })
+  }
+})
+
 // A name speaks only for its own grammar: a form another name's reading refuses is not refused under it.
 describe('killRule: an extra reading speaks for its own name only', () => {
   const forms = ["'kill -1'", "-e 'kill -1'", "-o -c 'kill -1'", "-T /dev/tty2 -c 'kill -1'", "-o '' 'kill -1'", "--profile p -c 'kill -1'", "--cmd 'kill -1'", "-o cmdline 'kill -1'", "+ 'kill -1'"]
@@ -1432,5 +1532,19 @@ describe('killRule: bounds', () => {
   const longOperand = least(`kill 9 ${digits}x`) / least(`kill 9 ${digits}`)
   test('a long operand that ends in another character costs under 50 times the digits alone', () => {
     expect(longOperand).toBeLessThan(50)
+  })
+  // 20,000 sole `}` words, alone or each before a word: the brace reading walks the words once, a close at a head, then
+  // one command to the end, so each costs about the same words with `x` for the `}` (about 1 and 1.5 times; reading a
+  // command from every `}` to the end would grow with the square of the count).
+  const closes = ['} a ', '} '].map(unit =>
+    least(`${unit.repeat(20000)}kill 123`) / least(`${unit.replace('}', 'x').repeat(20000)}kill 123`))
+  test('20,000 sole } words, alone or each before a word, cost under 50 times the same words with x', () => {
+    for (const ratio of closes) expect(ratio).toBeLessThan(50)
+  })
+  // 20,000 `]]` words, each before a word: each `]]` ends one command and the next starts after it, so the words are
+  // walked once (about 2.5 times the same words with `x`).
+  const ends = least(`${']] a '.repeat(20000)}kill 123`) / least(`${'x a '.repeat(20000)}kill 123`)
+  test('20,000 ]] words, each before a word, cost under 50 times the same words with x', () => {
+    expect(ends).toBeLessThan(50)
   })
 })

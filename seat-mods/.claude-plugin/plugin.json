@@ -1,6 +1,6 @@
 {
   "name": "seat-mods",
-  "version": "0.15.7",
+  "version": "0.15.8",
   "description": "Role guards for worker seats, as a Claude Code mod. Set SEAT_MODS_ROLE on a seat's spawn: implementer, verifier or reviewer gets that role's rails — no merges, force-pushes, branch deletion, --no-verify or AI trailers for any seat; no commit, push or PR for a verifier or reviewer; Edit and Write only inside the worktree, /tmp, $TMPDIR and the directories SEAT_MODS_ALLOW lists (on OMP also an exact local://<name>, omp's session scratch); recognised rm commands only in writable places, with unresolvable operands and writable roots or ancestors denied — while orchestrator and coordinator are explicit roles unguarded except for the kill rail (the top orchestrator, and spine/close/work-PR/doctor sessions and lane drivers; on OMP an orchestrator may not spawn subagents) and any other value denies every tool call. The kill rail applies to every role, free ones included: it refuses a call that lists processes and signals them, kill -1 or a negative $ operand, and pkill/killall by user or with a pattern that matches everything. Unset or empty, it guards as the implementer by default, so a forgotten export fails closed; the status line shows which. On OMP the kill rail alone also loads in every omp session with seat-mods enabled, unless started with --no-extensions, through the plugin's package.json manifest, omp-seat or not; the role guard loads only through omp-seat. Requires Claude Code 2.1.287 or later. No lib, no state.",
   "author": { "name": "Pras" }
 }

@@ -1768,6 +1768,65 @@ function killHeads(tokens: string[]): string[] {
   return tokens.slice(i)
 }
 
+// #1170: a compound command's close and zsh's brace grammar, read beside killHeads, left to right in one pass. A close
+// word ends its command, and a reserved word may follow it in bash, dash and zsh: `}`, `fi`, `done` and `esac` at a
+// command's head (`if { true; } then kill -1; fi`, `if false; then { true; } else kill -1; fi`) and `]]` anywhere (`if
+// [[ 1 ]] then kill -1; fi`). In zsh a sole `}` closes an open brace group anywhere on the line, and the words after a
+// `]]` or a `}` may be a command (the short `if [[ 1 ]] kill -1`, `while [[ 1 ]] { kill -1 }`, `if { true } kill -1`),
+// with `always` before a `{` after a `}` (`{ true } always { kill -1 }`). zsh also reads a `{` glued to the head word as a
+// brace group (`{kill -1}`, `time {kill -1}`), a `}` glued to a word's end, while a group is open, as its close when the
+// word holds no `{` it closes (`{ kill -1}`; not `${X}` or `{a,b}`), and `function`, then `-T` or `--`, then a `{` as an
+// anonymous function, which runs at once (`function { kill -1 }`; a named one is defined only). `open.depth` counts the
+// groups opened at a head and not yet closed, over the segments of one command.
+const KILL_CLOSES = new Set(['fi', 'done', 'esac'])
+const braceCount = (word: string, brace: string) => word.split(brace).length - 1
+const closesGroup = (word: string) => word.length > 1 && word.endsWith('}') && braceCount(word, '}') > braceCount(word, '{')
+function braceTails(tokens: readonly string[], open: { depth: number }): string[][] {
+  const tails: string[][] = []
+  let k = 0
+  let closed = false
+  while (k < tokens.length) {
+    // One command's head: reserved words, closes and zsh's openers taken off.
+    let word: string | undefined = tokens[k]
+    let head: string | undefined
+    while (word !== undefined) {
+      if (word === '}') { open.depth = Math.max(0, open.depth - 1); closed = true; word = tokens[++k]; continue }
+      if (word === ']]') { closed = false; word = tokens[++k]; continue }
+      if (closed && word === 'always' && tokens[k + 1]?.startsWith('{')) { closed = false; word = tokens[++k]; continue }
+      closed = false
+      if (word === '{') { open.depth += 1; word = tokens[++k]; continue }
+      if (KILL_HEADS.has(word) || KILL_CLOSES.has(word)) { word = tokens[++k]; continue }
+      if (word.length > 1 && word.startsWith('{')) { const rest = word.replace(/^\{+(?=.)/, ''); open.depth += word.length - rest.length; word = rest; continue }
+      if (word === 'function') {
+        let j = k + 1
+        while (tokens[j] === '-T' || tokens[j] === '--') j += 1
+        if (tokens[j] === '{') { k = j; word = tokens[k]; continue }
+      } else if (word === 'repeat' && k + 1 < tokens.length) { k += 2; word = tokens[k]; continue }
+      else if (word === 'time') {
+        let j = k + 1
+        if (tokens[j] === '-p') j += 1
+        if (tokens[j] === '--') j += 1
+        const next = tokens[j] ?? ''
+        if (KILL_HEADS.has(next) || next === 'time' || next === 'repeat' || (next.length > 1 && next.startsWith('{'))) { k = j; word = tokens[k]; continue }
+      }
+      head = word
+      break
+    }
+    if (head === undefined) break
+    // Its words, to a `]]`, or to a `}` (alone or glued to a word's end) while a group is open.
+    const tail: string[] = []
+    let next: string | undefined = head
+    for (;;) {
+      if (next === undefined || next === ']]' || (next === '}' && open.depth > 0)) break
+      if (open.depth > 0 && closesGroup(next)) { tail.push(next.slice(0, -1)); k += 1; open.depth -= 1; closed = true; break }
+      tail.push(next)
+      next = tokens[++k]
+    }
+    tails.push(tail)
+  }
+  return tails
+}
+
 // The command text with each unquoted `$(…)` or `$((…))` span replaced by one `$`, so the words after a substitution
 // stay operands of the same command (COMMANDS would cut at its parentheses). `text` is the reader's blanked text, where
 // quotes, backtick spans and heredocs are already markers, so every `(` and `)` left is shell syntax. The span's inner
@@ -1873,7 +1932,15 @@ function killScan(command: string, scan: KillScan, runners: boolean, splitLevel 
     }
     return -1
   }
-  for (const segment of segments) deferred(scan, () => visit(killHeads(tokensOf(segment)), 0, new Map()))
+  const open = { depth: 0 }
+  for (const segment of segments) deferred(scan, () => {
+    const tokens = tokensOf(segment)
+    const base = killHeads(tokens)
+    deferred(scan, () => visit(base, 0, new Map()))
+    // #1170: each tail braceTails reads that killHeads's reading does not already hold, after it
+    const key = JSON.stringify(base)
+    for (const tail of braceTails(tokens, open)) if (JSON.stringify(tail) !== key) deferred(scan, () => visit(tail, 0, new Map()))
+  })
 }
 
 // A command and every substitution in it, each read as a command of its own.
