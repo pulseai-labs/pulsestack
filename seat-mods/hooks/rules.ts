@@ -1769,21 +1769,42 @@ function killHeads(tokens: string[]): string[] {
 }
 
 // #1170: a compound command's close and zsh's brace grammar, read beside killHeads, left to right in one pass. A close
-// word ends its command, and a reserved word may follow it in bash, dash and zsh: `}`, `fi`, `done` and `esac` at a
-// command's head (`if { true; } then kill -1; fi`, `if false; then { true; } else kill -1; fi`) and `]]` anywhere (`if
-// [[ 1 ]] then kill -1; fi`). In zsh a sole `}` closes an open brace group anywhere on the line, and the words after a
-// `]]` or a `}` may be a command (the short `if [[ 1 ]] kill -1`, `while [[ 1 ]] { kill -1 }`, `if { true } kill -1`),
-// with `always` before a `{` after a `}` (`{ true } always { kill -1 }`). zsh also reads a `{` glued to the head word as a
-// brace group (`{kill -1}`, `time {kill -1}`), a `}` glued to a word's end, while a group is open, as its close when the
-// word holds no `{` it closes (`{ kill -1}`; not `${X}` or `{a,b}`), and `function`, then at most one `-T` and then at
-// most one `--`, then a `{` as an anonymous function, which runs at once (`function { kill -1 }`; a named one is defined
-// only). `open.depth` counts the groups opened and not yet closed, over the segments of one command: a `{` at a head or
-// glued to a head word, and a sole `{` among a command's words (`case x {`, `function f {`, `coproc {`; an operand `{`
-// too, which bash and dash take as a word and zsh rejects before its `}`: a deliberate false stop).
-const KILL_CLOSES = new Set(['fi', 'done', 'esac'])
+// word ends its command, and a reserved word may follow it: `}` and `esac` at a command's head in bash, dash and zsh
+// (`if { true; } then kill -1; fi`, `if false; then { true; } else kill -1; fi`), `fi` and `done` at a command's head
+// in bash and dash (`if false; then for x in 1; do :; done else kill -1; fi`; zsh rejects a reserved word there), `]]`
+// anywhere in bash and zsh (`if [[ 1 ]] then kill -1; fi`; dash has no `[[`), and zsh's `end`, which closes `foreach`
+// (`if foreach x (1); true; end kill -1`). In zsh a sole `}` closes an open brace group anywhere on the line, and the
+// words after a `]]`, a `}` or an `end` may be a command (the short `if [[ 1 ]] kill -1`, `while [[ 1 ]] { kill -1 }`,
+// `if { true } kill -1`), with `always` before a `{` after a `}` (`{ true } always { kill -1 }`). zsh also reads a `{`
+// glued to the head word as a brace group (`{kill -1}`, `time {kill -1}`; `time` is taken off before a glued `{` or a
+// `case`, as before a head word), a `}` glued to a word's end, while a group is open, as its close when the word holds
+// no `{` it closes (`{ kill -1}`; not `${X}` or `{a,b}`), and `function`, then at most one `-T` and then at most one
+// `--`, then a `{` as an anonymous function, which runs at once (`function { kill -1 }`; a named one is defined only).
+// `open.depth` counts the groups opened and not yet closed, over the segments of one command: a `{` at a head or glued
+// to a head word; a sole `{` among a command's words (`case x {`, `function f {`, `coproc {`; an operand `{` too, which
+// bash and dash take as a word and zsh rejects before its `}`: a deliberate false stop); and a `{` glued to the word
+// right after `case WORD` or `coproc`, where zsh opens a body (`case x {x) kill -1}`, `coproc {true; }`). `open.param`
+// counts the `${` opened and not yet closed, over the same words: the reader splits a `${…}` word at a blank, `;` or
+// parenthesis (`${X:-a b}`, `${(U)x}`), and a `}` that closes a `${`, alone or glued, closes no group, so of such a
+// piece only a `}` glued after the one that ends the `${…}` closes one. Nothing is counted (`open.params` is false)
+// where a substitution's `$` is glued to a `{`, which the reader would take for a `${`. A `{` inside a `${…}` is not
+// counted, as bash and dash read it; zsh counts it, so there the reader still ends the `${…}` early (`${x:-{a} b}`, a
+// known limit).
+const KILL_CLOSES = new Set(['fi', 'done', 'esac', 'end'])
 const braceCount = (word: string, brace: string) => word.split(brace).length - 1
-const closesGroup = (word: string) => word.length > 1 && word.endsWith('}') && braceCount(word, '}') > braceCount(word, '{')
-function braceTails(tokens: readonly string[], open: { depth: number }): string[][] {
+const closesGroup = (word: string) => word.endsWith('}') && braceCount(word, '}') > braceCount(word, '{')
+// A word read from `param` unclosed `${`: the count after it, and the index just past the last `}` that brought the
+// count to 0 (-1 if none did). The reader has made each `$$` one marker, as bash reads it, so no `${` follows one here
+// (zsh reads `$${x:-a b}` as a `$` and a `${`: a known limit).
+function paramWalk(word: string, param: number): { param: number; end: number } {
+  let end = -1
+  for (let i = 0; i < word.length; i++) {
+    if (word[i] === '$' && word[i + 1] === '{') { param += 1; i += 1 }
+    else if (word[i] === '}' && param > 0 && --param === 0) end = i + 1
+  }
+  return { param, end }
+}
+function braceTails(tokens: readonly string[], open: { depth: number; param: number; params: boolean }): string[][] {
   const tails: string[][] = []
   let k = 0
   let closed = false
@@ -1792,6 +1813,7 @@ function braceTails(tokens: readonly string[], open: { depth: number }): string[
     let word: string | undefined = tokens[k]
     let head: string | undefined
     while (word !== undefined) {
+      if (word === '}' && open.param > 0) { open.param -= 1; closed = false; word = tokens[++k]; continue }
       if (word === '}') { open.depth = Math.max(0, open.depth - 1); closed = true; word = tokens[++k]; continue }
       if (word === ']]') { closed = false; word = tokens[++k]; continue }
       if (closed && word === 'always' && tokens[k + 1]?.startsWith('{')) { closed = false; word = tokens[++k]; continue }
@@ -1810,18 +1832,32 @@ function braceTails(tokens: readonly string[], open: { depth: number }): string[
         if (tokens[j] === '-p') j += 1
         if (tokens[j] === '--') j += 1
         const next = tokens[j] ?? ''
-        if (KILL_HEADS.has(next) || next === 'time' || next === 'repeat' || (next.length > 1 && next.startsWith('{'))) { k = j; word = tokens[k]; continue }
+        if (KILL_HEADS.has(next) || next === 'time' || next === 'repeat' || next === 'case' || (next.length > 1 && next.startsWith('{'))) { k = j; word = tokens[k]; continue }
       }
       head = word
       break
     }
     if (head === undefined) break
     // Its words, to a `]]`, or to a `}` (alone or glued to a word's end) while a group is open. A sole `{` among them
-    // opens one.
+    // opens one, and so does a `{` glued to the word right after `case WORD` or `coproc`, where the rest of the word is
+    // read as a word (a `}` glued to it closes that group: `coproc {}`; closesGroup tests no length, since a sole `}`
+    // while a group is open has already ended the words). A piece of a `${…}` word is a word: no `{` in it opens a
+    // group, and only a `}` glued after the `}` that ends the `${…}` closes one.
     const tail: string[] = []
     let next: string | undefined = head
     for (;;) {
-      if (next === undefined || next === ']]' || (next === '}' && open.depth > 0)) break
+      if (next === undefined || next === ']]') break
+      if (open.param > 0) {
+        const walk = paramWalk(next, open.param)
+        open.param = walk.param
+        if (walk.param === 0 && open.depth > 0 && closesGroup(next.slice(walk.end))) { tail.push(next.slice(0, -1)); k += 1; open.depth -= 1; closed = true; break }
+        tail.push(next)
+        next = tokens[++k]
+        continue
+      }
+      if (next === '}' && open.depth > 0) break
+      if (next.length > 1 && next.startsWith('{') && (tail.length === 2 ? tail[0] === 'case' : tail.length === 1 && tail[0] === 'coproc')) { open.depth += 1; next = next.slice(1) }
+      if (open.params) open.param = paramWalk(next, 0).param
       if (open.depth > 0 && closesGroup(next)) { tail.push(next.slice(0, -1)); k += 1; open.depth -= 1; closed = true; break }
       if (next === '{') open.depth += 1
       tail.push(next)
@@ -1835,8 +1871,9 @@ function braceTails(tokens: readonly string[], open: { depth: number }): string[
 // The command text with each unquoted `$(…)` or `$((…))` span replaced by one `$`, so the words after a substitution
 // stay operands of the same command (COMMANDS would cut at its parentheses). `text` is the reader's blanked text, where
 // quotes, backtick spans and heredocs are already markers, so every `(` and `)` left is shell syntax. The span's inner
-// text is read on its own through substitutionsOf. A span that never closes is unread: it throws.
-function joinSubstitutions(text: string): string {
+// text is read on its own through substitutionsOf. A span that never closes is unread: it throws. `glued.brace` is set
+// when a span is followed by a `{`: the `$` left in its place then reads as the start of a `${`, which it is not.
+function joinSubstitutions(text: string, glued: { brace: boolean }): string {
   let out = ''
   for (let i = 0; i < text.length; i++) {
     if (text[i] === '$' && text[i + 1] === '(') {
@@ -1848,6 +1885,7 @@ function joinSubstitutions(text: string): string {
       }
       if (j >= text.length) throw new Error('a substitution that never closes')
       out += '$'
+      if (text[j + 1] === '{') glued.brace = true
       i = j
       continue
     }
@@ -1887,13 +1925,16 @@ function killScan(command: string, scan: KillScan, runners: boolean, splitLevel 
   const { text, pieces } = blank(command)
   // One split is enough here: the seat-mods 0.3.1 split (TAG_COMMANDS) cuts only where COMMANDS cuts, so its segments
   // are unions of COMMANDS segments and its heads are COMMANDS heads. The rail walks its own heads (see KILL_HEADS).
-  const segments = segmentsFor(joinSubstitutions(text), pieces, COMMANDS, true)
-  // `walked`: one segment's xargs walk. Each word that starts an xargs command is walked once and keeps its walk's height:
-  // how many levels below the walk's start its deepest xargs head sat (-1: it read no xargs). A word the readings read
-  // differently can put xargs's command at two words, at every level of a chain, so without it a chain branches. A walk
-  // reads the same heads from any depth, so a word met again is not walked again, and it throws where walking it from here
-  // would pass 8 deep. Every token list walked is a tail of the segment's, so the count of words left names the start
-  // word. visit and visitHead return the height of what they read.
+  const glued = { brace: false }
+  const segments = segmentsFor(joinSubstitutions(text, glued), pieces, COMMANDS, true)
+  // `walked`: one reading's xargs walk. Each reading of a segment gets a map of its own: killHeads's reading and each
+  // list braceTails reads, which may be a middle slice of the segment's words with its first or last word edited. Each
+  // word that starts an xargs command is walked once and keeps its walk's height: how many levels below the walk's start
+  // its deepest xargs head sat (-1: it read no xargs). A word the readings read differently can put xargs's command at
+  // two words, at every level of a chain, so without it a chain branches. A walk reads the same heads from any depth, so
+  // a word met again is not walked again, and it throws where walking it from here would pass 8 deep. Every token list
+  // one walk reads is a tail of the list it started from, so the count of words left names the start word. visit and
+  // visitHead return the height of what they read.
   const visit = (tokens: readonly string[], depth: number, walked: Map<number, number>): number => {
     let height = -1
     const splits = new Set<string>()
@@ -1937,7 +1978,8 @@ function killScan(command: string, scan: KillScan, runners: boolean, splitLevel 
     }
     return -1
   }
-  const open = { depth: 0 }
+  // A `${` is counted only where no substitution's `$` is glued to a `{` (see braceTails).
+  const open = { depth: 0, param: 0, params: !glued.brace }
   for (const segment of segments) deferred(scan, () => {
     const tokens = tokensOf(segment)
     const base = killHeads(tokens)
