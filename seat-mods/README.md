@@ -254,13 +254,12 @@ It refuses:
   **A `pkill` or `killall -r` pattern held in an expansion** with fewer than three letters or digits spelled out beside
   it (`"$NAME"`, `"$A$B"`, `"${NAME:-}"`, `"$(cat f)"`) is refused too: empty, it matches every process, and a variable
   set in one tool call is gone in the next. Spell part of it out (`pkill -f "node $SCRIPT"` passes). **A `pkill -f`
-  pattern** is also tested against one command line, a line's punctuation alone (`/ --`): a pattern that matches it
-  needs no letter or digit, so it matches nearly every command line, the user manager's among them. `pkill -f /`,
+  pattern** is also tested against one line, `/ --`: a pattern that matches it needs no letter or digit, so it can match a command line by its punctuation alone, the user manager's among them. `pkill -f /`,
   `pkill -f ' '` and `pkill -f -- --` are refused; `pkill -f 'node server.js'` passes (#1191).
 - **`killall5`**, **`systemctl --user`** with `exit`, `isolate`, `kill` or `stop default.target` (any argument
   order), and **`loginctl`** `terminate-user`, `kill-user`, `terminate-session` or `kill-session`.
 
-An unquoted `$(…)` or `$((…))` counts as one word of its command, so `kill 123 $(cat p) 0` is read whole. The span is bounded by counting parentheses, not by the shell's grammar: a `case` pattern's `)` or a `)` inside `${…}` ends it early (a known limit), and a `(` inside `${…}` leaves it open, so the call is refused as unread. `command -v NAME` and `command -V NAME` run nothing and pass.
+An unquoted `$(…)` or `$((…))` counts as one word of its command, so `kill 123 $(cat p) 0` is read whole. The span is bounded by counting parentheses, not by the shell's grammar (a known limit below), so a `(` inside `${…}` leaves it open and the call is refused as unread. `command -v NAME` and `command -V NAME` run nothing and pass.
 
 It reads past assignments before the command word as bash and zsh take them: `NAME=`, `NAME+=`, `NAME[…]=` and
 `NAME[…]+=`, with any characters in the subscript (`A+=1 kill -1`, `a[1]=x kill -1`, `a["]"]=1 kill -1`;
@@ -352,12 +351,16 @@ more than 8 deep, or a chain of more than 8 env each with a non-empty string; a 
 is read at that line's nesting). A `-c` or `eval` word is held to this after its quote removal too: `bash -c echo\ \$\(` hands bash `echo $(`, a substitution that never closes, and is refused as unread, as `bash -c 'echo $('` is, and so is `bash -c $'echo \$\('`, which zsh hands on as `echo $(`.
 
 Deliberate false stops: a call that lists and signals in one (`ps aux; kill 123`), `kill -1 <pid>`
-(SIGHUP; write `kill -HUP`), and `kill -$SIG <pid>`. Split the call, or spell the number. `kill 0` on Claude Code:
-its Bash tool's shell leads its own process group and session (pid, pgid and sid equal, probed 2026-11-11), so there
-the signal reaches only the call's own processes. The rule protects OMP, whose bash tool runs inside the omp process
-(`$$` is omp's pid and `kill` a builtin, in omp's process group; probed on omp 18.16.0), where `kill 0` signals omp
-and what launched it. The pattern test counts nothing inside an expansion, a default value included, and reads a
-lone `$` as one (an unquoted `$(…)` is read as `$`): `pkill "${NAME:-node}"`, `pkill -x ab$`, `pkill $"ab"`. A shell call
+(SIGHUP; write `kill -HUP`), and `kill -$SIG <pid>`. Split the call, or spell the number. `kill 0` on Claude Code,
+whose Bash tool shell leads its own process group (pid, pgid and sid equal; probed 2026-11-11), so it
+reaches only the call's own processes. It protects OMP, whose bash tool runs inside omp (`$$` is omp's pid,
+`kill` a builtin; omp 18.16.0), so `kill 0` signals omp's own process group: omp itself, and whatever shares it
+(in the probe, the process that launched it). The pattern test
+counts nothing inside an expansion, a default value included (a double-quoted one inside a double-quoted `${…}` is
+read as literal), and reads a lone `$` as one (an unquoted `$(…)` is read as `$` and the letters after it as a name):
+`pkill "${NAME:-xyz}"`, `pkill -x ab$`, `pkill "^go$"`, `pkill $"ab"`, `pkill $(cat f)abc`. A variable set earlier in
+the same call is not read (`PORT=3000; pkill -f ":$PORT"`). `pkill -fx '/ --'`, anchored to the line probe's shape,
+is refused. A shell call
 whose options one shell reads one way and another reads another way is refused when either reading's string is
 refused, though the shell that runs it runs at most one of the strings, and often none (`zsh -cO extglob 'kill -1'`).
 A bare `-` before `-c` is also skipped by the bash reading, so `bash - -c 'kill -1'` stays refused as in 0.14.1, though
@@ -372,25 +375,24 @@ so a NUL in `kill`'s operand with text after the `$'…'` part is refused, thoug
 **The stop line** (operator ruling, 2026-11-10): the rail stops the incident's kind in its plain spellings, and reads
 nothing new. A later miss changes it only if a seat could type it by accident. **The accident test:** no quoting or
 encoding of the command word, no construct absent from real session logs, and a default or forgotten value makes it
-signal widely. Any other miss joins the list below as a `LIMITS` row in `tests/kill.test.ts`, with no issue and no
-release. What lies past the line is the kernel's to stop: a PID namespace per seat.
+signal widely. Any other miss is a `LIMITS` row and a line below; no issue, no release. Past the line, a PID
+namespace per seat stops signals.
 
-**Known limits: not read, by design.** Each item has at least one row in `tests/kill.test.ts`, except the first,
-which is untested here (PR #1119's Evidence records a live probe of `--no-extensions` and `omp plugin disable`).
+**Known limits: not read, by design.** Each item but the first has a row in `tests/kill.test.ts`; the first is
+untested here (PR #1119's Evidence records a live probe of `--no-extensions` and `omp plugin disable`).
 
 - Sessions and tools outside it: an omp session started with `--no-extensions`, with seat-mods off (`omp plugin
   disable seat-mods`, a project `plugin-overrides.json` `disabled`) or installed for Claude Code only, or whose entry
-  fails to import, so omp starts without it (#1102); Devin and Codex seats; an operator's `!cmd` on OMP; Claude Code
-  tools other than `Bash` and `Monitor`; OMP tools other than `bash`, `eval` (its string literals only) and an
-  implementer's `debug`.
-- Text a runner runs, past one literal level: a heredoc fed to a shell, a script written in this call or an earlier
-  one, a shell string inside a shell string, `eval "$VAR"`, and a shell fed another way (`echo 'kill -1' | sh`,
+  fails to import, so omp starts without it (#1102); Devin and Codex seats; an operator's `!cmd` on OMP; every tool but those
+  read above.
+- Text a runner runs, past one literal level: a heredoc fed to a shell, a script written in this call or
+  earlier, a shell string inside a shell string, `eval "$VAR"`, and a shell fed another way (`echo 'kill -1' | sh`,
   `sh <<< '…'`, `. <(…)`, `bash <(…)`, `eval "$(…)"`, `BASH_ENV=<(…)`).
 - Programs that run their arguments: `python3 -c`, `node -e`, `perl -e`, `awk 'BEGIN{system(…)}'`, `su -c`, `ssh`,
   `watch`, `parallel`, `script -c`, `systemd-run`, `find … -exec`, `flock <file> -c`, `coproc` (#1189).
 - Code run later or inside a word: a `trap` string (`trap 'kill -1' EXIT`; #1187), zsh's glob qualifier
   (`echo *(e:'kill -1':)`) and `(e)` flag (#1188), and a bash 5.3 funsub (`echo "${ kill -1; }"`; #925).
-- uutils 0.8.0's `env --split-string=X` drops the first split word, so `env --split-string='echo kill -1'` runs the
+- uutils 0.8.0's `env --split-string=X` drops the first split word: `env --split-string='echo kill -1'` runs the
   kill (#1173).
 - fish past its command prefixes, read as POSIX text: a single quote that takes `\'`, an escape outside quotes
   (`fish -c 'kill \x2d1'`), an unquoted `(…)` among the operands, brace expansion, a substitution's value; and forms
@@ -401,8 +403,8 @@ which is untested here (PR #1119's Evidence records a live probe of `--no-extens
   its `sh` reads options as dash, so the third reading adds nothing there.
 - A command word it cannot name: an alias, a function, a word from a variable (`$K -1`) or another expansion
   (`kill${IFS}-1`, `$(echo kill) -1`, `/bin/kil? -1`, `${x:-kill} -1`), bash's brace expansion (`{kill,-1}`,
-  `{,kill} -1`, and of an operand, `kill {,-1}`; #1186), zsh's `=kill -1`, another case where the file system ignores
-  case (`KILL -1`; macOS, inferred), and a word split by a line continuation, inside a `-c` or `eval` word too.
+  `{,kill} -1`, and of an operand, `kill {,-1}`; #1186), zsh's `=kill -1`, another case on a case-insensitive file
+  system (`KILL -1`; macOS, inferred), and a word split by a line continuation, inside a `-c` or `eval` word too.
 - A wrapper not in the list (`doas`, `runuser`, `unshare`, `strace`, `chroot`, `unbuffer`, `gtimeout`, `caffeinate`,
   `rtk`, `nsenter`, `setpriv`, `prlimit`, `systemd-inhibit`), and sudo's own assignment grammar
   (`sudo a-b=1 kill -1`, `sudo A=1 -u root kill -1`; #1181).
@@ -414,8 +416,8 @@ which is untested here (PR #1119's Evidence records a live probe of `--no-extens
   `*(N)`); one after a `$(…)` that a `case` pattern's `)` or a `)` inside `${…}` ends early; a second `pkill` operand
   (BSD and macOS take several: `pkill node '.*'`); and a value from an expansion or a default (`kill $(echo -1)`,
   `kill -9 ${x:--1}`, `kill ${x:-0}`).
-- procps-ng 4.0.4 as released reads a later `-<digit>…` word as `-<digit>`, so `/bin/kill -9 -1234` signals -1 there,
-  through a path or any wrapper; the rail reads the group 1234. 4.0.5 and Ubuntu's `2:4.0.4-9ubuntu1` fix it. Write
+- procps-ng 4.0.4 as released reads a later `-<digit>…` word as `-<digit>`, so `/bin/kill -9 -1234` signals -1 there
+  (any wrapper too), where the rail reads the group 1234. 4.0.5 and Ubuntu's `2:4.0.4-9ubuntu1` fix it. Write
   `kill -- -1234` (#1180).
 - zsh past what it reads: functions zsh runs by itself (`function TRAPEXIT { kill -1 }`, also `zshexit`, `TRAPZERR`,
   `TRAPDEBUG`; #1185; `TRAPEXIT() { … }` is read, as every `name() { … }` body is); an anonymous function's arguments
@@ -429,8 +431,9 @@ which is untested here (PR #1119's Evidence records a live probe of `--no-extens
   purpose), and a variable whose value is `-1`.
 - Listers: the list is four by decision, `ps`, `pgrep`, `pidof` and `ls /proc`. `lsof -t`, `pstree`, `top`, `jobs -p`,
   a `/proc/[0-9]*` glob and `cgroup.procs` are not read (`kill $(lsof -t)`).
-- Other signallers and criteria: `fuser -k`, `skill` and `snice`; `pkill` and `killall` by `-s`, `-g`, `-P`, `-t`, `-G`,
-  `-F`, `-v`, `--older`, `-r`, `--env`, `--cgroup` or `--inverse` alone, `killall -g`, macOS `killall -m`; a pattern
+- Other signallers and criteria: `fuser -k`, `skill`, `snice`; `pkill` and `killall` by `-s`, `-g`, `-P`, `-t`, `-G`,
+  `-F`, `-v`, `--older`, `-r`, `--env`, `--cgroup` or `--inverse` alone, `killall -g`, macOS `killall -m`; an option's
+  value read as the pattern (`-O`, `-r`, `-q`, `--cgroup`: `pkill -O 10 "$X"`); a pattern
   broad in a way the probes do not show (`pkill s`, `pkill -f claude`) or that is not a JavaScript regular expression; and
   a `killall` name, without `-r`, held in a variable.
 - Other ends of the session (not probed): `systemctl --user start exit.target`, `stop --all` or `poweroff`,

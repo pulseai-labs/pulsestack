@@ -1609,22 +1609,26 @@ function broadPattern(pattern: string, anchored: boolean, ignoreCase: boolean, p
 // #1191: the one command line a `pkill -f` pattern is also tested against, beside the four names (a -f pattern is
 // matched against whole command lines, which hold blanks and paths that no name does). It is a command line's
 // punctuation alone, a path's slash, a blank and an option's dashes, with no letter or digit: a pattern that matches
-// it needs no name to match, so it matches nearly every command line on a host, the user manager's
+// it needs no name to match, so it can match a command line by its punctuation alone, the user manager's
 // (`/usr/lib/systemd/systemd --user`, whose end took the session down in #1099) among them. So `pkill -f /`,
 // `pkill -f ' '` and `pkill -f -- --` are refused, and a pattern that needs a letter or digit (`pkill -f 'node
-// server.js'`) never matches it. It is shorter than the names, so a pattern that backtracks costs no more here: the
-// user manager's whole line cost up to a second per such pattern in bun's regular expressions.
+// server.js'`) never matches it. A pattern anchored to the probe's shape (`pkill -fx '/ --'`) is refused too, though
+// it matches almost nothing: a deliberate false stop. The probe is no longer than the longest name, `systemd`, so a
+// pattern that backtracks costs no more here: the user manager's whole line cost up to a second per such pattern in
+// bun's regular expressions.
 const KILL_LINE_PROBE = ['/ --']
 
 // #1191: a pattern's letters and digits outside its expansions, and whether it holds one, read from its raw token.
 // An expansion is a `$` word (`$NAME`, `$1`, `$@`, `$$`, zsh's `$=NAME`), a `${…}`, `$[…]` or `$((…))` span, a
 // backtick or `$(…)` piece (blank masks one in double quotes), and a lone `$` (an unquoted `$(…)` is joined into one
-// `$`, so the reader cannot tell it from a literal one). A special parameter's character (`@`, `$`, `#`) is no letter,
-// so it is left to be read as text. A positional parameter takes every digit after the `$` (zsh's `$10` is the tenth;
+// `$`, so the reader cannot tell it from a literal one, and the letters after it are read as a name). A special
+// parameter's character (`@`, `#`) is no letter, so it is left to be read as text. A positional parameter takes every digit after the `$` (zsh's `$10` is the tenth;
 // bash's is `$1` and a 0, read here as part of the expansion, toward a stop), and the text after them is literal
 // (`$1abc` is `${1}abc` in both). Text in '…' and $'…' is literal, and so is a character after a backslash; any other
 // piece ("…", `$$`, a `$(…)` in double quotes) is read as the text around it is. A `${…}`'s default value is not
-// counted. A NUL that opens no marker is text. Linear: each character is read once, and a span is skipped whole.
+// counted, except a double-quoted one inside a double-quoted `${…}`, which is read as literal (the quote pieces pair
+// flat, so an unclosed `${` runs to the end of its own piece only). A variable set earlier in the same call is not
+// read. A NUL that opens no marker is text. Linear: each character is read once, and a span is skipped whole.
 const PATTERN_NAME = /[=^~+]*(?:[A-Za-z_][A-Za-z0-9_]*|[0-9]+)?/y
 const PATTERN_LETTER = /[\p{L}\p{N}]/u
 function patternLiterals(token: string, pieces: readonly string[]): { letters: number; expands: boolean } {

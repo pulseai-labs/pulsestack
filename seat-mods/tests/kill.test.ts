@@ -773,6 +773,11 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ['pkill --full /', 'pkill /'],
   ["pkill -fx '\\S+ \\S+'", "pkill -f '\\S+x \\S+'"],
   ['pkill -f -- -', 'pkill -f -- -x'],
+  // pre-PR N5: a later killall -r operand's own expansion test, $'…' decoded before it is counted, and the line test
+  // on a pattern that holds an expansion and three letters
+  ['killall -r node "$NAME"', 'killall -r node "abc$NAME"'],
+  ["pkill $'\\x41\\x42'\"$X\"", "pkill $'\\x41\\x42\\x43'\"$X\""],
+  ['pkill -f "abc|-$"', 'pkill -f "abc|-x$"'],
 ]
 
 // What a seat does legitimately, and text that only mentions kill.
@@ -798,6 +803,8 @@ const ALLOW: readonly string[] = [
   'pkill -f "$HOME/bin/app"', 'pkill -f "node $1"', "pkill '$NAME'", 'pkill -f node', 'pkill -f claude', "pkill -f 'bun test'",
   'pkill -fx /', 'killall -r /', "killall -r ' '", 'pkill -f systemd', 'pkill -f -- --user', 'killall -rf /', 'killall -r --full /',
   'pkill \\$ab', 'pkill -f "v1.2.3$X"', 'pkill -f "$DIR/日本語"', 'pkill -f "\\d\\d\\d$X"',
+  // a double-quoted default inside a double-quoted ${…} is read as literal (pre-PR B1b)
+  'pkill "${NAME:-"xyz"}"',
   // 0.14.1 (#1105): a word that is not an option ends the options before -c, so a script's own -c is not a shell string
   "bash -eo pipefail script.sh -c 'kill -1'", "bash -oe pipefail script.sh -c 'kill -1'",
   // after `--` the next word is the string, even one that looks like a cluster (bash runs it as the command)
@@ -1033,6 +1040,7 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['{ echo a <<<${x:-a b}; kill -1}', 'zsh: a ${…} with a blank inside a redirection word, in a group closed by a glued }'],
   ['killall "$NAME"', 'killall without -r: a name held in a variable (a name, not a pattern)'],
   ['echo "${ kill -1; }"', 'a bash 5.3 funsub (#925)'],
+  ['pkill -O 10 "$X"', "an option's value read as the pattern (-O, -r, -q, --cgroup), so the pattern is not read"],
 ]
 
 describe('killRule: refuse, with a near-miss control beside each row', () => {
@@ -1311,17 +1319,26 @@ describe('killRule: deliberate false stops of the quote removal and the zsh word
   }
 })
 
-// 0.16.0 (#1191): the literal-part test counts nothing inside an expansion, a ${…}'s default value included, and reads a
-// lone `$` as an expansion, since an unquoted $(…) is joined into one `$`: so a default spelled out, a `$` the shell keeps
-// as text, and bash's $"…" are refused when fewer than three letters or digits stand outside them. The group-0 rule is a
-// false stop on Claude Code, whose Bash tool shell leads its own process group; on OMP the shell is omp's own process.
+// 0.16.0 (#1191): the literal-part test counts nothing inside an expansion, a ${…}'s default value included (except a
+// double-quoted one inside a double-quoted ${…}, which is read as literal), and reads a lone `$` as an expansion, since an
+// unquoted $(…) is joined into one `$`, and the letters after it as a name: so a default spelled out, a `$` the shell
+// keeps as text, and bash's $"…" are refused when fewer than three letters or digits stand outside them. A variable set
+// earlier in the same call is not read. A -f pattern anchored to the line probe's shape is refused by the line test.
+// The group-0 rule is a false stop on Claude Code, whose Bash tool shell leads its own process group; on OMP the shell
+// is omp's own process.
 describe('killRule: deliberate false stops of the literal-part test and the group-0 rule', () => {
   const rows: ReadonlyArray<readonly [string, string]> = [
     ['pkill "${NAME:-node}"', 'pkill "${NAME:-node}app"'],
+    ['pkill "${NAME:-xyz}"', 'pkill "${NAME:-xyz}abc"'],
     ['pkill "${A:-${B}x}yz"', 'pkill "${A:-${B}x}xyz"'],
+    // the pin for "an unclosed `${` runs to the end of its piece": the quote pieces pair flat, so `"${NAME:-"` is one
+    // piece whose `${` ends there, and the default x after it is one literal letter
     ['pkill "${NAME:-"x"}"', 'pkill "${NAME:-"x"}abc"'],
     ['pkill -x ab$', 'pkill -x abc$'],
     ['pkill $"ab"', 'pkill $"abc"'],
+    ['pkill $(cat f)abc', 'pkill $(cat f)-abc'],
+    ['PORT=3000; pkill -f ":$PORT"', 'PORT=3000; pkill -f "port:$PORT"'],
+    ["pkill -fx '/ --'", "pkill -fx '/ --x'"],
     ['kill 0', 'kill 10'],
   ]
   for (const [command, control] of rows) {
