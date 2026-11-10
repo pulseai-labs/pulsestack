@@ -4,8 +4,6 @@ RULE_NAME="rm-rf"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="critical"
 RULE_DESCRIPTION="Destructive rm -rf on absolute path detected in a hook script, handler or command."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Remove or scope the rm -rf command. Avoid deleting absolute paths from hook scripts; use temporary directories scoped to the build."
 RULE_REFERENCES=""
 

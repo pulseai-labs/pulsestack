@@ -7,7 +7,6 @@ source "$CSA_LIB_DIR/fingerprint.sh"
 
 _csa_failed=0
 _tmp="$(mktemp -d "${TMPDIR:-/tmp}/csa-test.XXXXXX")"
-trap 'rm -rf "$_tmp"' EXIT
 
 run_rule() { ( source "$1"; detect "$2" ); }
 run_rule_pipefail() { ( set -o pipefail; source "$1"; detect "$2" ); }

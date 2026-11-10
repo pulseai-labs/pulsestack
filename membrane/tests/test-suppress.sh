@@ -8,7 +8,6 @@ source "$CSA_LIB_DIR/suppress.sh"
 _csa_failed=0
 
 _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-test.XXXXXX")"
-trap 'rm -rf "$_CSA_TMP"' EXIT
 
 # _seed <root> <uid> <rule_id> <severity> [<display_id>]
 # A state.json whose registry holds one finding first seen long ago, as a recorded run leaves it.
@@ -128,8 +127,8 @@ test_legacy_four_argument_form() {
 }
 
 # ---------------------------------------------------------------------------
-# 2e. suppress_filter never hides a Critical finding, even one listed in suppressions.json;
-#     the same entry still hides a non-critical finding
+# 2e. suppress_filter never marks a Critical finding suppressed, even one listed in suppressions.json;
+#     the same file still marks a non-critical finding
 # ---------------------------------------------------------------------------
 test_filter_never_hides_critical() {
   local root="$_CSA_TMP/t02e"
@@ -141,7 +140,9 @@ test_filter_never_hides_critical() {
   printf '%s\n' \
     '{"finding_uid":"FUID-crit0001","rule_id":"SECRETS-001","severity":"critical","file":"a"}' \
     '{"finding_uid":"FUID-med00001","rule_id":"PERM-001","severity":"medium","file":"b"}' > "$f"
-  assert_eq "FUID-crit0001" "$(csa_suppress_filter "$f" "$root" | jq -r '.finding_uid')" "only the Critical line survives the filter" || return 1
+  local out; out="$(csa_suppress_filter "$f" "$root")"
+  assert_eq "FUID-crit0001" "$(printf '%s\n' "$out" | jq -r 'select(.state != "SUPPRESSED") | .finding_uid')" "only the Critical line stays unmarked" || return 1
+  assert_eq "FUID-med00001" "$(printf '%s\n' "$out" | jq -r 'select(.state == "SUPPRESSED") | .finding_uid')" "the listed Medium line is marked SUPPRESSED" || return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -168,7 +169,7 @@ test_list_emits_jsonl() {
 }
 
 # ---------------------------------------------------------------------------
-# 4. finding_uid match in filter — suppressed finding excluded from output
+# 4. finding_uid match in filter — the suppressed finding is marked SUPPRESSED, the other is not
 # ---------------------------------------------------------------------------
 test_filter_excludes_suppressed() {
   local root="$_CSA_TMP/t04"
@@ -184,11 +185,10 @@ test_filter_excludes_suppressed() {
     > "$findings_file"
 
   local out; out="$(csa_suppress_filter "$findings_file" "$root")"
-  local line_count; line_count="$(printf '%s\n' "$out" | grep -c . || true)"
-  assert_eq "1" "$line_count" "filter must output only 1 non-suppressed finding" || return 1
-
-  local kept_uid; kept_uid="$(printf '%s\n' "$out" | jq -r '.finding_uid')"
-  assert_eq "FUID-xyz" "$kept_uid" "only FUID-xyz must pass the filter" || return 1
+  local line_count; line_count="$(printf '%s\n' "$out" | jq -s 'length')"
+  assert_eq "2" "$line_count" "the filter emits every finding, so chat and the report can count what it hides" || return 1
+  assert_eq "FUID-abc" "$(printf '%s\n' "$out" | jq -r 'select(.state == "SUPPRESSED") | .finding_uid')" "the listed finding is marked SUPPRESSED" || return 1
+  assert_eq "FUID-xyz" "$(printf '%s\n' "$out" | jq -r 'select(.state != "SUPPRESSED") | .finding_uid')" "the other one is not" || return 1
 }
 
 # ---------------------------------------------------------------------------

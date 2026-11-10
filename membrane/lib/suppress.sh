@@ -37,6 +37,7 @@ csa_suppress_path() {
 # Create .claude/audits/suppressions.json with schema_version=1 and empty suppressions array.
 csa_suppress_init() {
   local root="$1"
+  csa_root_ok "$root" || return 2
   local sup_file; sup_file="$(csa_suppress_path "$root")"
   mkdir -p "$(dirname "$sup_file")"
   jq -n '{schema_version: 1, suppressions: []}' > "$sup_file"
@@ -55,6 +56,7 @@ csa_suppress_init() {
 # produced the id.
 csa_suppress_add() {
   local root="$1" id_arg="$2" note
+  csa_root_ok "$root" || return 2
   if [[ $# -ge 4 ]]; then note="$4"; else note="${3-}"; fi
   local state_file; state_file="$(csa_state_path "$root")"
   local state_json
@@ -154,8 +156,10 @@ csa_suppress_list() {
 # ---------------------------------------------------------------------------
 
 # csa_suppress_filter <findings_jsonl_file> <project_root>
-# Emit only findings whose finding_uid is NOT in suppressions.json. A finding whose severity
-# is critical is always emitted, whatever suppressions.json says.
+# Emit every finding. One whose finding_uid suppressions.json lists, and whose severity is not critical, is emitted
+# with `state: "SUPPRESSED"`, so chat and the report count it (the Suppressed column, the "hidden by
+# suppressions.json" line) and leave it out of their lists and totals. A critical finding is never marked, whatever
+# suppressions.json says. Skill-first question 2: membrane's own findings JSONL and suppressions file.
 csa_suppress_filter() {
   local findings_file="$1"
   local root="$2"
@@ -177,8 +181,10 @@ csa_suppress_filter() {
         && [[ "$(printf '%s' "$line" | jq -r '.severity // empty')" == "critical" ]]; then
       is_suppressed="false"
     fi
-    # Only a clear "true" hides a line: an empty or unreadable suppressions file hides nothing.
-    if [[ "$is_suppressed" != "true" ]]; then
+    # Only a clear "true" marks a line: an empty or unreadable suppressions file hides nothing.
+    if [[ "$is_suppressed" == "true" ]]; then
+      printf '%s\n' "$line" | jq -c '. + {state: "SUPPRESSED"}'
+    else
       printf '%s\n' "$line"
     fi
   done < "$findings_file"
@@ -196,6 +202,7 @@ csa_suppress_filter() {
 csa_suppress_remove() {
   local root="$1"
   local fuid="$2"
+  csa_root_ok "$root" || return 2
   local sup_file; sup_file="$(csa_suppress_path "$root")"
 
   if [[ ! -f "$sup_file" ]]; then
@@ -239,7 +246,6 @@ csa_suppress_remove() {
 # scan and not from the project); rc 4 the findings file is missing or is not JSONL.
 # The caller must also run it only when the scan exited 0 with no `csa: warning` on stderr:
 # a failed scan prints nothing, and this function cannot see that.
-# The fixed FUID-tamper01..03 uids never appear in a scan and are not listed.
 csa_suppress_stale() {
   local findings_file="$1"
   local root="$2"
@@ -269,9 +275,7 @@ csa_suppress_stale() {
   jq -c --slurpfile f "$findings_file" \
     '([$f[] | .finding_uid // empty]) as $live
      | .suppressions[]
-     | select(.finding_uid as $u
-              | (["FUID-tamper01","FUID-tamper02","FUID-tamper03"] | index($u) | not)
-                and ($live | index($u) | not))
+     | select(.finding_uid as $u | $live | index($u) | not)
      | {finding_uid}' \
     "$sup_file"
 }

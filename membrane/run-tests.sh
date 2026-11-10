@@ -5,6 +5,12 @@
 set -u
 cd "$(dirname "$0")"
 
+# The whole run's temp files land in one directory that one trap removes (lib/helpers.sh's csa_tmp_scope, the helper
+# bin/csa and tests/_helpers.sh use), so a suite run leaves nothing under the caller's TMPDIR.
+# shellcheck source=/dev/null
+source lib/helpers.sh
+csa_tmp_scope suite || { printf 'run-tests.sh: cannot create a temp directory\n' >&2; exit 1; }
+
 declare -i total=0 failed=0
 for test_file in tests/test-*.sh; do
   [[ -f "$test_file" ]] || continue

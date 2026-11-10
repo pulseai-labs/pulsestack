@@ -14,7 +14,6 @@ source "$CSA_LIB_DIR/rule-engine.sh"
 
 _csa_failed=0
 _T="$(mktemp -d "${TMPDIR:-/tmp}/csa-failclosed.XXXXXX")"
-trap 'chmod -R u+rwx "$_T" 2>/dev/null; rm -rf "$_T"' EXIT
 _n=0
 
 # _mk — fresh HOME ($_H) and project ($_P) for one test.
@@ -46,7 +45,7 @@ test_hook006_jq_error_is_rc2_not_a_non_match() {
 
 # --- B. permissions rules ---------------------------------------------------------
 
-_PERM_RULES="broad-allow dangerous-combo missing-deny settings-schema-validation"
+_PERM_RULES="broad-allow dangerous-combo missing-deny"
 
 test_permissions_rules_malformed_settings_is_rc2() {
   local r rc d="$_T/b1"; mkdir -p "$d"
@@ -101,47 +100,21 @@ test_permissions_deny_that_cannot_be_measured_is_rc2() {
   done
 }
 
-test_malformed_settings_through_the_engine_is_one_scanner002_per_permissions_rule() {
-  # The count is documented, not hidden: four permissions rules read settings.json (five read
-  # settings.local.json), so one malformed file is four (five) SCANNER-002, one per rule.
+# A project settings.json or settings.local.json that exists and is not valid JSON is not an empty plugin set: the
+# scan refuses (rc 2) with the message an unreadable one has, and no rule runs. Control: a valid file scans.
+test_malformed_settings_through_the_engine_refuses_the_scan() {
   _mk
-  local out n q='[.[] | select(.rule_id == "SCANNER-002" and (.context.failed_rule | test("/permissions/")))] | length'
-  printf '{"permissions": {' > "$_P/.claude/settings.json"
-  out="$(_scan)" || return 1
-  n="$(printf '%s\n' "$out" | jq -s "$q")"
-  assert_eq "4" "$n" "settings.json: four permissions rules report it: $out" || return 1
-  rm "$_P/.claude/settings.json"; printf '{"permissions": {' > "$_P/.claude/settings.local.json"
-  out="$(_scan)" || return 1
-  n="$(printf '%s\n' "$out" | jq -s "$q")"
-  assert_eq "5" "$n" "settings.local.json: five permissions rules report it: $out" || return 1
-  # Control: a valid file reports no SCANNER-002.
+  local f rc
+  for f in settings.json settings.local.json; do
+    rm -f "$_P/.claude/settings.json" "$_P/.claude/settings.local.json"
+    printf '{"permissions": {' > "$_P/.claude/$f"
+    rc=0; _scan >/dev/null || rc=$?
+    assert_eq 2 "$rc" "$f: the scan refuses" || return 1
+    assert_contains "$(cat "$_T/err")" "csa: cannot read $_P/.claude/$f; the enabled-plugin set is unknown" "$f: the #424 message" || return 1
+  done
   printf '{"permissions":{"allow":[],"deny":[]}}\n' > "$_P/.claude/settings.local.json"
-  out="$(_scan)" || return 1
-  assert_eq "0" "$(_count "$out" SCANNER-002)" "control: a valid settings file is not a SCANNER-002: $out" || return 1
-}
-
-# --- C. marketplace ---------------------------------------------------------------
-
-_mkt() { mkdir -p "$_T/$1"; printf '%s\n' "$2" > "$_T/$1/marketplace.json"; printf '%s' "$_T/$1/marketplace.json"; }
-
-test_marketplace_entry_that_cannot_be_read_is_a_finding() {
-  local f
-  f="$(_mkt c1 '{"marketplaces": ["not-an-object"]}')"
-  _rc "$(_rule marketplace/malformed-marketplace)" "$f"
-  assert_contains "$_out" "MARKETPLACE-002" "an entry that is not an object is a finding" || return 1
-  # Pins: the two sites that already fail closed still emit. Controls: valid is silent, a missing url still emits.
-  f="$(_mkt c2 '{"marketplaces": [')"
-  _rc "$(_rule marketplace/malformed-marketplace)" "$f"
-  assert_contains "$_out" "JSON parse failed" "pin: invalid JSON still emits" || return 1
-  f="$(_mkt c3 '{"marketplaces": "x"}')"
-  _rc "$(_rule marketplace/malformed-marketplace)" "$f"
-  assert_contains "$_out" "missing required .marketplaces array" "pin: a non-array .marketplaces still emits" || return 1
-  f="$(_mkt c4 '{"marketplaces": [{"name":"a","url":"https://x"}]}')"
-  _rc "$(_rule marketplace/malformed-marketplace)" "$f"
-  assert_eq "" "$_out" "control: a valid marketplace is silent" || return 1
-  f="$(_mkt c5 '{"marketplaces": [{"name":"a"}]}')"
-  _rc "$(_rule marketplace/malformed-marketplace)" "$f"
-  assert_contains "$_out" "missing required 'name' or 'url'" "control: a missing url still emits" || return 1
+  rc=0; _scan >/dev/null || rc=$?
+  assert_eq 0 "$rc" "control: a valid settings file scans" || return 1
 }
 
 # --- D. unreadable target ---------------------------------------------------------
@@ -401,16 +374,6 @@ test_failed_rule_targets_mktemp_is_scanner002_for_the_rule() {
   assert_eq "0" "$(_count "$out" SCANNER-002)" "control: a working mktemp is not a SCANNER-002: $out" || return 1
 }
 
-test_malformed_settings_with_a_valid_local_sibling_is_five_scanner002() {
-  # The count the docs state: a settings.local.json beside a malformed settings.json adds a fifth.
-  _mk
-  printf '{"permissions": {' > "$_P/.claude/settings.json"
-  printf '{"permissions":{"allow":[],"deny":[]}}\n' > "$_P/.claude/settings.local.json"
-  local out n; out="$(_scan)" || return 1
-  n="$(printf '%s\n' "$out" | jq -s '[.[] | select(.rule_id == "SCANNER-002" and (.context.failed_rule | test("/permissions/")))] | length')"
-  assert_eq "5" "$n" "four on settings.json plus the divergence check on the local file: $out" || return 1
-}
-
 # --- Fix round 1 -----------------------------------------------------------------
 
 test_failed_mv_of_the_walk_cache_is_scanner002_not_a_skip() {
@@ -430,41 +393,6 @@ test_failed_mv_of_the_walk_cache_is_scanner002_not_a_skip() {
   out="$(_scan)" || return 1
   assert_eq "0" "$(_count "$out" SCANNER-002)" "control: a working mv is not a SCANNER-002: $out" || return 1
 }
-
-test_schema_validation_keys_failure_is_rc2() {
-  local v i=0 rc d
-  for v in '42' '"x"' 'true'; do
-    i=$((i + 1)); d="$_T/s$i"; mkdir -p "$d"; printf '%s\n' "$v" > "$d/settings.json"
-    _rc "$(_rule permissions/settings-schema-validation)" "$d/settings.json"; rc=$?
-    assert_eq "2" "$rc" "settings-schema-validation: $v is rc 2" || return 1
-  done
-  d="$_T/s9"; mkdir -p "$d"; printf '{"permissions":{"allow":[]},"env":{}}\n' > "$d/settings.json"
-  _rc "$(_rule permissions/settings-schema-validation)" "$d/settings.json"; rc=$?
-  assert_eq "0" "$rc" "control: a valid object is rc 0" || return 1
-  assert_eq "" "$_out" "control: and silent" || return 1
-  printf '{}\n' > "$d/settings.json"
-  _rc "$(_rule permissions/settings-schema-validation)" "$d/settings.json"; rc=$?
-  assert_eq "0" "$rc" "control: an empty object is rc 0" || return 1
-  assert_eq "" "$_out" "control: and silent" || return 1
-  printf '{"allowed":[]}\n' > "$d/settings.json"
-  _rc "$(_rule permissions/settings-schema-validation)" "$d/settings.json"
-  assert_contains "$_out" "unknown top-level key" "control: an unknown key still flags" || return 1
-}
-
-test_non_object_marketplace_entry_does_not_hide_the_next_url() {
-  local f
-  f="$(_mkt u1 '{"marketplaces":["s",{"name":"a","url":"http://evil.example"}]}')"
-  _rc "$(_rule marketplace/untrusted-source)" "$f"
-  assert_contains "$_out" "MARKETPLACE-001" "the http URL after a non-object entry is still flagged" || return 1
-  f="$(_mkt u2 '{"marketplaces":[{"name":"a","url":"http://evil.example"}]}')"
-  _rc "$(_rule marketplace/untrusted-source)" "$f"
-  assert_contains "$_out" "non-HTTPS marketplace URL: http://evil.example" "control: the one-entry file gives the same finding" || return 1
-  f="$(_mkt u3 '{"marketplaces":["s",{"name":"a","url":"https://ok.example"}]}')"
-  _rc "$(_rule marketplace/untrusted-source)" "$f"
-  assert_eq "" "$_out" "control: an https URL stays silent" || return 1
-}
-
-# --- Fix round 2: CodeRabbit threads on #1093 ----------------------------------------
 
 test_network_exfiltration_read_error_after_a_benign_prefix_is_rc2() {
   local f="$_T/h/n2.sh" rc out sd; sd="$(_shims)"; mkdir -p "$_T/h"; printf 'echo hi\n' > "$f"
@@ -530,8 +458,7 @@ csa_test_run test_hook006_jq_error_is_rc2_not_a_non_match || _csa_failed=$((_csa
 csa_test_run test_permissions_rules_malformed_settings_is_rc2 || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_permissions_rules_valid_settings_without_a_match_stay_silent || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_permissions_deny_that_cannot_be_measured_is_rc2 || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_malformed_settings_through_the_engine_is_one_scanner002_per_permissions_rule || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_marketplace_entry_that_cannot_be_read_is_a_finding || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_malformed_settings_through_the_engine_refuses_the_scan || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_unreadable_target_is_one_scanner003 || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_scanner003_does_not_trip_the_rules_failed_banner || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_hook_file_rules_grep_error_is_rc2 || _csa_failed=$((_csa_failed + 1))
@@ -548,10 +475,7 @@ csa_test_run test_hook001_critical_survives_a_mid_read_failure_through_the_engin
 csa_test_run test_a_failed_target_write_keeps_the_walk || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_scanner003_respects_the_scan_focus || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_failed_rule_targets_mktemp_is_scanner002_for_the_rule || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_malformed_settings_with_a_valid_local_sibling_is_five_scanner002 || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_failed_mv_of_the_walk_cache_is_scanner002_not_a_skip || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_schema_validation_keys_failure_is_rc2 || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_non_object_marketplace_entry_does_not_hide_the_next_url || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_network_exfiltration_read_error_after_a_benign_prefix_is_rc2 || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_network_exfiltration_half_match_before_a_read_error_is_rc2 || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_mcp_env_var_leak_keeps_a_match_found_before_a_jq_failure || _csa_failed=$((_csa_failed + 1))

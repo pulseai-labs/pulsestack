@@ -4,8 +4,6 @@ RULE_NAME="untrusted-endpoint"
 RULE_ASPECT="mcp"
 RULE_SEVERITY="high"
 RULE_DESCRIPTION="MCP server configured with a non-HTTPS (http://) endpoint — traffic unencrypted and vulnerable to MITM."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Change the MCP server URL to use https://. Contact the server operator if an HTTPS endpoint is unavailable."
 RULE_REFERENCES=""
 

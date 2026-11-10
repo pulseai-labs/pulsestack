@@ -4,8 +4,6 @@ RULE_NAME="missing-deny"
 RULE_ASPECT="permissions"
 RULE_SEVERITY="high"
 RULE_DESCRIPTION="Broad allow rules present but permissions.deny is empty — no guardrails against destructive commands."
-RULE_AUTO_FIXABLE="true"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Add at minimum Bash(rm -rf:*), Bash(curl:*), and Bash(eval:*) to permissions.deny when using broad allow rules."
 RULE_REFERENCES=""
 

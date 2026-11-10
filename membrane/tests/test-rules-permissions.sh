@@ -7,7 +7,6 @@ source "$CSA_LIB_DIR/fingerprint.sh"
 
 _csa_failed=0
 _tmp="$(mktemp -d "${TMPDIR:-/tmp}/csa-test.XXXXXX")"
-trap 'rm -rf "$_tmp"' EXIT
 
 run_rule() {
   local rule="$1"; local file="$2"

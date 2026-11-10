@@ -64,3 +64,19 @@ csa_redact() {
     }
   '
 }
+
+# csa_mask_assignments <string> — every value assigned to a name holding API_KEY, SECRET, TOKEN or PASSWORD (any case;
+# `NAME=value`, `NAME = value`) replaced by `***`: the name stays, the value is gone. The value is the run of
+# non-space bytes after `=`. Byte-wise in every locale. Used for SECRETS-003's preview and the report's list of hook
+# commands, so a password of any length never reaches chat or the report.
+csa_mask_assignments() {
+  local LC_ALL=C s="$1" out=""
+  local kw='[Aa][Pp][Ii]_[Kk][Ee][Yy]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]'
+  local re='^(.*[^A-Za-z0-9_]|)([A-Za-z0-9_]*('"$kw"')[A-Za-z0-9_]*)([[:space:]]*=[[:space:]]*)([^[:space:]]+)(.*)$'
+  # The greedy prefix finds the last assignment: mask it, keep its tail, go on with what is before it.
+  while [[ "$s" =~ $re ]]; do
+    out="${BASH_REMATCH[2]}${BASH_REMATCH[4]}***${BASH_REMATCH[6]}$out"
+    s="${BASH_REMATCH[1]}"
+  done
+  printf '%s' "$s$out"
+}

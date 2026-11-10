@@ -4,8 +4,6 @@ RULE_NAME="env-var-leak"
 RULE_ASPECT="secrets"
 RULE_SEVERITY="high"
 RULE_DESCRIPTION="Secret-bearing environment variable assignment detected in plaintext."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Move secrets to a secrets manager, CI/CD vault, or .env file excluded from version control. Never commit credential values in source files."
 RULE_REFERENCES=""
 
@@ -39,7 +37,10 @@ detect() {
   # LC_ALL=C on read only: in a UTF-8 locale, bash 5.2 joins a line that ends in an invalid byte to the next.
   printf '%s\n' "$hits" \
     | while LC_ALL=C IFS=: read -r line_no match; do
-        local preview; preview="$(csa_redact "$match")"
+        # The preview names the variable and masks its value (csa_mask_assignments): a short password would pass
+        # csa_redact whole. The uid still hashes the whole line, so it does not move.
+        local preview; preview="$(csa_redact "$(csa_mask_assignments "${match:0:200}")")"
+        [[ "${#match}" -le 200 ]] || preview="$preview…(truncated)"
         local fuid; fuid="$(csa_finding_uid_raw "$RULE_ID" "$target_file" "$match")"
         jq -nc \
           --arg rule_id "$RULE_ID" \

@@ -4,8 +4,6 @@ RULE_NAME="network-exfiltration"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="high"
 RULE_DESCRIPTION="A hook script, handler or command combines a network-call command with a sensitive credential/config path — potential data exfiltration."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Review the hook for unintended data exfiltration. Ensure network calls do not reference SSH keys, AWS credentials, or system password files."
 RULE_REFERENCES=""
 

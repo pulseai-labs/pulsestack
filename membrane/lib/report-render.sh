@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # lib/report-render.sh — chat summary + markdown report file for membrane.
-# Requires: lib/helpers.sh (csa_realpath); lib/fingerprint.sh (csa_normalize_path), used only to group findings.
+# Requires: lib/helpers.sh; lib/fingerprint.sh (csa_normalize_path), used only to group findings.
+
+# The plugin root, for the footer's version: CSA_PLUGIN_ROOT (bin/csa sets it from its own location), else this file's.
+_CSA_RENDER_ROOT="${BASH_SOURCE[0]%/*}/.."
 # Bash 3.2+ compatible (macOS portability).
 
 # ---------------------------------------------------------------------------
@@ -141,6 +144,66 @@ _csa_findings_arg() {
   printf '%s\n' "$lines"
 }
 
+# _csa_plugin_version — membrane's version from its own .claude-plugin/plugin.json, or `(version unknown)`.
+_csa_plugin_version() {
+  local v
+  v="$(jq -r '.version | strings' "${CSA_PLUGIN_ROOT:-$_CSA_RENDER_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)" || v=""
+  [[ -n "$v" ]] && printf 'v%s' "$v" || printf '(version unknown)'
+}
+
+# _csa_suppression_lines <findings_jsonl> <project_root> — the lines chat and the report always print about
+# suppressions.json: how many findings it hid (state SUPPRESSED, set by csa_suppress_filter; a number, 0 included),
+# and, when <project_root>'s state.json holds no recorded audit while suppressions.json is already there, that the
+# file did not come from a `--suppress` on this machine. Skill-first question 2: membrane's own files.
+_csa_suppression_lines() {
+  local findings_jsonl="$1" root="$2" n state recorded=0
+  n="$(printf '%s\n' "$findings_jsonl" | jq -s '[.[] | objects | select(.state == "SUPPRESSED")] | length' 2>/dev/null)" || n=""
+  if [[ -z "$n" ]]; then
+    printf 'Suppressed: the count could not be read; pass --show-suppressed to see every finding.\n'
+  else
+    printf 'Suppressed: %d %s hidden by .claude/audits/suppressions.json%s.\n' "$n" \
+      "$([[ "$n" -eq 1 ]] && printf finding || printf findings)" \
+      "$([[ "$n" -eq 0 ]] || printf ' (counted in the table, not listed in chat; the report lists each, marked SUPPRESSED)')"
+  fi
+  while [[ "$root" == ?*/ ]]; do root="${root%/}"; done
+  state="$root/.claude/audits/state.json"
+  if [[ -f "$state" ]] && jq -e '((.audit_history | arrays | length) // 0) > 0' "$state" >/dev/null 2>&1; then
+    recorded=1
+  fi
+  if [[ "$recorded" -eq 0 && ( -e "$root/.claude/audits/suppressions.json" || -L "$root/.claude/audits/suppressions.json" ) ]]; then
+    printf '**Warning:** .claude/audits/suppressions.json was already here before this machine'"'"'s first audit of this project. It came with the checkout or was written by hand, not by `/security-audit --suppress` here. Read it before you trust what it hides.\n'
+  fi
+}
+
+# _csa_hook_commands_section <metadata_json> — the report's list of the hook commands the scan read
+# (metadata.hook_commands: the file csa_rule_engine_scan_all wrote), each in its own fenced block.
+_csa_hook_commands_section() {
+  local f entries n line loc cmd fence run
+  printf '## Hook commands read\n\n'
+  printf 'These commands run automatically (at session start, around tool calls, and so on). A finding above means one of the common patterns matched; no finding does not mean a command is safe. Read each one.\n\n'
+  f="$(printf '%s' "$1" | jq -r '.hook_commands // "" | strings' 2>/dev/null)" || f=""
+  if [[ -z "$f" ]]; then
+    printf '_Not listed: the scan'"'"'s hook-command list was not passed to the report._\n\n'
+    return 0
+  fi
+  if ! entries="$(jq -c 'select(type == "object") | {file: (.file | tostring), json_path: (.json_path | tostring), command: (.command | tostring)}' "$f" 2>/dev/null)"; then
+    printf '_Not listed: the hook-command list %s could not be read._\n\n' "$(csa_escape "$f")"
+    return 0
+  fi
+  n=0
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    n=$((n + 1))
+    loc="$(printf '%s' "$line" | jq -r '.file + "#" + .json_path')"
+    cmd="$(printf '%s' "$line" | jq -r '.command')"
+    # A fence longer than any backtick run in the command, so the command cannot end it.
+    fence='```'; run='```'
+    while [[ "$cmd" == *"$run"* ]]; do run="$run\`"; fence="$run"; done
+    printf -- '- %s\n\n%s\n%s\n%s\n\n' "$(csa_escape "$loc")" "$fence" "$cmd" "$fence"
+  done <<< "$entries"
+  [[ "$n" -gt 0 ]] || printf 'No hook command was read in this scan.\n\n'
+}
+
 # ---------------------------------------------------------------------------
 # csa_report_next_run_of_day <project_root>
 # Count today's report files in .claude/audits/ (YYYY-MM-DD-*.md), return N+1 as 2-digit padded.
@@ -223,13 +286,14 @@ _csa_build_summary_table() {
 }
 
 # ---------------------------------------------------------------------------
-# csa_report_render_chat <findings_jsonl or path> [<report_path>] [verbose]
+# csa_report_render_chat <findings_jsonl or path> [<report_path>] [verbose] [<project_root>]
 # Emit chat-summary markdown to stdout; exit 4, printing nothing, on input that is not findings
-# JSONL (_csa_findings_arg).
+# JSONL (_csa_findings_arg). The project root (default: the working directory) is read only for the
+# suppressions.json lines (_csa_suppression_lines).
 # ---------------------------------------------------------------------------
 csa_report_render_chat() {
   local findings_jsonl report_path="${2:-}"
-  local verbose="${3:-false}"
+  local verbose="${3:-false}" root="${4:-$PWD}"
   findings_jsonl="$(_csa_findings_arg "$1")" || return 4
 
   # Also check environment variable.
@@ -272,6 +336,8 @@ csa_report_render_chat() {
 
   _csa_build_summary_table "$findings_jsonl" "$verbose"
 
+  printf '\n'
+  _csa_suppression_lines "$findings_jsonl" "$root"
   printf '\n'
 
   # HOOK-006 is Info, so the table hides it; say that hooks went unchecked (#1059).
@@ -348,13 +414,16 @@ csa_report_render_chat() {
 }
 
 # ---------------------------------------------------------------------------
-# csa_report_render_markdown <findings_jsonl or path> <metadata_json> <output_path>
+# csa_report_render_markdown <findings_jsonl or path> <metadata_json> <output_path> [<project_root>]
 # Write full markdown report to output_path. On input that is not findings JSONL
 # (_csa_findings_arg) it exits 4 before output_path is opened, so no report file is written.
+# metadata_json: {project, date, run_of_day, duration_seconds, scope_summary, hook_commands}; hook_commands is the
+# file csa_rule_engine_scan_all wrote. The project root (default: the working directory) is read only for the
+# suppressions.json lines (_csa_suppression_lines).
 # ---------------------------------------------------------------------------
 csa_report_render_markdown() {
   local findings_jsonl metadata_json="$2"
-  local output_path="$3"
+  local output_path="$3" root="${4:-$PWD}"
   findings_jsonl="$(_csa_findings_arg "$1")" || return 4
 
   # Parse metadata.
@@ -389,6 +458,8 @@ csa_report_render_markdown() {
 
     printf '## Summary\n\n'
     _csa_build_summary_table "$findings_jsonl" "true"
+    printf '\n'
+    _csa_suppression_lines "$findings_jsonl" "$root"
     printf '\n'
 
     printf '## Findings\n\n'
@@ -429,7 +500,9 @@ csa_report_render_markdown() {
       printf '_No findings._\n\n'
     fi
 
+    _csa_hook_commands_section "$metadata_json"
+
     printf '## Acknowledgements\n\n'
-    printf 'This report was generated by membrane v0.1.0, an independent MIT-licensed audit tool inspired by AgentShield in Everything Claude Code (Mustafa, 2026).\n'
+    printf 'This report was generated by membrane %s, an independent MIT-licensed audit tool inspired by AgentShield in Everything Claude Code (Mustafa, 2026).\n' "$(_csa_plugin_version)"
   } > "$output_path"
 }

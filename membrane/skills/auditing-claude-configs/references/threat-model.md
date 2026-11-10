@@ -12,25 +12,15 @@ User runs `/plugin install some-thing`. Plugin's files land in `~/.claude/plugin
 
 ## Hook entries declared in JSON (0.3.0)
 
-A hook command can live in JSON rather than a script: the project's `.claude/settings.json` and `.claude/settings.local.json`, an enabled plugin's `hooks/hooks.json`, and an inline or path-referenced `hooks` field of its `.claude-plugin/plugin.json`. The audit walks exactly those files (never a nested `.claude/**/settings.json`, never a plugin's `fixtures/` or `tests/` copy) with `jq`, reads only `.hooks.<Event>[i].hooks[j]` entries (so a URL in `env` or a `permissions` string never reaches a hook pattern), decodes the command (JSON escapes, plus exec-form `args`), and runs the HOOK-001 to HOOK-004 patterns on the whole decoded command. Each piece it cannot read is a High HOOK-005 finding; hooks of type `http`, `prompt`, `agent`, `mcp_tool` or a later type are counted (one HOOK-006 Info finding per file). The engine prints `csa: hook-coverage checked=N flagged=N not-inspected=N unreadable=N modules=N`, and the report header carries it, so a zero-finding report still says what was not read.
+A hook command can live in JSON rather than a script: the project's `.claude/settings.json` and `.claude/settings.local.json`, an enabled plugin's `hooks/hooks.json`, and an inline or path-referenced `hooks` field of its `.claude-plugin/plugin.json`. The audit walks exactly those files (never a nested `.claude/**/settings.json`, never a plugin's `fixtures/` or `tests/` copy) with `jq`, reads only `.hooks.<Event>[i].hooks[j]` entries (so a URL in `env` or a `permissions` string never reaches a hook pattern), decodes the command (JSON escapes, plus exec-form `args`), and runs the HOOK-001 to HOOK-004 patterns on the whole decoded command. Each piece it cannot read is a High HOOK-005 finding; hooks of type `http`, `prompt`, `agent`, `mcp_tool` or a later type are counted (one HOOK-006 Info finding per file). The engine prints `csa: hook-coverage checked=N flagged=N not-inspected=N unreadable=N modules=N (flagged counts pattern matches only; the report lists every hook command read)`, and the report header carries it, so a zero-finding report still says what was not read. The report then lists every command entry it read, redacted, under "Hook commands read": a pattern match is not a reading of a command, and those commands run automatically.
 
 This keeps the no-LLM boundary below: the walk is a mechanical check on open input that can only add a stop, so no model reads hook text and nothing is approved (skill-first question 3). A `plugin.json` hooks path is resolved inside the plugin root with a physical containment check; no handler path is parsed out of command text. User-level `~/.claude/settings.json` hooks are not read.
 
 ## Hook handler code (0.8.0)
 
-Claude Code runs a plugin's code two ways: a hooks module that `hooks/hooks.json` names under `modules` (with every file it imports from the plugin), and a command hook's handler (`node "${CLAUDE_PLUGIN_ROOT}/hooks/x.mjs"`). The audit reads that code by the layout the runtime reads, never by a path parsed out of command text: HOOK-001 to HOOK-004 read every `.ts .tsx .jsx .js .mjs .cjs .mts .cts .py` file under an enabled plugin's `hooks/` (not a `.d.ts`, `*.test.*` or `*.spec.*` file, nothing under `tests/`, `test/`, `fixtures/` or `node_modules/`), an executable file with no code suffix there, and code under the project's own `.claude/hooks/` whatever its mode. A file below a plugin's `hooks/` whose name holds a newline or tab, or such a code file under `.claude/hooks/` (non-executable, or a `.py .js .ts` file in any mode), cannot be listed as a target, so it is a High HOOK-005, not read (an executable one there whose suffix the enumeration does not list, such as `.mjs` or none, still refuses the audit, #426). A symlink is never followed: each one below a plugin's `hooks/` or the project's `.claude/hooks/`, and either dir when it is a symlink, is a High HOOK-005 naming the path, not read; one below a `node_modules/` under that dir (a package-manager link into code that is not read) is not a stop, judged relative to the hooks dir. A plugin named like a version (`unknown`, `deadbeef`) is placed by position: a version-named segment followed by a version-named one is `<plugin>/<version>/`; one whose version dir is not version-shaped (`latest`, a date, `1`) is not placed, and its hooks are not read. Each `modules` path is resolved relative to `hooks/hooks.json` with the same physical containment check; one that does not resolve to handler code inside `hooks/` is a High HOOK-005 finding, and each one that does is counted as `modules=N`. A handler outside `hooks/` (a command that runs `scripts/x.mjs`) and a file a module imports from outside `hooks/` are not read; the command that calls a handler is still checked.
+Claude Code runs a plugin's code two ways: a hooks module that `hooks/hooks.json` names under `modules` (with every file it imports from the plugin), and a command hook's handler (`node "${CLAUDE_PLUGIN_ROOT}/hooks/x.mjs"`). The audit reads that code by the layout the runtime reads, never by a path parsed out of command text: HOOK-001 to HOOK-004 read every `.ts .tsx .jsx .js .mjs .cjs .mts .cts .py` file under an enabled plugin's `hooks/` (not a `.d.ts`, `*.test.*` or `*.spec.*` file, nothing under `tests/`, `test/`, `fixtures/` or `node_modules/`), an executable file with no code suffix there, and code under the project's own `.claude/hooks/` whatever its mode. A path there that is outside the narrowed input (see Enumerate below: a name outside printable ASCII, a symlink, a file that is not regular, a file over 1 MiB) is a High HOOK-005 naming the path, escaped, and is not read; so is either hooks dir when it is a symlink. One below a `node_modules/` under that dir is a High SCANNER-003 instead, judged relative to the hooks dir. A plugin named like a version (`unknown`, `deadbeef`) is placed by position: a version-named segment followed by a version-named one is `<plugin>/<version>/`; one whose version dir is not version-shaped (`latest`, a date, `1`) is not placed, and its hooks are not read. Each `modules` path is resolved relative to `hooks/hooks.json` with the same physical containment check; one that does not resolve to handler code inside `hooks/` is a High HOOK-005 finding, and each one that does is counted as `modules=N`. A handler outside `hooks/` (a command that runs `scripts/x.mjs`) and a file a module imports from outside `hooks/` are not read; the command that calls a handler is still checked.
 
 The patterns are the same common-pattern regexes as for scripts. In code HOOK-001 to HOOK-003 read a command written as a string, and HOOK-004 also reads one written as quoted argv words; code-shaped forms (`fetch`, `$.http.fetch`, `homedir()` joins, an argv `rm`, `fs.rmSync`, `eval(`) need judgment and are not read. This keeps the no-LLM boundary below: the handler-file test and the `modules` read are mechanical, can only add a stop, and approve nothing (skill-first question 3).
-
-## `/apply-fix` and `state.json`
-
-`.claude/audits/state.json` is editable by someone other than membrane (the tamper checks, when run by hand, treat it so), so `/apply-fix` takes nothing from it that it would run. It reads the finding's `rule_id` and `file`, finds the rule by comparing that id whole against the `RULE_ID=` line of each shipped rule file, read as text (one regular file, not a symlink; none or two is a refusal), and only then sources that shipped file to check both flags and call its `fix`. A path in the entry (`rule_path`, which membrane never writes) is never sourced or run, and the skill says not to source one either; `file` goes only through the allowlist, symlink and traversal checks before it is written (skill-first question 2: ids membrane mints, against its own rules dir).
-
-A failing `fix()` is reported and its audit-trail entry marked `failed`, so the user can run it again (a mark that cannot be written is reported, and the entry stays `applied`); an entry that cannot be written, or an `applied_fixes` that is not a list, refuses before `fix()` runs, so no fix runs unrecorded. `fix()` runs with errexit on and stops at its first failing command.
-
-## git config of the audited project
-
-The tamper checks' tracked-status read (TAMPER-003, through `csa state_update_self_integrity` and `csa state_check_tamper`, which `/security-audit` does not call today) is the only place membrane runs git, and it runs inside the audited project, so git reads that project's config. A checkout can name a command there that a read of the index runs: `core.fsmonitor`, set in `.git/config`, through `include.path` or `includeIf`, or in the gitdir a `.git` file points at. membrane passes `-c core.fsmonitor=` on every git call, which beats every config file, and redirects git's output (no pager). Measured on git 2.53, no other key runs a command on that read (hooks, filters, textconv, `diff.external`, pager, credential and ssh helpers, aliases, `trace2`). Not stopped: an `include.path` naming a FIFO hangs the read, and a repository git calls of dubious ownership reads as untracked. The skill never runs git in the audited project itself.
 
 ## Secondary threats — the realistic v0.1 primary value
 
@@ -50,32 +40,48 @@ The tamper checks' tracked-status read (TAMPER-003, through `csa state_update_se
 
 The audit reads files that, per the threat model, may be attacker-controlled. The plugin detecting exfiltration must not itself be one:
 - Static analysis only — no LLM evaluation over raw file bytes
-- Findings show `file:line:offset` with redacted previews (`sk-ant-***xyz`); never full secret material. A finding with no line (line 0) prints the bare `file`, and one that names a JSON entry (a `json_path`) prints `file#path`
+- Findings show `file:line:offset` with redacted previews (`sk-ant-***xyz`, and `NAME=***` for a value assigned to a secret-named variable); never full secret material. The report's list of hook commands is redacted the same way. A finding with no line (line 0) prints the bare `file`, and one that names a JSON entry (a `json_path`) prints `file#path`
 - No subagent / codex dispatch on file content
 
 ## Enumerate-targets resolution algorithm (T2-J pin)
 
 ```
-1. PROJECT_TARGETS:
-   - Every file under "$PWD/.claude/" matching per-aspect glob patterns
-   - $PWD/CLAUDE.md and nested CLAUDE.md files in subdirs
-   - $PWD/.claude-plugin/marketplace.json if present
+0. THE NARROWED INPUT (0.9.0), one predicate for every walk below. A path below an audited
+   tree is read only when every byte of it below the tree is printable ASCII (0x20-0x7E), it
+   is a regular file reached through no symlink, and it is at most 1 MiB. Anything else is
+   one stop naming the path (escaped) and is not read: HOOK-005 below a plugin's hooks/ or
+   the project's .claude/hooks/ (not below a node_modules/ there), SCANNER-003 elsewhere,
+   both High. A symlink or a file that is not regular is a stop wherever it sits in a
+   walked tree; a name or a size only for a file the walk would read. The walks are
+   NUL-delimited, so no name can split a target. Skill-first question 2 for the predicate
+   (a fixed alphabet, file kinds, a size bound), question 3 for each stop.
+
+1. PROJECT_TARGETS (the root: an absolute directory holding no control character, or exit 2):
+   - Every file under "$PWD/.claude/" (not .claude/audits/) with a suffix the rules read
+     (.md .json .sh .py .js .ts .mjs .cjs .tsx .jsx .mts .cts), and every executable file
+     under .claude/hooks/
+   - Every CLAUDE.md and */.codex-plugin/plugin.json below $PWD (a symlinked directory on the
+     way is not followed)
+   - $PWD/.claude-plugin/marketplace.json, $PWD/.mcp.json, $PWD/AGENTS.md, $PWD/package.json and
+     $PWD/.agents/plugins/marketplace.json if present
+   - .opencode/ and .codex/ (and ~/.codex/config.toml with a Codex surface)
 
 2. ENABLED_PLUGINS_SET:
    a. Read "enabledPlugins" from three files, in this order: $HOME/.claude/settings.json,
       $PWD/.claude/settings.json, $PWD/.claude/settings.local.json. Claude Code writes an
       object map, {"<plugin>@<marketplace>": true|false}; only boolean values count. An
-      array of names (older files, fixtures) reads as each name true. Malformed JSON or
-      an absent key reads as empty (SETTINGS-PARSE is the rule engine's concern).
+      array of names (older files, fixtures) reads as each name true. An absent key or
+      an absent file reads as empty.
    b. Merge by key, the later file wins: a project `false` disables a user `true`. The
       set is the keys left at true. Identity is the whole key, plugin@marketplace, so two
       marketplaces with one plugin name stay distinct.
    c. A value that holds entries yet yields none (a string, an array of non-strings, an
       object of non-booleans) prints one warning naming the shape. This format belongs to
       another tool and can change; an audit that skips every plugin must not read as clean.
-   d. An unreadable settings file, or an unreadable or unrecognised
-      installed_plugins.json, makes the set unknown: the enumeration stops (rc 2). It
-      never reads as empty.
+   d. A settings file that is unreadable, not a regular file, or not valid JSON (an empty
+      file included), a project settings file reached through a symlink, or an unreadable or
+      unrecognised installed_plugins.json, makes the set unknown: the enumeration stops
+      (rc 2). It never reads as empty.
    e. Resolve each key to a filesystem path:
       - First: $HOME/.claude/plugins/installed_plugins.json. Take this project's `local`,
         else `project`, entry (its projectPath equals the project root, compared as

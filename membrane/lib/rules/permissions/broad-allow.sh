@@ -4,8 +4,6 @@ RULE_NAME="broad-allow"
 RULE_ASPECT="permissions"
 RULE_SEVERITY="medium"
 RULE_DESCRIPTION="Overly broad allow rule detected (Bash(*), Read(*), or Write(*)) — grants unrestricted tool access."
-RULE_AUTO_FIXABLE="true"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Scope allow rules to specific commands or paths. Replace Bash(*) with Bash(git:*), Bash(npm:*), etc. Replace Read(*)/Write(*) with specific path patterns."
 RULE_REFERENCES=""
 

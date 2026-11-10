@@ -8,7 +8,6 @@ CSA="$CSA_PLUGIN_ROOT/bin/csa"
 
 _csa_failed=0
 _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-rff.XXXXXX")"
-trap 'rm -rf "$_CSA_TMP"' EXIT
 _n=0
 
 # _mk_root: sets $root to a fresh project dir with .claude/audits/.

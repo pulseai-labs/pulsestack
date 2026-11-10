@@ -4,8 +4,6 @@ RULE_NAME="internal-markers"
 RULE_ASPECT="claude-md"
 RULE_SEVERITY="medium"
 RULE_DESCRIPTION="INTERNAL, CONFIDENTIAL, or PII marker detected in CLAUDE.md — may expose sensitive internal context to the model."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Remove or redact the internal/confidential content from CLAUDE.md. Move sensitive context to a separate file excluded from version control, or use environment variables."
 RULE_REFERENCES=""
 

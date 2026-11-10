@@ -4,8 +4,6 @@ RULE_NAME="curl-pipe-bash"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="critical"
 RULE_DESCRIPTION="Remote code execution via curl/wget piped to shell detected in a hook script, handler or command."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Remove the pipe-to-shell pattern. Download and verify scripts before executing. Never pipe untrusted content directly to bash/sh/zsh."
 RULE_REFERENCES=""
 

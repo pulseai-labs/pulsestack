@@ -9,7 +9,6 @@ _csa_failed=0
 # 1. Project with no .claude/ → empty (SPEC §13 edge 3)
 test_enum_no_dot_claude_returns_empty() {
   local tmp; tmp="$(mktemp -d "${TMPDIR:-/tmp}/csa-enum.XXXXXX")"
-  trap "rm -rf '$tmp'" EXIT
   local out; out="$(csa_enum_project_targets "$tmp")"
   assert_eq "" "$out"
 }
@@ -25,7 +24,6 @@ test_enum_project_only() {
 # 3. Project + one fake enabled plugin
 test_enum_project_plus_one_plugin() {
   local fake_home; fake_home="$(mktemp -d "${TMPDIR:-/tmp}/csa-home.XXXXXX")"
-  trap "rm -rf '$fake_home'" EXIT
   mkdir -p "$fake_home/.claude/plugins/cache/fake-plugin/1.0.0"
   echo "test" > "$fake_home/.claude/plugins/cache/fake-plugin/1.0.0/file.sh"
 
@@ -42,7 +40,6 @@ test_enum_project_plus_one_plugin() {
 # 4. N enabled plugins (N=3)
 test_enum_project_plus_n_plugins() {
   local fake_home; fake_home="$(mktemp -d "${TMPDIR:-/tmp}/csa-home3.XXXXXX")"
-  trap "rm -rf '$fake_home'" EXIT
   for p in p1 p2 p3; do
     mkdir -p "$fake_home/.claude/plugins/cache/$p/1.0.0"
     echo "x" > "$fake_home/.claude/plugins/cache/$p/1.0.0/f.sh"
@@ -59,23 +56,22 @@ test_enum_project_plus_n_plugins() {
   rm -rf "$fixture"
 }
 
-# 5. Malformed settings → enabled plugins gracefully degrades to empty (jq returns []).
-#    The plan says "emits SETTINGS-PARSE-001 on stderr". Our implementation degrades silently
-#    (returns empty enabled set). SETTINGS-PARSE-001 emission is a rule-engine concern; here
-#    we test that enumerate degrades safely without throwing.
-test_enum_malformed_settings_degrades_to_empty() {
+# 5. A project settings.json that is not JSON leaves the enabled set unknown: rc 2, nothing on stdout, and the
+#    message an unreadable one has. Control: the same file as valid JSON lists its plugin.
+test_enum_malformed_settings_is_rc2() {
   local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-bad.XXXXXX")"
-  trap "rm -rf '$fixture'" EXIT
   mkdir -p "$fixture/.claude"
   echo '{ this is not json' > "$fixture/.claude/settings.json"
-  local out; out="$(HOME=/nonexistent csa_enum_enabled_plugins "$fixture" 2>/dev/null)"
-  assert_eq "" "$out"
+  local out rc=0; out="$(HOME=/nonexistent csa_enum_enabled_plugins "$fixture" 2>"$fixture/err")" || rc=$?
+  assert_eq "2|" "$rc|$out" "rc 2, nothing listed" || return 1
+  assert_eq "csa: cannot read $fixture/.claude/settings.json; the enabled-plugin set is unknown" "$(cat "$fixture/err")" "the message" || return 1
+  echo '{"enabledPlugins":{"p@m":true}}' > "$fixture/.claude/settings.json"
+  assert_eq "p@m" "$(HOME=/nonexistent csa_enum_enabled_plugins "$fixture" 2>/dev/null)" "control: valid JSON" || return 1
 }
 
 # 6. Missing cache → PROVENANCE-002 marker on stderr
 test_enum_missing_cache_returns_provenance() {
   local fake_home; fake_home="$(mktemp -d "${TMPDIR:-/tmp}/csa-empty-home.XXXXXX")"
-  trap "rm -rf '$fake_home'" EXIT
   local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-no-cache.XXXXXX")"
   mkdir -p "$fixture/.claude"
   echo '{"enabledPlugins":["missing"]}' > "$fixture/.claude/settings.json"
@@ -88,12 +84,11 @@ test_enum_missing_cache_returns_provenance() {
 # 7. Symlink skipped + info logged (SPEC §13 edge 1)
 test_enum_symlink_in_target_dir() {
   local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-sym.XXXXXX")"
-  trap "rm -rf '$fixture'" EXIT
   mkdir -p "$fixture/.claude"
   echo '{}' > "$fixture/.claude/real.json"
   ln -s "$fixture/.claude/real.json" "$fixture/.claude/link.json"
   local stderr; stderr="$(csa_enum_project_targets "$fixture" 2>&1 >/dev/null)"
-  assert_contains "$stderr" "symlink at" || return 1
+  assert_contains "$stderr" "finding: SCANNER-003"$'\t\t'"$fixture/.claude/link.json"$'\t'"symlink" "one stop names the symlink" || return 1
   local stdout; stdout="$(csa_enum_project_targets "$fixture" 2>/dev/null)"
   # link.json should not be in stdout (symlink not enumerated); real.json should be.
   if [[ "$stdout" == *"link.json"* ]]; then return 1; fi
@@ -103,7 +98,6 @@ test_enum_symlink_in_target_dir() {
 # 8. Gitignored file under .claude/ IS enumerated (SPEC §13 edge 2)
 test_enum_gitignored_target_still_scanned() {
   local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-gi.XXXXXX")"
-  trap "rm -rf '$fixture'" EXIT
   mkdir -p "$fixture/.claude"
   echo '.claude/secret.json' > "$fixture/.gitignore"
   echo '{}' > "$fixture/.claude/secret.json"
@@ -215,16 +209,14 @@ test_enum_tab_named_hook_code_is_hook005() {
   chmod 0700 "$hooks/u${t}x.py" "$hooks/j${t}x.js" "$hooks/t${t}x.ts" "$hooks/s${t}h.sh"
   chmod 0610 "$hooks/g${t}x.py"; chmod 0601 "$hooks/o${t}x.py"
   local out err; out="$(csa_enum_project_targets "$root" 2>"$tmp/err")"; err="$(cat "$tmp/err")"
-  for f in "a\\tb.py" "c\\td.js" "e\\tf.ts" "g\\tx.py" "j\\tx.js" "o\\tx.py" "t\\tx.ts" "u\\tx.py"; do
-    want="$want${want:+$'\n'}finding: HOOK-005${t}${t}$hooks/$f"
+  # Every name holding a tab is one stop and is never a target line, a .sh one and one outside hooks/ included (those
+  # used to be listed, split at the tab): below .claude/hooks/ a HOOK-005, elsewhere a SCANNER-003.
+  for f in "a\\tb.py" "c\\td.js" "e\\tf.ts" "g\\tx.py" "j\\tx.js" "n\\th.sh" "o\\tx.py" "s\\th.sh" "t\\tx.ts" "u\\tx.py"; do
+    want="$want${want:+$'\n'}finding: HOOK-005${t}${t}$hooks/$f${t}name"
   done
-  assert_eq "$want" "$(printf '%s\n' "$err" | grep '^finding:' | LC_ALL=C sort)" "one HOOK-005 line per code file" || rc=1
-  for f in "a${t}b.py" "c${t}d.js" "e${t}f.ts" "g${t}x.py" "j${t}x.js" "o${t}x.py" "t${t}x.ts" "u${t}x.py"; do
-    [[ "$out" != *"$hooks/$f"* ]] || { printf '    %s was listed\n' "$f" >&2; rc=1; }
-  done
-  for f in "$hooks/s${t}h.sh" "$hooks/n${t}h.sh" "$root/.claude/x${t}y.py"; do
-    assert_eq "1" "$(printf '%s\n' "$out" | awk -v p="$f" '$0 == p { c++ } END { print c + 0 }')" "$f is listed once" || rc=1
-  done
+  want="$want"$'\n'"finding: SCANNER-003${t}${t}$root/.claude/x\\ty.py${t}name"
+  assert_eq "$want" "$(printf '%s\n' "$err" | grep '^finding:' | LC_ALL=C sort)" "one stop line per tab-named file" || rc=1
+  [[ "$out" != *"${t}"* ]] || { printf '    a tab-named file was listed: %s\n' "$out" >&2; rc=1; }
   rm -rf "$tmp"
   return "$rc"
 }
@@ -401,7 +393,6 @@ test_enum_paranoid_candidates_unreadable_cache() {
 # 11. Codex-only project surfaces are enumerated for dual-publish v0.
 test_enum_codex_project_targets() {
   local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-codex.XXXXXX")"
-  trap "rm -rf '$fixture'" EXIT
   mkdir -p "$fixture/.codex" "$fixture/.agents/plugins" "$fixture/tool/.codex-plugin"
   echo '# Agent rules' > "$fixture/AGENTS.md"
   echo '{}' > "$fixture/.codex/config.json"
@@ -419,7 +410,6 @@ test_enum_codex_project_targets() {
 # artifacts. A CLAUDE.md reachable through both surfaces must appear once.
 test_enum_opencode_project_targets_exact_set() {
   local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-opencode.XXXXXX")"
-  trap "rm -rf '$fixture'" EXIT
   mkdir -p \
     "$fixture/.claude/audits" \
     "$fixture/.opencode/audits" \
@@ -473,8 +463,8 @@ test_enum_opencode_project_targets_exact_set() {
   assert_eq "$target_count" "$unique_count" "OpenCode targets are deduplicated" || return 1
 
   local stderr; stderr="$(<"$stderr_file")"
-  assert_contains "$stderr" "info: symlink at $fixture/.opencode/bin/arc-link not followed" \
-    "OpenCode symlink warning" || return 1
+  assert_contains "$stderr" "finding: SCANNER-003"$'\t\t'"$fixture/.opencode/bin/arc-link"$'\t'"symlink" \
+    "OpenCode symlink stop" || return 1
 }
 
 # No CSA_GLOB_* setting is defined or read in lib/: the enumeration and the aspect gates name their own suffixes, so
@@ -487,7 +477,7 @@ csa_test_run test_enum_no_dot_claude_returns_empty       || _csa_failed=$((_csa_
 csa_test_run test_enum_project_only                       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_project_plus_one_plugin            || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_project_plus_n_plugins             || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_enum_malformed_settings_degrades_to_empty || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_enum_malformed_settings_is_rc2 || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_missing_cache_returns_provenance   || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_symlink_in_target_dir              || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_gitignored_target_still_scanned    || _csa_failed=$((_csa_failed + 1))

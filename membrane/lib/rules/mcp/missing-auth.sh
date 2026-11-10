@@ -4,8 +4,6 @@ RULE_NAME="missing-auth"
 RULE_ASPECT="mcp"
 RULE_SEVERITY="high"
 RULE_DESCRIPTION="MCP server entry has a URL but no Authorization header or env-based auth placeholder."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Add an Authorization header or env-based token to the MCP server configuration, or confirm the endpoint is intentionally public."
 RULE_REFERENCES=""
 

@@ -59,14 +59,9 @@ assert_exits_with() {
   fi
 }
 
-# csa_tmpdir — create a sandbox tempdir, register cleanup on exit.
+# csa_tmpdir — a sandbox tempdir inside this test file's temp scope (csa_tmp_scope below), removed with it.
 csa_tmpdir() {
-  local d
-  d="$(mktemp -d "${TMPDIR:-/tmp}/csa-test.XXXXXX")"
-  # Auto-cleanup on script exit. NOTE: each csa_tmpdir call REPLACES the EXIT
-  # trap — call it once per test script. Future helper if multi-dir is needed.
-  trap "rm -rf '$d'" EXIT
-  printf '%s' "$d"
+  mktemp -d "$TMPDIR/csa-test.XXXXXX"
 }
 
 # Resolve plugin root regardless of CWD or BASH_SOURCE quirks (architect-critic
@@ -77,10 +72,17 @@ export CSA_LIB_DIR="$CSA_PLUGIN_ROOT/lib"
 export CSA_RULES_DIR="$CSA_LIB_DIR/rules"
 export CSA_FIXTURES_DIR="$CSA_PLUGIN_ROOT/fixtures"
 
+# Every temp dir a test file makes, and every one bin/csa makes under it, lands in one directory that one trap removes
+# on EXIT, INT, TERM and HUP: lib/helpers.sh's csa_tmp_scope, the helper bin/csa uses. A test file sets no EXIT trap of
+# its own (tests/test-helpers.sh checks), since that would replace this one.
+# shellcheck source=/dev/null
+source "$CSA_LIB_DIR/helpers.sh"
+csa_tmp_scope test || { printf 'tests/_helpers.sh: cannot create a temp directory\n' >&2; exit 1; }
+
 # csa_audit_harness <project_root> [focus]
 # The audit's lib calls in this shell, not the skill's steps: scan, tag NEW/PERSISTED, filter suppressions, record
-# the run. No display ids, report or bin/csa; errors are swallowed. Like the shipped flow it records no value in
-# self_integrity. Emits the filtered findings JSONL on stdout. _first_audit in test-suppress-remove-stale.sh runs
+# the run. No display ids, report or bin/csa; errors are swallowed. Emits the filtered findings JSONL on stdout.
+# _first_audit in test-suppress-remove-stale.sh runs
 # the skill's steps as written. Sets CSA_PROJECT_ROOT = project_root so libs that look at it pick it up.
 csa_audit_harness() {
   local root="$1"; local focus="${2:-all}"

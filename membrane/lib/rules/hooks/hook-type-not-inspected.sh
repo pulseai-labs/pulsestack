@@ -4,8 +4,6 @@ RULE_NAME="hook-type-not-inspected"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="info"
 RULE_DESCRIPTION="A JSON file declares hooks of a type the audit counts but does not inspect (http, prompt, agent, mcp_tool or a type added later)."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Read these hooks by hand. Only command hooks are checked against the HOOK patterns."
 RULE_REFERENCES=""
 # detect_text receives ALL of a file's entries at once (one JSON line each):

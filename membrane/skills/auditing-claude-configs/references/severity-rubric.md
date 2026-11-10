@@ -4,7 +4,7 @@ Distilled from SPEC §9.3. Each rule declares severity statically; chat-summary 
 
 ## Scanner findings
 
-The scanner reports its own failures as findings, not as a clean read. SCANNER-001: a rule failed to load (High). SCANNER-002: a rule's check failed on a target, for example a settings file that is not JSON (High). SCANNER-003: the scan could not read a target (Medium; one per target, for a scan whose rules would have read it, and it does not count toward the "rule(s) failed" banner), or a directory of an enabled plugin or below the project's `.claude/` other than `.claude/audits/` (not scanned) and `.claude/hooks/` (one per directory, naming the plugin when there is one; nothing below it was listed). An unreadable directory under `.claude/hooks/` still refuses the audit.
+The scanner reports its own failures as findings, not as a clean read. SCANNER-001: a rule failed to load (High). SCANNER-002: a rule's check failed on a target, for example a settings file that is not JSON (High). SCANNER-003: a path outside the narrowed input, one stop that names it and is not read (High: a symlink, a file that is not regular, a name outside printable ASCII, a file over 1 MiB; below a hooks dir the same stop is HOOK-005); or the scan could not read a target (Medium; one per target, for a scan whose rules would have read it); or a directory of an enabled plugin or below the project's `.claude/` other than `.claude/audits/` (not scanned) and `.claude/hooks/` (Medium, one per directory, naming the plugin when there is one; nothing below it was listed). No SCANNER-003 counts toward the "rule(s) failed" banner. An unreadable directory under `.claude/hooks/` still refuses the audit.
 
 ## Tiers (5 static)
 
@@ -12,7 +12,7 @@ The scanner reports its own failures as findings, not as a clean read. SCANNER-0
   *Ex:* hook executes `curl ... | bash`; `"deny": []` paired with broad allow; plaintext production API key in CLAUDE.md; agent prompt instructs reading and exfiltrating `~/.ssh/`.
 
 - **High** — significantly risky; fix this session.
-  *Ex:* MCP endpoint with no auth; `settings.local.json` silently broadens `settings.json`; plugin's hook contains base64-encoded payload that decodes to network call; settings schema typo (`"allowed"` instead of `"allow"`) silently disabling enforcement.
+  *Ex:* MCP endpoint with no auth; `settings.local.json` silently broadens `settings.json`; plugin's hook contains base64-encoded payload that decodes to network call; a symlinked `CLAUDE.md` the audit did not follow.
 
 - **Medium** — notable; fix within a few sessions.
   *Ex:* hook references external script not in repo; `Bash(*)` instead of `Bash(git:*)`; CLAUDE.md mentions internal-only paths; agent prompt has unusual instructions that look like prompt injection but lack clear exfiltration.
@@ -30,7 +30,7 @@ The scanner reports its own failures as findings, not as a clean read. SCANNER-0
 - **Info**: suppressed from chat by default; included in report file; surface in chat only with `--verbose`.
 - **Plugin test files and agent scratch** (a finding under an enabled plugin's `fixtures/` or `tests/`, or under the project's `.dagr/scratch/`): not listed in chat unless `--verbose`; one line after the table gives the count and the Critical, High and Medium split. Totals and severities are unchanged, and the report lists each with a `Group:` tag.
 
-Counts table at the top of chat output (mirrors SPEC §8.4 report header):
+Counts table at the top of chat output (mirrors SPEC §8.4 report header). The Suppressed column counts the findings `suppressions.json` hid in this run (marked SUPPRESSED; a Critical never is), and a line under the table gives the same number, 0 included, with a warning when `suppressions.json` was there before this machine recorded an audit of the project:
 
 ```
 | Severity | NEW | Persisted | Suppressed | Total visible |
@@ -47,7 +47,7 @@ Counts table at the top of chat output (mirrors SPEC §8.4 report header):
 `state.json.findings` registry tracks `seen_in_runs`. After every audit:
 - For each `finding_uid` in the registry, increment `seen_in_runs` if seen in current run.
 - Compute `runs_since_last_seen = current_run_index - last_seen_run_index`, minus the runs in that window that were focused on another aspect (#429). Each `audit_history` entry records its `focus`: `all` for a full audit, which counts for every finding, or the one aspect a focused scan covered. A finding's aspect is its rule's directory under `lib/rules/`.
-- A run recorded before 0.1.7 (no `focus`) counts as a full run. A `TAMPER-*` finding has no aspect and ages on every run. A `SCANNER-*` finding carries no `finding_uid`, so it never enters the registry.
+- A run recorded before 0.1.7 (no `focus`) counts as a full run. A registry entry whose rule no longer ships (a `TAMPER-*`, `MARKETPLACE-*` or `PERM-005` entry from an older release) has no aspect and ages on every run. A `SCANNER-*` finding carries no `finding_uid`, so it never enters the registry.
 - If `runs_since_last_seen > 10`, evict the entry.
 - An entry no reader can use is dropped at the next audit: one that is not an object, and one whose `last_run_index` is not a number (it cannot be aged) that does not fire in that audit. One that fires is re-sighted first, so it is kept, reads PERSISTED and keeps its `first_seen`. A `rule_id` that is not a string maps to no aspect, so the entry ages on every run. A registry that is not an object restarts empty. A finding whose entry was dropped reads NEW once.
 - A suppressed finding that still fires counts as seen: step 9 records it (marked `suppressed: true`; a Critical is never marked, since the filter never hides it), so it ages only when it stops firing, like any other.

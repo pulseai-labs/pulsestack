@@ -4,8 +4,6 @@ RULE_NAME="agent-exfiltration"
 RULE_ASPECT="prompt-injection"
 RULE_SEVERITY="critical"
 RULE_DESCRIPTION="Agent or command prompt contains exfiltration phrasing — likely attacker-injected instruction to leak credentials or SSH keys."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Remove the attacker-controlled phrasing. If the agent prompt came from an untrusted source (marketplace, user input), rotate any credentials accessible to the agent and audit its run history."
 RULE_REFERENCES=""
 

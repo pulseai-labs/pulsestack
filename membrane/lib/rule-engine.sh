@@ -323,15 +323,27 @@ _csa_rule_engine_validate_focus() {
   return 2
 }
 
+# _csa_enum_stop_text <why> — the reason and the preview head of a stop line's <why> (symlink, kind, name, size), as
+# two lines. The symlink wording is the one a hooks-dir symlink has had since 0.8.0.
+_csa_enum_stop_text() {
+  case "$1" in
+    symlink) printf 'symlink; not followed\nit is a symlink, which is never followed\n' ;;
+    kind)    printf 'not a regular file; not read\nit is not a regular file\n' ;;
+    name)    printf 'name holds a byte outside printable ASCII; not read\nits name holds a byte outside printable ASCII (shown escaped)\n' ;;
+    size)    printf 'over 1 MiB; not read\nit is over 1 MiB\n' ;;
+    *)       return 1 ;;
+  esac
+}
+
 # _csa_enum_stderr_to_findings <enumeration-stderr>
-# Turns each `finding: PROVENANCE-002 plugin <key> enabled but <reason>` line,
-# and each `finding: HOOK-005` line for a hook file whose name holds a newline or
-# tab or that is a symlink, into a High finding JSONL record on stdout, each
-# `finding: SCANNER-003` line for a directory the enumeration could not read into
-# a Medium one, and passes every `csa:` line on to stderr. Other lines (info
-# notes) are dropped, as they always were on success.
+# Turns each `finding: PROVENANCE-002 plugin <key> enabled but <reason>` line into a High finding JSONL record on
+# stdout; each stop of the narrowed input (lib/enumerate-targets.sh), `finding: HOOK-005|SCANNER-003<TAB><key><TAB>
+# <path><TAB><why>`, into one High HOOK-005 (a hooks dir) or SCANNER-003 (anywhere else) naming the escaped path; each
+# `finding: SCANNER-003<TAB><key><TAB><dir>` line, a directory the enumeration could not read, into a Medium
+# SCANNER-003; and passes every `csa:` line on to stderr. A path two walks stop on (a CLAUDE.md below .claude/hooks/)
+# is one finding, the first. Other lines are dropped.
 _csa_enum_stderr_to_findings() {
-  local line rest key reason fuid file why head tab=$'\t'
+  local line rest key reason fuid file why head tab=$'\t' id txt seen=$'\n'
   while LC_ALL=C IFS= read -r line; do
     case "$line" in
       "finding: PROVENANCE-002 plugin "*" enabled but "*)
@@ -349,30 +361,29 @@ _csa_enum_stderr_to_findings() {
            severity: "high", context: {plugin: $key, reason: $reason}}
           + (if $fuid == "" then {} else {finding_uid: $fuid} end)'
         ;;
-      "finding: HOOK-005$tab"*"$tab"*)
-        # A hook file left unread (_csa_enum_unread_hook_file): `finding:
-        # HOOK-005<TAB><plugin key or empty><TAB><path>` because its name holds
-        # a newline or tab, with `<TAB>symlink` after the path because it is a
-        # symlink. Key and path are escaped onto one line, so neither holds a tab.
-        rest="${line#"finding: HOOK-005$tab"}"
-        key="${rest%%"$tab"*}"
-        file="${rest#*"$tab"}"
-        # why: the uid's excerpt; reason and head: the record's text.
-        why="name holds a newline or tab"
-        reason="name holds a newline or tab; not read"
-        head="hook file not read: its name holds a newline or tab"
-        if [[ "$file" == *"${tab}symlink" ]]; then
-          file="${file%"${tab}symlink"}"
-          why="symlink; not followed"
-          reason="symlink; not followed"
-          head="hook path not read: it is a symlink, which is never followed"
+      "finding: HOOK-005$tab"*"$tab"*"$tab"*|"finding: SCANNER-003$tab"*"$tab"*"$tab"*)
+        # A stop: id, key, path (both escaped, so neither holds a tab) and why.
+        id="${line#finding: }"; id="${id%%"$tab"*}"
+        rest="${line#"finding: $id$tab"}"
+        key="${rest%%"$tab"*}"; rest="${rest#*"$tab"}"
+        file="${rest%"$tab"*}"; why="${rest##*"$tab"}"
+        txt="$(_csa_enum_stop_text "$why")" || continue
+        [[ "$seen" != *$'\n'"$file"$'\n'* ]] || continue
+        seen="$seen$file"$'\n'
+        reason="${txt%%$'\n'*}"; head="${txt#*$'\n'}"
+        if [[ "$id" == HOOK-005 ]]; then
+          head="hook path not read: $head"
+          # The uid's excerpt is the reason; a symlink's is the one 0.8.0 gave.
+          fuid=""
+          if declare -F csa_finding_uid_raw >/dev/null 2>&1; then
+            fuid="$(csa_finding_uid_raw "HOOK-005" "$file" "$reason")"
+          fi
+        else
+          head="path not read: $head"
+          fuid=""
         fi
-        fuid=""
-        if declare -F csa_finding_uid_raw >/dev/null 2>&1; then
-          fuid="$(csa_finding_uid_raw "HOOK-005" "$file" "$why")"
-        fi
-        jq -nc --arg key "$key" --arg file "$file" --arg fuid "$fuid" --arg reason "$reason" --arg head "$head" '
-          {rule_id: "HOOK-005", file: $file, line: 0, offset: 0,
+        jq -nc --arg id "$id" --arg key "$key" --arg file "$file" --arg fuid "$fuid" --arg reason "$reason" --arg head "$head" '
+          {rule_id: $id, file: $file, line: 0, offset: 0,
            preview: ($head + (if $key == "" then "" else " (plugin " + $key + ")" end)),
            severity: "high",
            context: ({reason: $reason}
@@ -399,7 +410,8 @@ _csa_enum_stderr_to_findings() {
 }
 
 # _csa_hook_coverage_line <cache_dir> <findings_file>
-# Prints `csa: hook-coverage checked=N flagged=N not-inspected=N unreadable=N modules=N` on stderr.
+# Prints `csa: hook-coverage checked=N flagged=N not-inspected=N unreadable=N modules=N (flagged counts pattern matches
+# only; the report lists every hook command read)` on stderr: a bare `flagged=0` read as an approval.
 # checked: command entries read and matched against the HOOK patterns by every
 # rule; flagged: those of them with at least one finding; not-inspected: entries
 # of another type; unreadable: entries (or files) that could not be read, plus
@@ -432,18 +444,46 @@ _csa_hook_coverage_line() {
         + " flagged=\([$ok[] | select($flagged[.file + "\u001f" + .json_path])] | length)"
         + " not-inspected=\([$e[] | select(has("inconclusive") | not) | select(has("module") | not) | select(.type != "command")] | length)"
         + " unreadable=\([$e[] | select(has("inconclusive"))] | length + ($cmd | length) - ($ok | length))"
-        + " modules=\([$e[] | select(has("inconclusive") | not) | select(has("module"))] | length)"' >&2 2>/dev/null; then
+        + " modules=\([$e[] | select(has("inconclusive") | not) | select(has("module"))] | length)"
+        + " (flagged counts pattern matches only; the report lists every hook command read)"' >&2 2>/dev/null; then
     printf 'csa: hook-coverage unavailable\n' >&2
   fi
   rm -f "$all"
 }
 
-# csa_rule_engine_scan_all <project_root> [<focus>]
+# _csa_hook_commands_list <cache_dir> <out_file> — every command hook entry this run read, one JSON object per line,
+# {file, json_path, command}, the command redacted (csa_redact over csa_mask_assignments), written to <out_file>. The
+# report prints it under "Hook commands read": they run automatically, and a pattern match is not a reading of them.
+# Skill-first question 2: the run's own cache files, a closed shape. rc 1, with one `csa:` line, when it cannot write.
+_csa_hook_commands_list() {
+  local cache="$1" out="$2" t target c entry jp text cmd
+  {
+    for t in "$cache"/*.target; do
+      [[ -f "$t" ]] || continue
+      target="$(cat "$t")"
+      c="${t%.target}"
+      while LC_ALL=C IFS= read -r entry; do
+        [[ -n "$entry" ]] || continue
+        jp="$(printf '%s' "$entry" | jq -r '.json_path // ""')"
+        text="$(printf '%s' "$entry" | jq -j '.text')"
+        cmd="$(csa_redact "$(csa_mask_assignments "$text")")"
+        jq -nc --arg f "$target" --arg jp "$jp" --arg c "$cmd" '{file: $f, json_path: $jp, command: $c}'
+      done < <(jq -c 'select(.type == "command" and (.text | type) == "string")' "$c" 2>/dev/null)
+    done
+  } > "$out" 2>/dev/null || {
+    printf 'csa: cannot write the hook-command list to %s\n' "$(csa_escape "$out")" >&2
+    return 1
+  }
+}
+
+# csa_rule_engine_scan_all <project_root> [<focus>] [<hook-commands-file>]
 # Discovers all rule files (filtered by focus aspect), runs the matrix.
 # Uses aspect-based pre-filtering to reduce rule×target cross-product.
 # Emits SCANNER-002 banner on stderr if 3+ SCANNER-002 findings emerge.
+# With <hook-commands-file>, writes there the hook commands the run read (_csa_hook_commands_list).
 csa_rule_engine_scan_all() {
-  local root="$1"; local focus="${2:-all}"
+  local root="$1"; local focus="${2:-all}" hook_list="${3-}"
+  csa_root_ok "$root" || return 2
   # Trailing slashes off: targets are enumerated as "$root/.claude/...", and
   # _csa_hook_target_mode compares them to that exact path (#1059 C2). Holds for any root
   # other than "/"; for "/" itself the settings hooks are still skipped, as before 0.3.1.
@@ -459,9 +499,12 @@ csa_rule_engine_scan_all() {
   local findings_out; findings_out="$(mktemp)"
   # Pre-collect targets once (avoids re-running enumeration per rule).
   local targets_file; targets_file="$(mktemp)"
-  local enum_error
+  local enum_error line
   if ! enum_error="$(csa_enum_targets_all "$root" 2>&1 > "$targets_file")"; then
-    printf '%s\n' "$enum_error" >&2
+    # The refusal's own `csa:` lines; a stop line found before it is no finding of a scan that did not run.
+    while LC_ALL=C IFS= read -r line; do
+      case "$line" in "csa: "*) printf '%s\n' "$line" >&2 ;; esac
+    done <<< "$enum_error"
     rm -f "$findings_out" "$targets_file"
     return 2
   fi
@@ -504,6 +547,7 @@ csa_rule_engine_scan_all() {
   if [[ "$focus" == "all" || "$focus" == "hooks" ]]; then
     _csa_hook_coverage_line "$_CSA_HOOK_CACHE_DIR" "$findings_out"
   fi
+  [[ -z "$hook_list" ]] || _csa_hook_commands_list "$_CSA_HOOK_CACHE_DIR" "$hook_list" || :
   rm -rf "$_CSA_HOOK_CACHE_DIR"
   unset _CSA_HOOK_CACHE_DIR _CSA_ENGINE_ROOT
   scanner_002_count="$(grep -c 'SCANNER-002' "$findings_out" 2>/dev/null || true)"

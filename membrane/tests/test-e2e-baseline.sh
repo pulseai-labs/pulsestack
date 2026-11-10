@@ -15,7 +15,6 @@ source "$CSA_LIB_DIR/baseline.sh"
 source "$CSA_LIB_DIR/suppress.sh"
 
 _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-e2e-bl.XXXXXX")"
-trap 'rm -rf "$_CSA_TMP"' EXIT
 
 _csa_failed=0
 _test_n=0

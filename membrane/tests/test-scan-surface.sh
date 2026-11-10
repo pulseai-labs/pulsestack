@@ -8,7 +8,6 @@ source "$(dirname "$0")/_helpers.sh"
 
 _csa_failed=0
 _T="$(mktemp -d "${TMPDIR:-/tmp}/csa-surface.XXXXXX")"
-trap 'chmod -R u+rwx "$_T" 2>/dev/null; rm -rf "$_T"' EXIT
 _n=0
 _CSA="$CSA_PLUGIN_ROOT/bin/csa"
 _KEY='const k = "AKIAABCDEFGHIJKLMNOP";'

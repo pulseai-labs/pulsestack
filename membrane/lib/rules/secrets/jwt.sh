@@ -4,8 +4,6 @@ RULE_NAME="jwt"
 RULE_ASPECT="secrets"
 RULE_SEVERITY="high"
 RULE_DESCRIPTION="JSON Web Token (JWT) detected in plaintext."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Remove the JWT from the file. Rotate or revoke the token at the issuing service. Avoid committing tokens to version control."
 RULE_REFERENCES=""
 

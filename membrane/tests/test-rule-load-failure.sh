@@ -13,7 +13,6 @@ source "$CSA_LIB_DIR/enumerate-targets.sh"
 source "$CSA_LIB_DIR/rule-engine.sh"
 
 _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-rlfail.XXXXXX")"
-trap 'rm -rf "$_CSA_TMP"' EXIT
 
 _csa_failed=0
 _test_n=0
@@ -74,8 +73,6 @@ RULE_ID="FAIL-00${i}"
 RULE_NAME="fail-rule-${i}"
 RULE_ASPECT="test"
 RULE_SEVERITY="low"
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 detect() { return 2; }
 RULEEOF
   done

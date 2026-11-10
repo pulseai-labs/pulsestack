@@ -4,8 +4,6 @@ RULE_NAME="plaintext-secrets"
 RULE_ASPECT="claude-md"
 RULE_SEVERITY="critical"
 RULE_DESCRIPTION="API key or token detected in plaintext in CLAUDE.md."
-RULE_AUTO_FIXABLE="true"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Remove the secret from CLAUDE.md and rotate it at the provider. Replace with a placeholder like \${MY_SECRET} and load it from environment variables."
 RULE_REFERENCES=""
 

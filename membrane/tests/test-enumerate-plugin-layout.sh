@@ -13,7 +13,6 @@ source "$CSA_LIB_DIR/enumerate-targets.sh"
 
 _csa_failed=0
 _T="$(mktemp -d "${TMPDIR:-/tmp}/csa-layout.XXXXXX")"
-trap 'rm -rf "$_T"' EXIT
 _n=0
 
 # _mk <name> — fresh HOME ($_H) and project ($_P) for one test.
@@ -82,11 +81,30 @@ test_unrecognized_shape_warns_and_is_empty() {
   assert_contains "$err" "unrecognized shape (object)" "an object with no boolean value warns" || rc=1
   # Adjacent controls: these empty sets are legitimate and stay quiet.
   local quiet
-  for quiet in '{"enabledPlugins":{"a@m":false}}' '{"enabledPlugins":[]}' '{"enabledPlugins":{}}' '{}' '{ not json'; do
+  for quiet in '{"enabledPlugins":{"a@m":false}}' '{"enabledPlugins":[]}' '{"enabledPlugins":{}}' '{}'; do
     printf '%s\n' "$quiet" > "$_P/.claude/settings.json"
     err="$(HOME="$_H" csa_enum_enabled_plugins "$_P" 2>&1 >/dev/null)" || rc=1
     assert_eq "" "$err" "no warning for $quiet" || rc=1
   done
+  return "$rc"
+}
+
+# A settings file that exists and is not valid JSON (an empty one included) is not an empty plugin set: rc 2 with the
+# message an unreadable one has, for the user's file (#1092) as for the project's two. Control: a missing file is {}.
+test_settings_that_is_not_json_is_rc2() {
+  local rc=0 f bad err r
+  for f in "$_H/.claude/settings.json" "$_P/.claude/settings.json" "$_P/.claude/settings.local.json"; do
+    for bad in '{ not json' '' '[1,'; do
+      rm -f "$_H/.claude/settings.json" "$_P/.claude/settings.json" "$_P/.claude/settings.local.json"
+      printf '%s' "$bad" > "$f"
+      r=0; err="$(HOME="$_H" csa_enum_enabled_plugins "$_P" 2>&1 >/dev/null)" || r=$?
+      assert_eq 2 "$r" "$f holding '$bad' is rc 2" || rc=1
+      assert_eq "csa: cannot read $f; the enabled-plugin set is unknown" "$err" "$f holding '$bad': the message" || rc=1
+    done
+  done
+  rm -f "$_H/.claude/settings.json" "$_P/.claude/settings.json" "$_P/.claude/settings.local.json"
+  r=0; HOME="$_H" csa_enum_enabled_plugins "$_P" >/dev/null 2>&1 || r=$?
+  assert_eq 0 "$r" "control: no settings file at all is an empty set, rc 0" || rc=1
   return "$rc"
 }
 
@@ -369,7 +387,7 @@ test_is_version_name() {
 
 for t in test_object_map_true_keys_only test_array_form_still_reads \
          test_both_shapes_across_two_files_later_file_wins test_local_settings_is_read_and_wins \
-         test_unrecognized_shape_warns_and_is_empty \
+         test_unrecognized_shape_warns_and_is_empty test_settings_that_is_not_json_is_rc2 \
          test_record_picks_the_recorded_version_over_the_newest test_record_scope_precedence_and_other_projects \
          test_record_entry_for_another_project_only_falls_back_to_cache test_install_path_guard \
          test_name_with_slash_or_dotdot_is_refused test_bare_name_logic_and_local_dir \

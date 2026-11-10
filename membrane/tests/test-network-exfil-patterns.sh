@@ -14,7 +14,6 @@ source "$CSA_LIB_DIR/hook-entries.sh" 2>/dev/null || true
 
 _csa_failed=0
 _tmp="$(mktemp -d "${TMPDIR:-/tmp}/csa-nxp.XXXXXX")"
-trap 'rm -rf "$_tmp"' EXIT
 export CSA_PROJECT_ROOT="$_tmp"
 _RULE="$CSA_RULES_DIR/hooks/network-exfiltration.sh"
 

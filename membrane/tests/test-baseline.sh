@@ -8,7 +8,6 @@ source "$CSA_LIB_DIR/baseline.sh"
 _csa_failed=0
 
 _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-test.XXXXXX")"
-trap 'rm -rf "$_CSA_TMP"' EXIT
 
 # ---------------------------------------------------------------------------
 # 1. no prior state → all tagged NEW
