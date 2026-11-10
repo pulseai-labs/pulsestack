@@ -280,7 +280,7 @@ test_dispatcher_resolves_plugin_through_install_record() {
 # A malformed settings.json refuses the scan (rc 2): its enabled-plugin set is unknown. With a valid one, a chmod 000
 # CLAUDE.md is one SCANNER-003 and the scan exits 0.
 test_dispatcher_reports_malformed_settings_and_an_unreadable_target() {
-  [[ "$(id -u)" -ne 0 ]] || { printf '    SKIP: root reads a chmod 000 file\n' >&2; return 0; }
+  [[ "$(id -u)" -ne 0 ]] || { printf '    SKIP: root reads a chmod 000 file\n' >&2; return "$CSA_SKIP"; }
   local project="$_tmp/stops-project"
   mkdir -p "$project/.claude"
   printf '{"permissions": {' > "$project/.claude/settings.json"
@@ -320,7 +320,7 @@ test_dispatcher_chat_groups_plugin_fixture_findings() {
   f="$(jq -nc --arg a "$home/.claude/plugins/cache/mkt/plug/1.0.0/tests/t.sh" --arg b "$p/.claude/settings.json" '
     {rule_id:"HOOK-001",file:$a,line:3,offset:0,preview:"x",severity:"critical",finding_uid:"FUID-aaaaaaaa",state:"NEW",display_id:"SA-2026-11-05-001"},
     {rule_id:"PERM-001",file:$b,line:7,offset:0,preview:"y",severity:"high",finding_uid:"FUID-bbbbbbbb",state:"NEW",display_id:"SA-2026-11-05-002"}')"
-  out="$(CSA_PROJECT_ROOT="$p" "$CSA_PLUGIN_ROOT/bin/csa" report_render_chat "$f" 2>&1)" || ec=$?
+  out="$("$CSA_PLUGIN_ROOT/bin/csa" report_render_chat "$f" 2>&1)" || ec=$?
   assert_eq "0" "$ec" "dispatcher exit code" || return 1
   assert_contains "$out" "1 finding in plugin fixtures/tests and agent scratch copies (1 critical, 0 high, 0 medium); listed in the report" "count line" || return 1
   assert_contains "$out" "PERM-001 at $p/.claude/settings.json:7" "real finding listed" || return 1

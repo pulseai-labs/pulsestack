@@ -1,10 +1,10 @@
-# Severity rubric (v0.1)
+# Severity rubric
 
 Distilled from SPEC §9.3. Each rule declares severity statically; chat-summary posture follows.
 
 ## Scanner findings
 
-The scanner reports its own failures as findings, not as a clean read. SCANNER-001: a rule failed to load (High). SCANNER-002: a rule's check failed on a target, for example a settings file that is not JSON (High). SCANNER-003: a path outside the narrowed input, one stop that names it and is not read (High: a symlink, a file that is not regular, a name outside printable ASCII, a file over 1 MiB; below a hooks dir the same stop is HOOK-005); or the scan could not read a target (Medium; one per target, for a scan whose rules would have read it); or a directory of an enabled plugin or below the project's `.claude/` other than `.claude/audits/` (not scanned) and `.claude/hooks/` (Medium, one per directory, naming the plugin when there is one; nothing below it was listed). No SCANNER-003 counts toward the "rule(s) failed" banner. An unreadable directory under `.claude/hooks/` still refuses the audit.
+The scanner reports its own failures as findings, not as a clean read. SCANNER-001: a rule failed to load (High). SCANNER-002: a rule's check failed on a target, for example a settings file that is not JSON (High). SCANNER-003: a path outside the narrowed input, one stop that names it and is not read (High: a symlink, a file that is not regular, a name outside printable ASCII, a file over 1 MiB; below a hooks dir the same stop is HOOK-005); or the scan could not read a target (Medium; one per target, for a scan whose rules would have read it); or a directory of an enabled plugin, or below the project's `.codex/`, `.opencode/` or `.claude/` other than `.claude/audits/` (not scanned) and `.claude/hooks/` (Medium, one per directory, naming the plugin when there is one; nothing below it was listed). No SCANNER-003 counts toward the "rule(s) failed" banner. An unreadable directory under `.claude/hooks/` still refuses the audit.
 
 ## Tiers (5 static)
 
@@ -30,7 +30,7 @@ The scanner reports its own failures as findings, not as a clean read. SCANNER-0
 - **Info**: suppressed from chat by default; included in report file; surface in chat only with `--verbose`.
 - **Plugin test files and agent scratch** (a finding under an enabled plugin's `fixtures/` or `tests/`, or under the project's `.dagr/scratch/`): not listed in chat unless `--verbose`; one line after the table gives the count and the Critical, High and Medium split. Totals and severities are unchanged, and the report lists each with a `Group:` tag.
 
-Counts table at the top of chat output (mirrors SPEC §8.4 report header). The Suppressed column counts the findings `suppressions.json` hid in this run (marked SUPPRESSED; a Critical never is), and a line under the table gives the same number, 0 included, with a warning when `suppressions.json` was there before this machine recorded an audit of the project:
+Counts table at the top of chat output (mirrors SPEC §8.4 report header). The Suppressed column counts the findings `suppressions.json` hid in this run (marked SUPPRESSED; a Critical never is), and a line under the table gives the same number, 0 included, with a warning when `suppressions.json` is there and `.claude/audits/state.json` records no audit of the project (a checkout that ships `state.json` with an audit history silences it; the count still shows):
 
 ```
 | Severity | NEW | Persisted | Suppressed | Total visible |

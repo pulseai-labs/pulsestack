@@ -13,12 +13,19 @@ csa_sha256() {
   fi
 }
 
+# CSA_SKIP — the status a row returns when it has nothing to tell apart on this host.
+CSA_SKIP=77
+
 # csa_test_run <test_function_name>
-# Prints PASS/FAIL with the function name.
+# Prints PASS/FAIL with the function name, or SKIP when the row returned CSA_SKIP (not a failure, and not a PASS).
 csa_test_run() {
-  local fn="$1"
-  if "$fn"; then
+  local fn="$1" rc=0
+  "$fn" || rc=$?
+  if [[ "$rc" -eq 0 ]]; then
     printf '  PASS  %s\n' "$fn"
+    return 0
+  elif [[ "$rc" -eq "$CSA_SKIP" ]]; then
+    printf '  SKIP  %s\n' "$fn"
     return 0
   else
     printf '  FAIL  %s\n' "$fn" >&2

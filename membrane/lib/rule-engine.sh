@@ -452,7 +452,7 @@ _csa_hook_coverage_line() {
 }
 
 # _csa_hook_commands_list <cache_dir> <out_file> — every command hook entry this run read, one JSON object per line,
-# {file, json_path, command}, the command redacted (csa_redact over csa_mask_assignments), written to <out_file>. The
+# {file, json_path, command}, the command cut and masked (csa_redact_command), written to <out_file>. The
 # report prints it under "Hook commands read": they run automatically, and a pattern match is not a reading of them.
 # Skill-first question 2: the run's own cache files, a closed shape. rc 1, with one `csa:` line, when it cannot write.
 _csa_hook_commands_list() {
@@ -466,7 +466,7 @@ _csa_hook_commands_list() {
         [[ -n "$entry" ]] || continue
         jp="$(printf '%s' "$entry" | jq -r '.json_path // ""')"
         text="$(printf '%s' "$entry" | jq -j '.text')"
-        cmd="$(csa_redact "$(csa_mask_assignments "$text")")"
+        cmd="$(csa_redact_command "$text")"
         jq -nc --arg f "$target" --arg jp "$jp" --arg c "$cmd" '{file: $f, json_path: $jp, command: $c}'
       done < <(jq -c 'select(.type == "command" and (.text | type) == "string")' "$c" 2>/dev/null)
     done
@@ -482,12 +482,11 @@ _csa_hook_commands_list() {
 # Emits SCANNER-002 banner on stderr if 3+ SCANNER-002 findings emerge.
 # With <hook-commands-file>, writes there the hook commands the run read (_csa_hook_commands_list).
 csa_rule_engine_scan_all() {
-  local root="$1"; local focus="${2:-all}" hook_list="${3-}"
-  csa_root_ok "$root" || return 2
-  # Trailing slashes off: targets are enumerated as "$root/.claude/...", and
-  # _csa_hook_target_mode compares them to that exact path (#1059 C2). Holds for any root
+  local root; local focus="${2:-all}" hook_list="${3-}"
+  # The root's physical path (csa_root_resolve), trailing slashes off: targets are enumerated as
+  # "$root/.claude/...", and _csa_hook_target_mode compares them to that exact path (#1059 C2). Holds for any root
   # other than "/"; for "/" itself the settings hooks are still skipped, as before 0.3.1.
-  while [[ "$root" == ?*/ ]]; do root="${root%/}"; done
+  root="$(csa_root_resolve "${1-}")" || return 2
   if ! _csa_rule_engine_validate_focus "$focus"; then
     return 2
   fi

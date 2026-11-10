@@ -1,4 +1,4 @@
-# Threat model (v0.1)
+# Threat model
 
 Distilled from SPEC §4. Read this when authoring rules or interpreting findings.
 
@@ -6,15 +6,15 @@ Distilled from SPEC §4. Read this when authoring rules or interpreting findings
 
 User runs `/plugin install some-thing`. Plugin's files land in `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` and are activated for subsequent sessions where the user enables them. Attacker now has hooks, agent prompts, slash commands, and MCP configs that run / influence Claude on every session.
 
-**v0.1 catches:** direct `curl ... | bash` (in hook scripts, and in hook commands declared in JSON: see Hook entries below; HOOK-001 needs a word end after `bash`, `sh` or `zsh`, any character that is not a letter, digit or `_`, so `| shasum` and `| shellcheck` do not fire while a quoted, redirected or bracketed `| sh` does), plain-text exfiltration in agent prompts, missing MCP auth, untrusted endpoint URLs, broad permission grants the attacker can leverage, plaintext credentials in plugin files.
+**Catches:** direct `curl ... | bash` (in hook scripts, and in hook commands declared in JSON: see Hook entries below; HOOK-001 needs a word end after `bash`, `sh` or `zsh`, any character that is not a letter, digit or `_`, so `| shasum` and `| shellcheck` do not fire while a quoted, redirected or bracketed `| sh` does), plain-text exfiltration in agent prompts, missing MCP auth, untrusted endpoint URLs, broad permission grants the attacker can leverage, plaintext credentials in plugin files.
 
-**v0.1 does NOT catch (v0.2 with AST):** base64-encoded payloads, eval indirection, dynamic command construction, splice-via-includes, deliberately-malformed regex bait, prompt-injection that uses semantic encoding rather than literal exfiltration strings.
+**Does NOT catch:** base64-encoded payloads, eval indirection, dynamic command construction, splice-via-includes, deliberately-malformed regex bait, prompt-injection that uses semantic encoding rather than literal exfiltration strings.
 
 ## Hook entries declared in JSON (0.3.0)
 
-A hook command can live in JSON rather than a script: the project's `.claude/settings.json` and `.claude/settings.local.json`, an enabled plugin's `hooks/hooks.json`, and an inline or path-referenced `hooks` field of its `.claude-plugin/plugin.json`. The audit walks exactly those files (never a nested `.claude/**/settings.json`, never a plugin's `fixtures/` or `tests/` copy) with `jq`, reads only `.hooks.<Event>[i].hooks[j]` entries (so a URL in `env` or a `permissions` string never reaches a hook pattern), decodes the command (JSON escapes, plus exec-form `args`), and runs the HOOK-001 to HOOK-004 patterns on the whole decoded command. Each piece it cannot read is a High HOOK-005 finding; hooks of type `http`, `prompt`, `agent`, `mcp_tool` or a later type are counted (one HOOK-006 Info finding per file). The engine prints `csa: hook-coverage checked=N flagged=N not-inspected=N unreadable=N modules=N (flagged counts pattern matches only; the report lists every hook command read)`, and the report header carries it, so a zero-finding report still says what was not read. The report then lists every command entry it read, redacted, under "Hook commands read": a pattern match is not a reading of a command, and those commands run automatically.
+A hook command can live in JSON rather than a script: the project's `.claude/settings.json` and `.claude/settings.local.json`, an enabled plugin's `hooks/hooks.json`, and an inline or path-referenced `hooks` field of its `.claude-plugin/plugin.json`. The audit walks exactly those files (never a nested `.claude/**/settings.json`, never a plugin's `fixtures/` or `tests/` copy) with `jq`, reads only `.hooks.<Event>[i].hooks[j]` entries (so a URL in `env` or a `permissions` string never reaches a hook pattern), decodes the command (JSON escapes, plus exec-form `args`), and runs the HOOK-001 to HOOK-004 patterns on the whole decoded command. Each piece it cannot read is a High HOOK-005 finding; hooks of type `http`, `prompt`, `agent`, `mcp_tool` or a later type are counted (one HOOK-006 Info finding per file). The engine prints `csa: hook-coverage checked=N flagged=N not-inspected=N unreadable=N modules=N (flagged counts pattern matches only; the report lists every hook command read)`, and the report header carries it, so a zero-finding report still says what was not read. The report then lists every command entry it read under "Hook commands read": a pattern match is not a reading of a command, and those commands run automatically. Each command there, and in a hook entry's finding preview, is cut to 200 characters, then the value of these shapes is `***`: an assignment to a name holding `API_KEY`, `SECRET`, `TOKEN` or `PASSWORD`; `Bearer <token>`; `user:password` after `-u` or `--user` and in `scheme://user:password@`; the value of `--token`, `--password`, `--passwd`, `--secret`, `--api-key`, `--apikey` and `--auth`; an attached `-p<value>` in a `mysql`, `mysqldump` or `mysqladmin` command; then a key of the five shapes `csa_redact` knows keeps its first and last four characters. Anything else in a command is printed as written.
 
-This keeps the no-LLM boundary below: the walk is a mechanical check on open input that can only add a stop, so no model reads hook text and nothing is approved (skill-first question 3). A `plugin.json` hooks path is resolved inside the plugin root with a physical containment check; no handler path is parsed out of command text. User-level `~/.claude/settings.json` hooks are not read.
+This keeps the no-LLM boundary below: the walk is a mechanical check on open input that can only add a stop, so no model reads hook text and nothing is approved (skill-first question 3). A `plugin.json` hooks path is resolved inside the plugin root with a physical containment check, and is read only inside the narrowed input (printable ASCII, no symlink on its way below the plugin root, a regular file of at most 1 MiB; otherwise a HOOK-005); no handler path is parsed out of command text. User-level `~/.claude/settings.json` hooks are not read.
 
 ## Hook handler code (0.8.0)
 
@@ -22,14 +22,14 @@ Claude Code runs a plugin's code two ways: a hooks module that `hooks/hooks.json
 
 The patterns are the same common-pattern regexes as for scripts. In code HOOK-001 to HOOK-003 read a command written as a string, and HOOK-004 also reads one written as quoted argv words; code-shaped forms (`fetch`, `$.http.fetch`, `homedir()` joins, an argv `rm`, `fs.rmSync`, `eval(`) need judgment and are not read. This keeps the no-LLM boundary below: the handler-file test and the `modules` read are mechanical, can only add a stop, and approve nothing (skill-first question 3).
 
-## Secondary threats — the realistic v0.1 primary value
+## Secondary threats — the realistic primary value
 
 1. **Malicious teammate PR** that isn't trying hard to hide (plain-text hook with `rm -rf`, agent definition with literal "send my data to attacker.com")
 2. **Accidental friendly-fire** — API key pasted into CLAUDE.md and committed
 3. **Public-repo exposure** — open-sourcing a Claude project with `.claude/` configs that contain secrets or overly-permissive grants
 4. **`settings.local.json` silent broadening** — gitignored file grants `Bash(*)` while committed `settings.json` restricts to `Bash(git:*)`; code review missed it because it's not in git
 
-## Out of v0.1 threat model
+## Out of the threat model
 
 - Runtime attacks during an active Claude Code session
 - Network attacks on Claude Code itself
@@ -40,7 +40,7 @@ The patterns are the same common-pattern regexes as for scripts. In code HOOK-00
 
 The audit reads files that, per the threat model, may be attacker-controlled. The plugin detecting exfiltration must not itself be one:
 - Static analysis only — no LLM evaluation over raw file bytes
-- Findings show `file:line:offset` with redacted previews (`sk-ant-***xyz`, and `NAME=***` for a value assigned to a secret-named variable); never full secret material. The report's list of hook commands is redacted the same way. A finding with no line (line 0) prints the bare `file`, and one that names a JSON entry (a `json_path`) prints `file#path`
+- Findings show `file:line:offset` with redacted previews: a key of the five shapes `csa_redact` knows keeps its first and last four characters (`sk-a***xyz1`), SECRETS-003 shows `NAME=***`, and a hook command declared in JSON (in its finding's preview and in the report's list) masks the shapes listed under Hook entries above. A secret of any other shape is printed as written (the README's "Not read, by design" list says so). A finding with no line (line 0) prints the bare `file`, and one that names a JSON entry (a `json_path`) prints `file#path`
 - No subagent / codex dispatch on file content
 
 ## Enumerate-targets resolution algorithm (T2-J pin)
@@ -56,7 +56,8 @@ The audit reads files that, per the threat model, may be attacker-controlled. Th
    NUL-delimited, so no name can split a target. Skill-first question 2 for the predicate
    (a fixed alphabet, file kinds, a size bound), question 3 for each stop.
 
-1. PROJECT_TARGETS (the root: an absolute directory holding no control character, or exit 2):
+1. PROJECT_TARGETS (the root: an absolute directory holding no control character, or exit 2; every
+   walk starts at its physical path, so a root that is a symlink is walked as the directory it names):
    - Every file under "$PWD/.claude/" (not .claude/audits/) with a suffix the rules read
      (.md .json .sh .py .js .ts .mjs .cjs .tsx .jsx .mts .cts), and every executable file
      under .claude/hooks/
@@ -64,7 +65,9 @@ The audit reads files that, per the threat model, may be attacker-controlled. Th
      way is not followed)
    - $PWD/.claude-plugin/marketplace.json, $PWD/.mcp.json, $PWD/AGENTS.md, $PWD/package.json and
      $PWD/.agents/plugins/marketplace.json if present
-   - .opencode/ and .codex/ (and ~/.codex/config.toml with a Codex surface)
+   - .opencode/ and .codex/ (and ~/.codex/config.toml with a Codex surface; a symlinked ~/.codex is a stop)
+   - A directory below .claude/ (not .claude/audits/ or .claude/hooks/), .codex/, .opencode/ (not
+     its node_modules/ or audits/) or an enabled plugin that cannot be read is a Medium SCANNER-003
 
 2. ENABLED_PLUGINS_SET:
    a. Read "enabledPlugins" from three files, in this order: $HOME/.claude/settings.json,
@@ -79,7 +82,8 @@ The audit reads files that, per the threat model, may be attacker-controlled. Th
       object of non-booleans) prints one warning naming the shape. This format belongs to
       another tool and can change; an audit that skips every plugin must not read as clean.
    d. A settings file that is unreadable, not a regular file, or not valid JSON (an empty
-      file included), a project settings file reached through a symlink, or an unreadable or
+      file, and one with anything but white space after its first value, included), a project
+      settings file reached through a symlink or over 1 MiB, or an unreadable or
       unrecognised installed_plugins.json, makes the set unknown: the enumeration stops
       (rc 2). It never reads as empty.
    e. Resolve each key to a filesystem path:

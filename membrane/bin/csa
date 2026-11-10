@@ -1,16 +1,20 @@
-#!/usr/bin/env bash
+#!/usr/bin/env -S bash -p
 # bin/csa — dispatcher entry point for membrane, and its front door.
 #
 # Why this exists: Claude Code's Bash tool on macOS runs under zsh by default
 # ($SHELL=zsh). Skill bodies that `source lib/*.sh` then inherit zsh, where
 # ${BASH_SOURCE[0]} is unset and ${BASH_REMATCH[…]} returns empty silently.
-# This dispatcher's shebang (#!/usr/bin/env bash) forces bash via the kernel
-# on direct execution, regardless of caller shell. Libs sourced through here
-# get the bash runtime they were written for.
+# This dispatcher's shebang (#!/usr/bin/env -S bash -p) forces bash via the
+# kernel on direct execution, regardless of caller shell. Libs sourced through
+# here get the bash runtime they were written for.
 #
-# The front door (0.9.0): every run gets the same environment, whatever the
-# caller's shell holds. The audit runs inside a session of the project it audits,
-# so a project's settings `env` block can reach this process's environment.
+# The front door (0.9.0): the run's environment is fixed here, so the caller's environment does not steer the engine.
+# The audit runs inside a session of the project it audits, so a project's settings `env` block can reach this
+# process's environment.
+#   - bash -p (the shebang): bash imports no function from the environment (`BASH_FUNC_<name>%%`, which would shadow
+#     a tool the engine runs by name) and ignores SHELLOPTS, BASHOPTS, CDPATH, GLOBIGNORE, ENV and BASH_ENV. Claude
+#     Code runs `csa` by name from PATH, so the shebang governs; `bash bin/csa` would not apply it. `env` and `bash`
+#     themselves are found on the caller's PATH, before any line here runs.
 #   - LC_ALL=C for the whole run: every regex, glob, read and sort is byte-wise.
 #   - TMPDIR: one directory of its own under the caller's TMPDIR, removed on EXIT,
 #     INT, TERM and HUP (csa_tmp_scope).
@@ -20,7 +24,11 @@
 #     sourcing the libraries in a child bash, never through this file.
 #   - PATH: each tool the engine runs is resolved once from the caller's PATH, and
 #     PATH is cut to the directories those tools sit in. A tool that resolves inside
-#     the working directory, or inside a directory an argument names, refuses the run.
+#     the working directory, or inside a directory an argument names, directly or
+#     through a symlink, refuses the run, however the PATH entry is spelled (`//`,
+#     `.`, `..`, a trailing `/`).
+#   - lib/ is the one beside the bin/ directory of the path the kernel ran, so a
+#     symlink to this file in another bin/ loads the lib/ beside that bin/.
 #
 # Contract:
 #   csa <function-suffix> [args...]

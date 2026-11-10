@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # lib/state.sh — state persistence, GC and the first-audit .gitignore line for membrane.
-# Requires: lib/helpers.sh (csa_root_ok, csa_escape)
+# Requires: lib/helpers.sh (csa_root_ok, csa_root_resolve, csa_escape, csa_printable)
 # Bash 3.2+ compatible (macOS portability).
 
 # ---------------------------------------------------------------------------
@@ -385,16 +385,36 @@ csa_state_gc_findings() {
 # <root>/.gitignore, and only by appending those two lines when no line of the file is exactly `.claude/audits/`
 # (a whole-line match; the file is created when absent). It writes nothing, and prints the line to add, when <root>
 # has no .git (a directory, or the file a worktree has) or when <root>/.gitignore is a symlink or not a regular file.
-# It never looks above <root>. A root that is not an absolute directory is refused (rc 2).
-# Skill-first question 2: one fixed line, one fixed file.
+# Below a repository root (the nearest directory above <root>'s physical path holding a .git, which it only tests),
+# the line it prints is <root>'s path from that root followed by `/.claude/audits/`, for the repository root's
+# .gitignore: a line with an inner `/` matches only from the directory of the .gitignore that holds it. A path that
+# holds a byte outside printable ASCII, a glob character (`*`, `?`, `[`) or `\`, or starts with `#` or `!`, gets no
+# line: written as is, the line would not name that path. A root that is not an absolute directory is refused (rc 2).
+# Skill-first question 2: one fixed line, one fixed file, a path this function resolved.
 csa_state_bootstrap_gitignore() {
-  local root="$1" gi entry=".claude/audits/"
-  csa_root_ok "$root" || return 2
+  local root="$1" gi entry=".claude/audits/" rootp d top="" rel
+  rootp="$(csa_root_resolve "$root")" || return 2
   while [[ "$root" == ?*/ ]]; do root="${root%/}"; done
   gi="$root/.gitignore"
   if [[ ! -e "$root/.git" ]]; then
-    printf 'Info: %s is not a git repository root (no .git there); nothing written. To keep audit state out of git, add this line to the .gitignore that covers it: %s\n' \
-      "$(csa_escape "$root")" "$entry"
+    d="$rootp"
+    while [[ "$d" == /?* ]]; do
+      d="${d%/*}"; [[ -n "$d" ]] || d=/
+      if [[ -e "${d%/}/.git" ]]; then top="$d"; break; fi
+    done
+    if [[ -z "$top" ]]; then
+      printf 'Info: %s is not inside a git repository (no .git there or above); nothing written. If it becomes a repository root, this line in its .gitignore keeps audit state out of git: %s\n' \
+        "$(csa_escape "$root")" "$entry"
+      return 0
+    fi
+    if [[ "$top" == / ]]; then rel="${rootp#/}"; else rel="${rootp#"$top"/}"; fi
+    if ! csa_printable "$rel" || [[ "$rel" == *[\*?[\\]* || "$rel" == [\#!]* ]]; then
+      printf 'Info: %s is not a git repository root (no .git there); nothing written. Its path from the repository root %s, %s, holds a byte outside printable ASCII, a glob character or a backslash, or starts with # or !, so no .gitignore line is printed for it.\n' \
+        "$(csa_escape "$root")" "$(csa_escape "$top")" "$(csa_escape "$rel")"
+      return 0
+    fi
+    printf 'Info: %s is not a git repository root (no .git there); nothing written. To keep audit state out of git, add this line to %s/.gitignore: %s/%s\n' \
+      "$(csa_escape "$root")" "$(csa_escape "${top%/}")" "$rel" "$entry"
     return 0
   fi
   if [[ -L "$gi" ]] || { [[ -e "$gi" ]] && [[ ! -f "$gi" ]]; }; then
@@ -405,14 +425,15 @@ csa_state_bootstrap_gitignore() {
   if [[ -f "$gi" ]] && LC_ALL=C grep -qxF -- "$entry" "$gi" 2>/dev/null; then
     return 0
   fi
+  # The redirection sits inside the group, so a file that cannot be opened prints only the `csa:` line below.
   if [[ -f "$gi" ]]; then
-    if ! printf '\n# claude-security-audit\n%s\n' "$entry" >> "$gi" 2>/dev/null; then
+    if ! { printf '\n# claude-security-audit\n%s\n' "$entry" >> "$gi"; } 2>/dev/null; then
       printf 'csa: cannot write %s; add this line yourself: %s\n' "$(csa_escape "$gi")" "$entry" >&2
       return 1
     fi
     printf 'Added .claude/audits/ to your .gitignore\n'
   else
-    if ! printf '# claude-security-audit\n%s\n' "$entry" >> "$gi" 2>/dev/null; then
+    if ! { printf '# claude-security-audit\n%s\n' "$entry" >> "$gi"; } 2>/dev/null; then
       printf 'csa: cannot write %s; add this line yourself: %s\n' "$(csa_escape "$gi")" "$entry" >&2
       return 1
     fi

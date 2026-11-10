@@ -50,6 +50,16 @@ test_escape_names_every_byte() {
   assert_eq 'x\x7f\x01' "$(csa_escape $'x\x7f\x01')" "DEL and a control byte are hex" || return 1
 }
 
+# csa_escape is linear: a 16 KiB name of bytes outside printable ASCII escapes in well under a second, and so does one
+# with a single such byte at the end.
+test_escape_is_linear() {
+  local all one t0 t1
+  all="$(head -c 16384 /dev/zero | tr '\0' '\351')"; one="$(head -c 16384 /dev/zero | tr '\0' a)"$'\351'
+  t0=$EPOCHREALTIME; csa_escape "$all" >/dev/null; csa_escape "$one" >/dev/null; t1=$EPOCHREALTIME
+  assert_eq "1" "$(awk -v a="$t0" -v b="$t1" 'BEGIN { print (b - a < 1) ? 1 : 0 }')" "two 16 KiB names in under 1 s" || return 1
+  assert_eq 65536 "$(csa_escape "$all" | wc -c | tr -d ' ')" "control: every byte is escaped" || return 1
+}
+
 # --- csa_root_ok: an absolute directory with no control byte, or rc 2 ---
 test_root_ok_takes_only_an_absolute_directory() {
   local d="$_CSA_TMP/root ok" nl="$_CSA_TMP/a"$'\n'"b" rc
@@ -135,6 +145,7 @@ test_a_test_file_leaves_no_temp_dir() {
 csa_test_run test_sha256_known_answer                       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_printable_is_the_ascii_print_range        || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_escape_names_every_byte                   || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_escape_is_linear                          || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_root_ok_takes_only_an_absolute_directory  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_version_name_reads_bytes                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_tmp_scope_removes_its_dir_on_exit         || _csa_failed=$((_csa_failed + 1))

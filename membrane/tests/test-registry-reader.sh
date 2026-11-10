@@ -11,7 +11,7 @@ _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-reg.XXXXXX")"
 _n=0
 
 _mk_root() { _n=$((_n + 1)); root="$_CSA_TMP/t$_n"; mkdir -p "$root/.claude/audits"; st="$root/.claude/audits/state.json"; }
-_c() { ( cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" "$CSA" "$@" ); }
+_c() { ( cd "$root" && HOME=/nonexistent "$CSA" "$@" ); }
 
 # A healthy entry, last seen at run 1, first seen long ago.
 _good='{"rule_id":"PERM-002","severity":"high","file":".claude/settings.json","first_seen":"2026-01-01T00:00:00Z","last_seen":"2026-01-01T00:00:00Z","seen_in_runs":1,"last_run_index":1,"last_display_id":"SA-2026-01-01-01-001","suppressed":false}'
@@ -230,7 +230,7 @@ test_display_id_without_a_recorded_run_matches_nothing() {
 # report_assign_display_ids, state_record_audit); leaves the numbered findings in $root/tagged.
 _scan_record() {
   local r="$1"
-  ( cd "$r" && HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" rule_engine_scan_all "$r" all 2>/dev/null ) > "$r/raw" || return 1
+  ( cd "$r" && HOME=/nonexistent "$CSA" rule_engine_scan_all "$r" all 2>/dev/null ) > "$r/raw" || return 1
   _c baseline_tag "$r/raw" "$r" > "$r/base" || return 1
   _c report_assign_display_ids "$r/base" "$2" > "$r/tagged" || return 1
   _c state_record_audit "$r" "$3" "$r/.claude/audits/$2.md" "$r/tagged" all >/dev/null 2>&1 || return 1

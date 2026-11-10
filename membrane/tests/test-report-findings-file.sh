@@ -12,7 +12,7 @@ _n=0
 
 # _mk_root: sets $root to a fresh project dir with .claude/audits/.
 _mk_root() { _n=$((_n + 1)); root="$_CSA_TMP/t$_n"; mkdir -p "$root/.claude/audits"; }
-_c() { ( cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" "$CSA" "$@" ); }
+_c() { ( cd "$root" && HOME=/nonexistent "$CSA" "$@" ); }
 
 # _line <uid> <severity> [<display_id>] : one finding line, with no display id when none is given.
 _line() {

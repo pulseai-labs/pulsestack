@@ -207,7 +207,7 @@ test_dedup_same_uid() {
 }
 
 # ---------------------------------------------------------------------------
-# 6. race-window refusal (T1-F) — first_seen = NOW → refusal with "less than 60s"
+# 6. race-window refusal — first_seen = NOW → refusal with "less than 60s"
 # ---------------------------------------------------------------------------
 test_race_window_refusal() {
   local root="$_CSA_TMP/t06"

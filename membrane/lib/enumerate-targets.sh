@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # lib/enumerate-targets.sh — scan target enumeration per SPEC §6.3 (T2-J pin).
-# Requires: lib/helpers.sh (csa_printable, csa_escape, csa_root_ok, csa_is_version_name).
+# Requires: lib/helpers.sh (csa_printable, csa_escape, csa_root_resolve, csa_is_version_name, _csa_enum_linked_part).
 #
 # The narrowed input (0.9.0). A path below an audited tree (the project's .claude/, .opencode/ and .codex/, a file the
 # project-wide name walks find, a single named file at the root, each enabled plugin's directory) is read only when
@@ -122,18 +122,6 @@ _csa_enum_walk() {
   return 0
 }
 
-# _csa_enum_linked_part <root> <rel> — rc 0, printing the path, when a directory on the way from <root> to <rel>
-# (<rel> itself not included) is a symlink; rc 1 otherwise.
-_csa_enum_linked_part() {
-  local p="$1" part rest="$2"
-  while [[ "$rest" == */* ]]; do
-    part="${rest%%/*}"; rest="${rest#*/}"
-    p="$p/$part"
-    if [[ -L "$p" ]]; then printf '%s' "$p"; return 0; fi
-  done
-  return 1
-}
-
 # _csa_enum_single <root> <rel> — one named file at the project root (`.mcp.json`, `AGENTS.md`…): a target line, a
 # stop for it or for a symlinked directory on its way, or nothing when it is absent.
 _csa_enum_single() {
@@ -170,6 +158,7 @@ csa_enum_codex_project_targets() {
   if [[ -e "$root/.codex" || -L "$root/.codex" ]]; then
     has_codex_surface=1
     _csa_enum_walk codex "" "$root/.codex"
+    [[ -L "$root/.codex" ]] || _csa_enum_unreadable_dirs "" "$root/.codex" >&2
   fi
   [[ -e "$root/.agents/plugins/marketplace.json" || -L "$root/.agents/plugins/marketplace.json" || -L "$root/.agents" ]] \
     && has_codex_surface=1
@@ -177,8 +166,9 @@ csa_enum_codex_project_targets() {
   out="$(_csa_enum_named "$root" -path '*/.codex-plugin/plugin.json')"
   [[ -n "$out" ]] && { has_codex_surface=1; printf '%s\n' "$out"; }
 
+  # From $HOME, so a symlinked ~/.codex is a stop on the way, as a symlinked config.toml is.
   if [[ "$has_codex_surface" -eq 1 && ( -e "${HOME}/.codex/config.toml" || -L "${HOME}/.codex/config.toml" ) ]]; then
-    _csa_enum_single "${HOME}/.codex" config.toml
+    _csa_enum_single "${HOME}" .codex/config.toml
   fi
 }
 
@@ -187,6 +177,8 @@ csa_enum_opencode_project_targets() {
   _csa_enum_single "$root" package.json
   [[ -e "$root/.opencode" || -L "$root/.opencode" ]] || return 0
   _csa_enum_walk opencode "" "$root/.opencode" "$root/.opencode/node_modules" "$root/.opencode/audits"
+  [[ -L "$root/.opencode" ]] || _csa_enum_unreadable_dirs "" "$root/.opencode" \
+    "$(_csa_enum_glob_quote "$root/.opencode/node_modules")" "$(_csa_enum_glob_quote "$root/.opencode/audits")" >&2
 }
 
 # _csa_enum_hooks_unreadable <hooks-dir> — rc 2, with one `csa:` line, when <hooks-dir> or a directory below it cannot
@@ -204,9 +196,8 @@ _csa_enum_hooks_unreadable() {
 }
 
 csa_enum_project_targets() {
-  local root="$1" aq
-  csa_root_ok "$root" || return 2
-  while [[ "$root" == ?*/ ]]; do root="${root%/}"; done
+  local root aq
+  root="$(csa_root_resolve "${1-}")" || return 2
   if [[ -e "$root/.claude" || -L "$root/.claude" ]]; then
     _csa_enum_hooks_unreadable "$root/.claude/hooks" || return 2
     # Exclude .claude/audits/ — it holds audit state/reports and must not be scanned.
@@ -223,18 +214,20 @@ csa_enum_project_targets() {
   csa_enum_codex_project_targets "$root"
 }
 
-# _csa_enum_unreadable_dirs <plugin-key> <dir> [<pruned-path>] — for stderr, one
+# _csa_enum_unreadable_dirs <plugin-key> <dir> [<pruned-path>...] — for stderr, one
 # `finding: SCANNER-003<TAB><key><TAB><dir>` line for <dir> and for each dir
 # below it that this process cannot read or enter, so nothing below it was
-# listed (#1149). The key is empty for a project dir. <pruned-path>, already
-# glob-quoted, is skipped with what is below it. A test on the mode bits the
+# listed (#1149). The key is empty for a project dir. Each <pruned-path>, already
+# glob-quoted, is skipped with what is below it. The project's .claude/, .codex/
+# and .opencode/ and each enabled plugin's directory are checked. A test on the mode bits the
 # shell sees (no GNU -readable, no parsing of find's stderr). Skill-first
 # question 3: it only adds a stop. rc 0 always, so bin/csa's
 # `set -euo pipefail` never ends the enumeration here.
 _csa_enum_unreadable_dirs() {
-  local key="$1" dir="$2" prune="${3-}" d
+  local key="$1" dir="$2" p d
+  shift 2
   local -a skip=()
-  [[ -z "$prune" ]] || skip=( -path "$prune" -prune -o )
+  for p in "$@"; do [[ -z "$p" ]] || skip+=( -path "$p" -prune -o ); done
   while LC_ALL=C IFS= read -r -d '' d; do
     [[ -r "$d" && -x "$d" ]] \
       || printf 'finding: SCANNER-003\t%s\t%s\n' "$(csa_escape "$key")" "$(csa_escape "$d")"
@@ -251,8 +244,10 @@ _csa_enum_unreadable_dirs() {
 # reads as {}, but warns on stderr naming the shape: an audit that silently
 # skips every plugin reads as a clean one. A path that exists but is not a
 # regular file, cannot be read, or is not valid JSON (#1092) is NOT an empty set:
-# rc 2 (#424). With <project-root>, the file sits in the audited .claude/: a
-# symlink at it or on the way to it is never followed, so its set is unknown, rc 2.
+# rc 2 (#424). Valid JSON is one JSON value and nothing after it but white space
+# (`{…}}`, `{…} x` and `{…} {…}` are not). With <project-root>, the file sits in
+# the audited .claude/: a symlink at it or on the way to it is never followed, and
+# a file over 1 MiB is never read, so its set is unknown, rc 2.
 _csa_enum_settings_plugin_list() {
   local f="$1" root="${2-}" out list warn l
   if [[ -n "$root" ]]; then
@@ -274,9 +269,15 @@ _csa_enum_settings_plugin_list() {
     printf 'csa: cannot read %s; the enabled-plugin set is unknown\n' "$f" >&2
     return 2
   fi
+  if [[ -n "$root" && -n "$(find "$f" -prune -type f -size +"${_CSA_SIZE_MAX}c" -print 2>/dev/null)" ]]; then
+    printf 'csa: %s is over 1 MiB, which is never read; the enabled-plugin set is unknown\n' "$(csa_escape "$f")" >&2
+    return 2
+  fi
   # Line 1: the map. Line 2: the shape's type when it held entries but none
-  # were usable, else empty. `input` (not `.`), so an empty file is an error too.
-  out="$(jq -n -r 'input
+  # were usable, else empty. `[inputs]` (not `.`) must hold exactly one value, so
+  # an empty file, and one with a second value after the first, are errors too; a
+  # parse error after the first value fails jq itself.
+  out="$(jq -n -r '[inputs] | if length != 1 then error("not one JSON value") else .[0] end
     | .enabledPlugins as $e
     | (if ($e | type) == "object" then $e | with_entries(select((.value | type) == "boolean"))
        elif ($e | type) == "array" then [$e[] | select(type == "string") | {key: ., value: true}] | from_entries
@@ -516,9 +517,8 @@ csa_enum_resolve_plugin_path() {
 }
 
 csa_enum_targets_all() {
-  local root="$1" project_targets
-  csa_root_ok "$root" || return 2
-  while [[ "$root" == ?*/ ]]; do root="${root%/}"; done
+  local root project_targets
+  root="$(csa_root_resolve "${1-}")" || return 2
   if ! project_targets="$(csa_enum_project_targets "$root")"; then
     return 2
   fi

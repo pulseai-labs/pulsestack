@@ -126,7 +126,7 @@ _skip_root() {
 }
 
 test_unreadable_target_is_one_scanner003() {
-  _skip_root && return 0
+  _skip_root && return "$CSA_SKIP"
   _mk
   printf '# project\n' > "$_P/CLAUDE.md"; printf '# nested\n' > "$_P/.claude/ok.md"
   chmod 000 "$_P/CLAUDE.md"
@@ -142,7 +142,7 @@ test_unreadable_target_is_one_scanner003() {
 }
 
 test_scanner003_does_not_trip_the_rules_failed_banner() {
-  _skip_root && return 0
+  _skip_root && return "$CSA_SKIP"
   _mk
   local d
   for d in a b c; do mkdir -p "$_P/$d"; printf '# x\n' > "$_P/$d/CLAUDE.md"; chmod 000 "$_P/$d/CLAUDE.md"; done
@@ -347,7 +347,7 @@ test_a_failed_target_write_keeps_the_walk() {
 }
 
 test_scanner003_respects_the_scan_focus() {
-  _skip_root && return 0
+  _skip_root && return "$CSA_SKIP"
   _mk
   printf '# x\n' > "$_P/CLAUDE.md"; chmod 000 "$_P/CLAUDE.md"
   local out

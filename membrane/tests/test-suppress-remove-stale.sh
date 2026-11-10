@@ -23,7 +23,7 @@ _write_sup() {
 }
 
 _scan() { # <project> <focus> > raw jsonl
-  HOME=/nonexistent CSA_PROJECT_ROOT="$1" "$CSA" rule_engine_scan_all "$1" "$2" 2>/dev/null
+  HOME=/nonexistent "$CSA" rule_engine_scan_all "$1" "$2" 2>/dev/null
 }
 
 # ---- remove ----------------------------------------------------------------
@@ -78,8 +78,8 @@ test_remove_no_file_rc1_creates_nothing() {
 # as step 9 does, then backdates every first_seen past the 60 s suppression window.
 _record_run() {
   local r="$1" f="$_CSA_TMP/state-tmp$_n.json" st="$1/.claude/audits/state.json"
-  [[ -f "$st" ]] || HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" state_init "$r" >/dev/null
-  HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" state_record_audit "$r" 1 ".claude/audits/r.md" "$2" all >/dev/null \
+  [[ -f "$st" ]] || HOME=/nonexistent "$CSA" state_init "$r" >/dev/null
+  HOME=/nonexistent "$CSA" state_record_audit "$r" 1 ".claude/audits/r.md" "$2" all >/dev/null \
     || { printf '    state_record_audit failed\n' >&2; return 1; }
   jq '.findings |= map_values(.first_seen = "2026-01-01T00:00:00Z")' "$st" > "$f" && mv "$f" "$st"
 }
@@ -207,7 +207,7 @@ test_documented_csa_calls_run_through_dispatcher() {
     call="${call//<hook-commands>/$_CSA_TMP/hooks$_n.jsonl}"
     [[ "$call" != *"<"* ]] || { printf '    unfilled placeholder in: %s\n' "$call" >&2; return 1; }
     local out rc=0
-    out="$(cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" 2>&1)" || rc=$?
+    out="$(cd "$root" && HOME=/nonexistent eval "\"$CSA\" ${call#csa }" 2>&1)" || rc=$?
     # A call that records a run must succeed and write it: the file argument it documents is read.
     if [[ "$call" == "csa state_record_audit "* ]]; then
       [[ "$rc" -eq 0 ]] || { printf '    documented call exits %s: %s -> %s\n' "$rc" "$call" "$out" >&2; return 1; }
@@ -260,9 +260,9 @@ _documented_steps() {
       [[ "$call" != *"<"* ]] || { printf '    unfilled placeholder in: %s\n' "$call" >&2; return 1; }
       rc=0
       if [[ -n "$target" ]]; then
-        (cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" > "$d/$target" 2>"$d/err") || rc=$?
+        (cd "$root" && HOME=/nonexistent eval "\"$CSA\" ${call#csa }" > "$d/$target" 2>"$d/err") || rc=$?
       else
-        out="$(cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" 2>"$d/err")" || rc=$?
+        out="$(cd "$root" && HOME=/nonexistent eval "\"$CSA\" ${call#csa }" 2>"$d/err")" || rc=$?
         [[ "$call" != "csa report_render_chat "* ]] || chat="$out"
       fi
       [[ "$rc" -eq 0 ]] || { printf '    step call exits %s: %s -> %s\n' "$rc" "$call" "$(cat "$d/err")" >&2; return 1; }
@@ -394,8 +394,8 @@ test_remove_write_failure_rc5() {
   # Not a failure of the code: a process that ignores directory modes (root) cannot reach this branch.
   if touch "$root/.claude/audits/.probe" 2>/dev/null; then
     rm -f "$root/.claude/audits/.probe"; chmod u+w "$root/.claude/audits"
-    printf '    SKIP: directory modes are not enforced for this user (running as root?)\n'
-    return 0
+    printf '    SKIP: directory modes are not enforced for this user (running as root?)\n' >&2
+    return "$CSA_SKIP"
   fi
   local rc=0 err; err="$("$CSA" suppress_remove "$root" FUID-aaaaaaaa 2>&1)" || rc=$?
   chmod u+w "$root/.claude/audits"

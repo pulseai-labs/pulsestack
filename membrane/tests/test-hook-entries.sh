@@ -484,7 +484,7 @@ test_dispatcher_path_enumerates_a_plugin_without_a_hooks_dir() {
   mkdir -p "$d/scripts"; printf 'echo\n' > "$d/scripts/run.sh"
   printf 'x\n' > "$_P/CLAUDE.md"
   local out rc=0
-  out="$(cd "$_P" && HOME="$_H" CSA_PROJECT_ROOT="$_P" "$CSA_PLUGIN_ROOT/bin/csa" enum_targets_all "$_P" 2>"$_T/derr")" || rc=$?
+  out="$(cd "$_P" && HOME="$_H" "$CSA_PLUGIN_ROOT/bin/csa" enum_targets_all "$_P" 2>"$_T/derr")" || rc=$?
   assert_eq "0" "$rc" "the enumeration completes" || return 1
   assert_eq "$_P/CLAUDE.md"$'\n'"@plugin:pl@mk:.claude-plugin/plugin.json"$'\t'"$d/.claude-plugin/plugin.json"$'\n'"@plugin:pl@mk:scripts/run.sh"$'\t'"$d/scripts/run.sh" \
     "$(printf '%s\n' "$out" | LC_ALL=C sort)" "the project's and the plugin's targets" || return 1

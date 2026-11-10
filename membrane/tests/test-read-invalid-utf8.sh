@@ -15,7 +15,7 @@ _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-read8.XXXXXX")"
 B=$'\351'
 _n=0
 _mk() { _n=$((_n + 1)); P="$_CSA_TMP/p$_n"; H="$_CSA_TMP/h$_n"; mkdir -p "$P/.claude" "$H"; }
-_run() { (cd "$P" && LC_ALL=C.UTF-8 HOME="$H" CSA_PROJECT_ROOT="$P" "$CSA" "$@" </dev/null); }
+_run() { (cd "$P" && LC_ALL=C.UTF-8 HOME="$H" "$CSA" "$@" </dev/null); }
 _plugin() { # <name> <version> : cache/mk/<name>/<version>, enabled; sets PD
   PD="$H/.claude/plugins/cache/mk/$1/$2"; mkdir -p "$PD/hooks"
   local s="$P/.claude/settings.json"; [[ -f "$s" ]] || printf '{"enabledPlugins":{}}\n' > "$s"
@@ -50,7 +50,7 @@ test_hook_symlinks_after_a_latin1_name() {
 # :214 (-d '') and the engine's stderr reader (:333): one SCANNER-003 per unreadable dir.
 test_unreadable_dirs_after_a_latin1_name() {
   _skip_or_fail; case $? in 0) return 0 ;; 2) return 1 ;; esac
-  [[ "$(id -u)" -ne 0 ]] || { printf '    SKIP: root reads a chmod 000 dir\n' >&2; return 0; }
+  [[ "$(id -u)" -ne 0 ]] || { printf '    SKIP: root reads a chmod 000 dir\n' >&2; return "$CSA_SKIP"; }
   _mk; local d; for d in "d$B" d2 d3; do mkdir -p "$P/.claude/$d"; chmod 000 "$P/.claude/$d"; done
   assert_eq 3 "$(_run enum_targets_all "$P" 2>&1 >/dev/null | LC_ALL=C grep -c '^finding: SCANNER-003')" "3 dir stops listed" || return 1
   assert_eq 3 "$(_run rule_engine_scan_all "$P" all 2>/dev/null | jq -s '[.[] | select(.rule_id == "SCANNER-003")] | length')" "3 SCANNER-003 findings" || return 1

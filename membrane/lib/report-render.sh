@@ -61,13 +61,14 @@ _csa_severity_label() {
 #                            in it). A plugin whose layout does not normalize (a local plugin, an
 #                            installPath outside the cache) is not grouped, so it stays listed.
 #   "agent scratch"          a file under the project's own `.dagr/scratch/` (project root:
-#                            CSA_PROJECT_ROOT, else the working directory).
+#                            CSA_PROJECT_ROOT, else the working directory; its physical path too, which
+#                            the engine's file paths start with).
 # A project's own `tests/` or `fixtures/` is NOT in a group. Anything that does not match is listed in
 # chat as before, and if csa_normalize_path is not loaded no plugin file is grouped (listed, never hidden).
 # Skill-first question 2: our own path shapes, a closed set.
 # ---------------------------------------------------------------------------
 _csa_finding_group() {
-  local f="$1" norm rest root="${CSA_PROJECT_ROOT:-$PWD}"
+  local f="$1" norm rest root="${CSA_PROJECT_ROOT:-$PWD}" rootp
   if declare -F csa_normalize_path >/dev/null 2>&1; then
     norm="$(csa_normalize_path "$f")"
     if [[ "$norm" == @plugin:* ]]; then
@@ -81,6 +82,9 @@ _csa_finding_group() {
   fi
   while [[ "$root" == ?*/ ]]; do root="${root%/}"; done
   if [[ "$f" == .dagr/scratch/* || "$f" == "$root"/.dagr/scratch/* ]]; then
+    printf 'agent scratch'
+  elif [[ "$f" == /*/.dagr/scratch/* ]] && rootp="$(cd -P -- "$root" 2>/dev/null && pwd -P)" \
+    && rootp="$(_csa_lead_slash "$rootp")" && [[ "$f" == "${rootp%/}"/.dagr/scratch/* ]]; then
     printf 'agent scratch'
   fi
   return 0
@@ -153,8 +157,9 @@ _csa_plugin_version() {
 
 # _csa_suppression_lines <findings_jsonl> <project_root> — the lines chat and the report always print about
 # suppressions.json: how many findings it hid (state SUPPRESSED, set by csa_suppress_filter; a number, 0 included),
-# and, when <project_root>'s state.json holds no recorded audit while suppressions.json is already there, that the
-# file did not come from a `--suppress` on this machine. Skill-first question 2: membrane's own files.
+# and, when <project_root>'s .claude/audits/state.json records no audit of the project while suppressions.json is
+# there, a warning to read it first. A checkout that ships a state.json with an audit history silences the warning
+# (the count still shows). Skill-first question 2: membrane's own files.
 _csa_suppression_lines() {
   local findings_jsonl="$1" root="$2" n state recorded=0
   n="$(printf '%s\n' "$findings_jsonl" | jq -s '[.[] | objects | select(.state == "SUPPRESSED")] | length' 2>/dev/null)" || n=""
@@ -171,7 +176,7 @@ _csa_suppression_lines() {
     recorded=1
   fi
   if [[ "$recorded" -eq 0 && ( -e "$root/.claude/audits/suppressions.json" || -L "$root/.claude/audits/suppressions.json" ) ]]; then
-    printf '**Warning:** .claude/audits/suppressions.json was already here before this machine'"'"'s first audit of this project. It came with the checkout or was written by hand, not by `/security-audit --suppress` here. Read it before you trust what it hides.\n'
+    printf '**Warning:** .claude/audits/suppressions.json is here, and .claude/audits/state.json records no audit of this project. So no `/security-audit --suppress` after a recorded audit here wrote it, unless state.json was removed since: it may have come with the checkout or been written by hand. Read it before you trust what it hides.\n'
   fi
 }
 

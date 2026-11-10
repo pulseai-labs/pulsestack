@@ -45,25 +45,25 @@ csa_printable() {
 }
 
 # csa_escape <string> — <string> with `\` written `\\`, newline, tab and carriage return written `\n` `\t` `\r`, and
-# every other byte outside printable ASCII written `\xHH`, so a name from untrusted input is one printable line.
+# every other byte outside printable ASCII written `\xHH`, so a name from untrusted input is one printable line. One
+# whole-string replacement per distinct byte (at most 256), with no subshell: linear in the length for any name.
 csa_escape() {
-  local LC_ALL=C s="$1" o="" c i
+  local LC_ALL=C s="$1" c h
   if [[ "$s" != *[![:print:]]* && "$s" != *\\* ]]; then
     printf '%s' "$s"
     return 0
   fi
-  for (( i = 0; i < ${#s}; i++ )); do
-    c="${s:i:1}"
-    case "$c" in
-      '\') o="$o\\\\" ;;
-      $'\n') o="$o\\n" ;;
-      $'\t') o="$o\\t" ;;
-      $'\r') o="$o\\r" ;;
-      [[:print:]]) o="$o$c" ;;
-      *) o="$o$(printf '\\x%02x' "'$c")" ;;
-    esac
+  s="${s//\\/\\\\}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\t'/\\t}"
+  s="${s//$'\r'/\\r}"
+  while [[ "$s" == *[![:print:]]* ]]; do
+    h="${s%%[![:print:]]*}"
+    c="${s:${#h}:1}"
+    printf -v h '\\x%02x' "'$c"
+    s="${s//"$c"/"$h"}"
   done
-  printf '%s' "$o"
+  printf '%s' "$s"
 }
 
 # csa_root_ok <root> — rc 0 when <root> can be a project root: an absolute path to a directory, holding no byte
@@ -83,6 +83,39 @@ csa_root_ok() {
     return 2
   fi
   return 0
+}
+
+# _csa_lead_slash <path> — <path> with a run of leading slashes cut to one. `pwd -P` keeps a leading `//` (POSIX leaves
+# its meaning to the system), so a path spelled `//home/…` would never start with the root `/home/…` it lies in.
+_csa_lead_slash() {
+  local p="$1"
+  while [[ "$p" == //* ]]; do p="${p#/}"; done
+  printf '%s' "$p"
+}
+
+# csa_root_resolve <root> — csa_root_ok, then the root's physical path (`cd -P`, `pwd -P`, leading slashes cut to
+# one), printed: every walk starts there, so a root that is a symlink (`cd` into a linked project dir) is walked as
+# the directory it names. rc 2, with one `csa:` line, when csa_root_ok refuses or the root cannot be entered.
+csa_root_resolve() {
+  local r="${1-}" p
+  csa_root_ok "$r" || return 2
+  if ! p="$(cd -P -- "$r" 2>/dev/null && pwd -P)" || [[ -z "$p" ]]; then
+    printf 'csa: the project root %s cannot be entered; nothing done\n' "$(csa_escape "$r")" >&2
+    return 2
+  fi
+  _csa_lead_slash "$p"
+}
+
+# _csa_enum_linked_part <root> <rel> — rc 0, printing the path, when a directory on the way from <root> to <rel>
+# (<rel> itself not included) is a symlink; rc 1 otherwise. The enumeration and a plugin.json hooks path use it.
+_csa_enum_linked_part() {
+  local p="$1" part rest="$2"
+  while [[ "$rest" == */* ]]; do
+    part="${rest%%/*}"; rest="${rest#*/}"
+    p="$p/$part"
+    if [[ -L "$p" ]]; then printf '%s' "$p"; return 0; fi
+  done
+  return 1
 }
 
 # csa_tmp_scope <label> — THE one temp helper, for the engine (bin/csa) and the tests. Makes one directory under the
@@ -112,10 +145,10 @@ _csa_tmp_scope_end() {
 }
 
 # _CSA_TOOLS — every external command the engine runs. sha256sum or shasum is pinned separately: one of them.
-_CSA_TOOLS="awk basename cat chmod cp date dirname find grep head jq mkdir mktemp mv rm sed sort tail tr wc"
+_CSA_TOOLS="awk basename cat chmod cp cut date dirname find grep head jq mkdir mktemp mv rm sed sort tail tr wc"
 
 # _csa_phys_file <path> — the physical path of <path>: each symlink followed (at most 40), directories resolved with
-# `cd -P`. rc 1 when it cannot be resolved.
+# `cd -P`, leading slashes cut to one (_csa_lead_slash). rc 1 when it cannot be resolved.
 _csa_phys_file() {
   local p="$1" n=0 t d
   while [[ -L "$p" ]]; do
@@ -124,6 +157,7 @@ _csa_phys_file() {
     case "$t" in /*) p="$t" ;; *) p="${p%/*}/$t" ;; esac
   done
   d="$(cd -P -- "${p%/*}/" 2>/dev/null && pwd -P)" || return 1
+  d="$(_csa_lead_slash "$d")"
   printf '%s/%s' "${d%/}" "${p##*/}"
 }
 
@@ -131,13 +165,15 @@ _csa_phys_file() {
 # PATH to the directories those paths sit in (the caller's order), so each tool resolves to the same file for the
 # rest of the run. Refuses, rc 2 and one `csa:` line, when a tool is missing, resolves to a relative path, or resolves
 # (symlinks followed) inside one of <dir>... (the working directory and the audited root, which the audited project
-# can write). Skill-first question 3: it only adds a stop.
+# can write). Every path is compared with its leading slashes cut to one (_csa_lead_slash), so `//root/bin` is inside
+# `/root`. Skill-first question 3: it only adds a stop.
 _csa_pin_tools() {
-  local t p phys d dirs=":" keep="" r rp e
+  local t p pc phys d dirs=":" keep="" r rp e
   local -a roots=() parts=()
   for r in "$@"; do
     [[ -n "$r" && -d "$r" ]] || continue
     rp="$(cd -P -- "$r" 2>/dev/null && pwd -P)" || continue
+    rp="$(_csa_lead_slash "$rp")"
     roots+=("${rp%/}")
   done
   # readlink first: _csa_phys_file runs it for every tool after it.
@@ -153,14 +189,14 @@ _csa_pin_tools() {
       printf 'csa: the tool %s resolves to the relative path %s; nothing done\n' "$t" "$(csa_escape "$p")" >&2
       return 2
     fi
-    phys="$p"
+    pc="$(_csa_lead_slash "$p")"
     for r in ${roots[@]+"${roots[@]}"}; do
-      [[ "$r" == / || "$p" == "$r"/* ]] || continue
+      [[ "$r" == / || "$pc" == "$r"/* ]] || continue
       printf 'csa: the tool %s resolves to %s, inside %s, which the audited project can write; refusing to run\n' \
         "$t" "$(csa_escape "$p")" "$(csa_escape "$r")" >&2
       return 2
     done
-    phys="$(_csa_phys_file "$p")" || phys="$p"
+    phys="$(_csa_phys_file "$p")" || phys="$pc"
     for r in ${roots[@]+"${roots[@]}"}; do
       [[ "$phys" == "$r"/* ]] || continue
       printf 'csa: the tool %s resolves to %s, inside %s, which the audited project can write; refusing to run\n' \

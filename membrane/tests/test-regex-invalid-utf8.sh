@@ -31,7 +31,7 @@ for _l in C.UTF-8 C.utf8 en_US.UTF-8 en_US.utf8 en_GB.UTF-8 en_GB.utf8; do
   fi
 done
 _mk() { _n=$((_n + 1)); P="$_CSA_TMP/p$_n"; H="$_CSA_TMP/h$_n"; mkdir -p "$P/.claude" "$H/.claude/plugins"; }
-_run() { (cd "$P" && LC_ALL="$_U8" HOME="$H" CSA_PROJECT_ROOT="$P" "$CSA" "$@" </dev/null); }
+_run() { (cd "$P" && LC_ALL="$_U8" HOME="$H" "$CSA" "$@" </dev/null); }
 _plugin() { # <name> <version> : cache/mk/<name>/<version>, enabled; sets PD
   PD="$H/.claude/plugins/cache/mk/$1/$2"; mkdir -p "$PD/hooks"
   local s="$P/.claude/settings.json"; [[ -f "$s" ]] || printf '{"enabledPlugins":{}}\n' > "$s"
