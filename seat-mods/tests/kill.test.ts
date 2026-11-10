@@ -595,6 +595,38 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ["env -S 'xargs kill -1'", "env -S 'xargs kill 123'"],
   ["sudo env -S 'kill -1'", "sudo env -S 'kill 123'"],
   ["bash -c \"env -S 'kill -1'\"", "bash -c \"env -S 'kill 123'\""],
+  // a line from a runner's string is read without runners; the same line in the call's own text is read with them
+  ["bash -c \"env -S 'bash -c \\\"kill -1\\\"'\"; env -S 'bash -c \"kill -1\"'", "bash -c \"env -S 'bash -c \\\"kill -1\\\"'\"; env -S 'bash -c \"kill 123\"'"],
+  // uutils drops a bare -S among the assignments; the words after an attached string or an = string follow it; a # in
+  // a word is text; a vertical tab parts words; a $NAME is read empty
+  ['env A=1 -S kill -1', 'env A=1 -S kill 123'],
+  ["env -S'kill' -1", "env -S'kill' 123"],
+  ["env --split-string='kill' -1", "env --split-string='kill' 123"],
+  ["env -S 'kill a#b -1'", "env -S 'kill a#b 123'"],
+  ["env -S $'kill\\v-1'", "env -S $'kill\\v123'"],
+  ["env -S'kill$X -1'", "env -S'kill$X 123'"],
+  // a variable in an env -S string is also read as its text, so a negative operand held in one is read as such
+  ["PGID=1 env -S 'kill -9 -${PGID}'", "PGID=1 env -S 'kill -9 ${PGID}'"],
+  ["env -S'kill -9 -$PGID'", "env -S'kill -9 $PGID'"],
+  ["env -S 'kill -- -${PGID}'", "env -S 'kill -- ${PGID}'"],
+  // an empty env -S string is passed over, so the next env's string is split
+  ["env -S '' env -S 'kill -1'", "env -S '' env -S 'kill 123'"],
+  ["env --sp= env -S'kill -1'", "env --sp= env -S'kill 123'"],
+  // a blank before a 0 read as bash reads a pid: the word is no option
+  ["kill ' -0 '", "kill ' -10 '"],
+  // procps-ng's kill reads a pid with strtol (blanks and a + before the digits, a long's range) and casts it to a 32-bit
+  // pid_t, at any word that is no option
+  ['/bin/kill +4294967295', '/bin/kill +4294967294'],
+  ["/bin/kill ' 4294967295'", "/bin/kill ' 4294967294'"],
+  ["/bin/kill -9 ' -4294967297'", "/bin/kill -9 ' -4294967298'"],
+  ['env kill +4294967295', 'env kill +4294967294'],
+  ['sudo kill -9 +4294967296', 'sudo kill -9 +4294967297'],
+  ['xargs kill +4294967295', 'xargs kill +4294967294'],
+  ['/bin/kill -9 -- +8589934591', '/bin/kill -9 -- +8589934590'],
+  ['/bin/kill +9223372036854775807', '/bin/kill +9223372036854775806'],
+  ['/bin/kill 123 +4294967296', '/bin/kill 123 +4294967297'],
+  ['/bin/kill -s 9 +4294967295', '/bin/kill -s 9 +4294967294'],
+  ["/bin/kill $'\\t4294967295'", "/bin/kill $'\\t4294967294'"],
 ]
 
 // What a seat does legitimately, and text that only mentions kill.
@@ -683,6 +715,16 @@ const ALLOW: readonly string[] = [
   "env -S 'echo kill -1'", "env -S '#kill -1'", "env -S 'echo a; kill -1'", "env -S 'kill 123 \\c -1'", "env -S 'kill \\c-1'",
   "env -S 'kill\\t-1'", "env -S \"'a\\\\' kill -1'\"", "env -- -S 'kill -1'", "env -- -S'kill -1'",
   "env -S 'echo hi' -S 'kill -1'", "env echo -S 'kill -1'",
+  // the first env -S string of a walk is split: env runs echo, and the later env is its operand
+  "env -S 'echo hi' env -S 'kill -1'",
+  // a chain of empty env -S strings reads as one env; a variable that is not a negative operand
+  "env -S '' ".repeat(9) + 'make', 'env --sp= '.repeat(9) + 'make', "env -S 'kill -9 ${PID}'", 'kill -9 $PID',
+  // an empty operand; a -s, -n or --signal value at the first word; \\ inside '…' of an env -S string is one backslash,
+  // so the quote ends after it (bash runs `echo \;`, and kill and -1 are its $0 and $1)
+  "kill 123 ''", 'kill --signal 0 123', 'kill -s 0 1234', 'kill -n 0 1234',
+  "env -S \"bash -c 'echo \\\\\\\\'; kill -1\"",
+  // procps reads a pid past a long's range as an error and kills nothing
+  '/bin/kill +9223372036854775808',
 ]
 
 // Known limits: forms the rail does not read. Each is allowed here, and the README names it. A later
@@ -1070,7 +1112,8 @@ describe("killRule: deliberate false stops of env's grammars", () => {
 // no shell signals: after a listing (`kill -l -0`), after a first word bash and zsh reject (`kill - -0`, `kill -sKILL 0-`,
 // where zsh takes sKILL as a signal name and bash's kill gets the operand 0-), and where one reading of the words spells
 // the signal and another does not (`kill $'\x2d\x39' - 1`: decoded, zsh drops the - and bash's kill rejects it; the
-// reading that only takes quotes off sees no option word, so the - is a zsh pid).
+// reading that only takes quotes off sees no option word, so the - is a zsh pid). procps's pid reading is read for the
+// builtins too, which reject a + or a blank before a pid past their range (`kill +4294967295`, `kill ' 4294967296'`).
 describe("killRule: deliberate false stops of kill's operands", () => {
   const rows: ReadonlyArray<readonly [string, string]> = [
     ['kill -l -0', 'kill -l 9'],
@@ -1078,6 +1121,34 @@ describe("killRule: deliberate false stops of kill's operands", () => {
     ['kill -sKILL 0-', 'kill -sKILL 10-'],
     ['kill -n9 -1-', 'kill -n9 -12-'],
     ["kill $'\\x2d\\x39' - 1", "kill $'\\x2d\\x39' 1"],
+    ['kill +4294967295', 'kill +4294967294'],
+    ["kill ' 4294967296'", "kill ' 4294967297'"],
+  ]
+  for (const [command, control] of rows) {
+    test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
+    test(`control: ${JSON.stringify(control)} is allowed`, () => { expect(killRule(control)).toBeUndefined() })
+  }
+})
+
+// A word bash and zsh take as an assignment (NAME+=, NAME[…]=) is also read as the command word with its path taken off,
+// and a word that starts with -S among env's assignments as the command word, as the rail read them before, so these
+// stay refused though no shell or env runs a kill: bash and zsh assign the word, dash and busybox sh run it as a
+// relative path no stock host has (`A+=/bin/kill`), and the env named runs `-1` or a program named `a`.
+describe("killRule: deliberate false stops of the earlier assignment reading", () => {
+  const rows: ReadonlyArray<readonly [string, string]> = [
+    ['A+=/bin/kill -1', 'A+=/bin/kill 123'],
+    ['a[1]=/bin/kill -1', 'a[1]=/bin/kill 123'],
+    ['a[1]=/bin/ps; kill 123', 'a[1]=/bin/ls; kill 123'],
+    ['A+=/usr/bin/pkill -u dev', 'A+=/usr/bin/pkill node'],
+    ['A+=x/killall5', 'A+=x/killall6'],
+    ['a[1]=/bin/bash -c "kill -1"', 'a[1]=/bin/bash -c "kill 123"'],
+    ['A+=/usr/bin/sudo -u root kill -1', 'A+=/usr/bin/sudo -u root kill 123'],
+    ['A+=/usr/bin/systemctl --user exit', 'A+=/usr/bin/systemctl --user status'],
+    ['A+=./kill -1', 'A+=./kill 123'],
+    ['a[k]=../kill -9 -1', 'a[k]=../kill -9 123'],
+    ['dash -c "A+=/bin/kill -1"', 'dash -c "A+=/bin/kill 123"'],
+    ['env A+=/bin/kill -1', 'env A+=/bin/kill 123'],
+    ["env -P A=1 -S'a /bin/kill' -1", "env -P A=1 -S'a /bin/kill' 123"],
   ]
   for (const [command, control] of rows) {
     test(`${JSON.stringify(command)} is refused`, () => { expect(killRule(command)).toContain('kill rail') })
@@ -1296,24 +1367,59 @@ describe('killRule: bounds', () => {
     expect(() => killRule(nestSplit(8, 'kill -1'))).toThrow()
     expect(() => killRule(nestSplit(8, 'kill 123'))).toThrow()
   })
-  test('400 -S words in one env -S string finish under a second', () => {
-    const started = performance.now()
-    try { killRule(`env -S '${Array(400).fill('-S').join(' ')} kill\\_-1'`) } catch {}
-    expect(performance.now() - started).toBeLessThan(1000)
+  test('a chain of empty env -S strings reads as one env; a chain of 9 non-empty strings is unread', () => {
+    expect(killRule("env -S '' ".repeat(20) + "env -S 'kill -1'")).toContain('kill rail')
+    expect(killRule("env -S 'A=1' ".repeat(8) + 'make')).toBeUndefined()
+    expect(() => killRule("env -S 'A=1' ".repeat(9) + 'make')).toThrow()
+    expect(() => killRule("env -S '-i' ".repeat(9) + 'make')).toThrow()
+    // a string that holds only a variable is not empty in the reading that keeps it
+    expect(() => killRule("env -S '${X}' ".repeat(9) + 'make')).toThrow()
   })
-  test('env -S lines that branch at every level are each read once', () => {
-    // GNU's grammar takes -a's value and splits the second -S word, BSD's splits the first, and each line carries the same
-    // words after it. Against one -S with the same words after it, reading each line once is about 9 times the cost, and
-    // reading every line met about 250 times (on a quiet host, 0.1 s and 3 s). The bound sits between them, as a ratio, so
-    // a loaded host moves both sides.
-    const tail = `kill 123${' x'.repeat(10000)}`
-    const time = (command: string): number => {
+  // a runner's string inside an env -S line is read at that line's nesting, so the line counts toward the 8 levels
+  const inRunner = (command: string): string => {
+    const split = `bash -c "${command.replace(/\\/g, '\\\\')}"`
+    return `env -S "${split.replace(/[\\"$`]/g, '\\$&')}"`
+  }
+  test('a runner string in an env -S line, around 7 nested strings, is read; around 8 it is unread', () => {
+    expect(killRule(inRunner(nestSplit(6, 'kill -1')))).toContain('kill rail')
+    expect(killRule(inRunner(nestSplit(6, 'kill 123')))).toBeUndefined()
+    expect(() => killRule(inRunner(nestSplit(7, 'kill 123')))).toThrow()
+  })
+  // The timing rows below are ratios, so a loaded host moves both sides: each side is the least of a few runs, measured
+  // here, outside the 5 s a test gets. `least(command)` is its least time in ms.
+  const least = (command: string, runs = 3): number => {
+    let best = Infinity
+    for (let run = 0; run < runs; run++) {
       const started = performance.now()
-      expect(killRule(command)).toBeUndefined()
-      return performance.now() - started
+      try { killRule(command) } catch {}
+      best = Math.min(best, performance.now() - started)
     }
-    time(`env -S-i ${tail}`)
-    const one = time(`env -S-i ${tail}`)
-    expect(time(`env ${'-a -S-u -S-i '.repeat(8)}${tail}`)).toBeLessThan(50 * one)
+    return best
+  }
+  // 400 -S words in one string: each level splits the next -S word, to 8 levels, so it costs about 8 times one string of
+  // 400 plain words (reading every -S word at every level would be about 400 times).
+  const words400 = (word: string): string => `env -S '${Array(400).fill(word).join(' ')} kill\\_-1'`
+  const nested400 = least(words400('-S')) / least(words400('x'))
+  test('400 -S words in one env -S string cost under 50 times 400 plain words', () => {
+    expect(nested400).toBeLessThan(50)
+  })
+  // GNU's grammar takes -a's value and splits the second -S word, BSD's splits the first, and each line carries the same
+  // words after it. Against one -S with the same words after it, reading each line once is about 10 times the cost, and
+  // reading every line met about 250 times (on a quiet host, 0.1 s and 3 s).
+  const tail = `kill 123${' x'.repeat(10000)}`
+  const branch = `env ${'-a -S-u -S-i '.repeat(8)}${tail}`
+  const branching = least(branch, 1) / least(`env -S-i ${tail}`)
+  test('env -S lines that branch at every level are each read once', () => {
+    expect(killRule(branch)).toBeUndefined()
+    expect(branching).toBeLessThan(50)
+  })
+  // A chain of 100 env, each with its own -S string, about 1 KB: an empty string is passed over, and a non-empty one is
+  // split once per walk, so the chain costs a small multiple of the same words with echo for env (about 1.5 times, and 12
+  // for `A=1` strings, which nest to 8 levels). Splitting every env's string, and reading a line met less deep after it
+  // was read deeper, is about 3,000 times (about 1 s each).
+  const chains = ["env -S '' ", "sudo env -S '' ", "env -S 'A=1' "].map(unit =>
+    least(`${unit.repeat(100)}kill 123`) / least(`${unit.replace('env', 'echo').repeat(100)}kill 123`))
+  test('a chain of 100 env -S strings costs under 50 times the same words with echo', () => {
+    for (const ratio of chains) expect(ratio).toBeLessThan(50)
   })
 })
