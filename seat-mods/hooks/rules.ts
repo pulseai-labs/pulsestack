@@ -1665,8 +1665,9 @@ const KILL_NEGATIVE = new RegExp(`^${PID_BLANK}*-`)
 // zsh's kill reads its first word as options (an -s or -n there takes the next word), drops one - or --… after them,
 // and reads every later word made only of digits and - as a pid with atoi: strtol's sign and the digits up to the first
 // other -, held to a 64-bit long, then cut to a 32-bit int (glibc and macOS). So `kill 123 -`, `kill -9 0-1`,
-// `kill -9 123 --`, `kill -9 -1-` and `kill 4294967295` signal 0 or -1 there.
-const ZSH_PID = /^(-?)(\d*)[-\d]*$/
+// `kill -9 123 --`, `kill -9 -1-` and `kill 4294967295` signal 0 or -1 there. After the digits only a - may start the
+// rest, so a long run of digits before another character fails at once (linear time).
+const ZSH_PID = /^(-?)(\d*)(?:-[-\d]*)?$/
 function zshAtoi(sign: string, digits: string): number {
   const significant = digits.replace(/^0+/, '')
   const long = (1n << 63n) - 1n

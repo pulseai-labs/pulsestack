@@ -598,12 +598,14 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   // a line from a runner's string is read without runners; the same line in the call's own text is read with them
   ["bash -c \"env -S 'bash -c \\\"kill -1\\\"'\"; env -S 'bash -c \"kill -1\"'", "bash -c \"env -S 'bash -c \\\"kill -1\\\"'\"; env -S 'bash -c \"kill 123\"'"],
   // uutils drops a bare -S among the assignments; the words after an attached string or an = string follow it; a # in
-  // a word is text; a vertical tab parts words; a $NAME is read empty
+  // a word is text; a vertical tab, a form feed and a carriage return part words; a $NAME is read empty
   ['env A=1 -S kill -1', 'env A=1 -S kill 123'],
   ["env -S'kill' -1", "env -S'kill' 123"],
   ["env --split-string='kill' -1", "env --split-string='kill' 123"],
   ["env -S 'kill a#b -1'", "env -S 'kill a#b 123'"],
   ["env -S $'kill\\v-1'", "env -S $'kill\\v123'"],
+  ["env -S $'kill\\f-1'", "env -S $'kill\\f123'"],
+  ["env -S $'kill\\r-1'", "env -S $'kill\\r123'"],
   ["env -S'kill$X -1'", "env -S'kill$X 123'"],
   // a variable in an env -S string is also read as its text, so a negative operand held in one is read as such
   ["PGID=1 env -S 'kill -9 -${PGID}'", "PGID=1 env -S 'kill -9 ${PGID}'"],
@@ -803,6 +805,8 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ["a[1 2]=x kill -1", "an unquoted blank inside an assignment's subscript (bash)"],
   ["a[ 1 ]=x kill -1", "an unquoted blank inside an assignment's subscript (bash)"],
   ["a[(i)x]=1 kill -1", "a parenthesis inside an assignment's subscript (bash and zsh)"],
+  ["A=${X:-a b} kill -1", "an unquoted blank inside ${…} in an assignment's value (#1184)"],
+  ["A+=$[1 + 2] kill -1", "an unquoted blank inside $[…] in an assignment's value (#1184)"],
   ["/bin/kill -9 -1234", "procps-ng 4.0.4 as released reads a later -<digit> word as -<digit> (#1180)"],
   ["sudo a-b=1 kill -1", "sudo's own assignment grammar (#1181)"],
   ["sudo A=1 -u root kill -1", "sudo's own assignment grammar (#1181)"],
@@ -1421,5 +1425,12 @@ describe('killRule: bounds', () => {
     least(`${unit.repeat(100)}kill 123`) / least(`${unit.replace('env', 'echo').repeat(100)}kill 123`))
   test('a chain of 100 env -S strings costs under 50 times the same words with echo', () => {
     for (const ratio of chains) expect(ratio).toBeLessThan(50)
+  })
+  // An operand of 100,000 digits and then one other character is read in about the time of the digits alone (a pid
+  // reader that retried every split point of the digits took about 400 times as long).
+  const digits = '1'.repeat(100000)
+  const longOperand = least(`kill 9 ${digits}x`) / least(`kill 9 ${digits}`)
+  test('a long operand that ends in another character costs under 50 times the digits alone', () => {
+    expect(longOperand).toBeLessThan(50)
   })
 })

@@ -356,7 +356,8 @@ so a NUL in `kill`'s operand with text after the `$'…'` part is refused, thoug
   too: `bash -c kill\ \<newline>-1`), and a wrapper not in the list above (`doas`, `runuser`, `unshare`). An operand
   split by a line continuation is a miss too (`kill -9 -\<newline>1`). An assignment whose subscript holds an unquoted
   blank (`a[1 2]=x kill -1`, `a[ 1 ]=x kill -1`; bash) or a parenthesis (`a[(i)x]=1 kill -1`; bash and zsh) is read as
-  the command word. sudo's own assignment grammar is not read: C sudo takes any word that holds `=` and does not start
+  the command word, and so is the rest of an assignment whose value holds an unquoted blank inside `${…}` or `$[…]`
+  (`A=${X:-a b} kill -1`, `A+=${X:-a b} kill -1`, `A=$[1 + 2] kill -1`; bash and zsh; #1184). sudo's own assignment grammar is not read: C sudo takes any word that holds `=` and does not start
   with `/` or `=` as an environment variable, among its options too, so `sudo a-b=1 kill -1` and
   `sudo A=1 -u root kill -1` are misses (#1181).
 - **procps-ng 4.0.4 as released.** Its `/bin/kill` reads a later `-<digit>…` word as `-<digit>`, so on procps-ng 4.0.4
