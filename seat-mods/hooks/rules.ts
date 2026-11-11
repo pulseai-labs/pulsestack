@@ -952,9 +952,13 @@ export function invalidText(value: string): string {
 // It refuses (a) a call that both lists processes (ps, pgrep, pidof, ls /proc) and signals (kill, xargs kill),
 // wherever each sits in the call, substitutions included; (b) kill with -1, 0, or a negative operand that holds a
 // `$`; (c) pkill and killall by user, with no pattern, or with a pattern that matches every name of a fixed probe
-// set; (d) killall5, and the session-wide systemctl and loginctl verbs. It reads a literal `eval '…'` or
+// set, a pkill or killall -r pattern held in an expansion with fewer than three letters or digits beside it, or a
+// pkill -f pattern that matches a command line by its punctuation alone (#1191); (d) killall5, and the session-wide
+// systemctl and loginctl verbs. It reads a literal `eval '…'` or
 // `sh|bash|rbash|zsh|dash|ash|static-sh|ksh|ksh93|mksh|lksh|mksh-static|yash -c '…'` string once, as a command (a shell's options read as bash reads them, as zsh reads them and, for a cluster with an inner `-`, as Debian busybox ash reads them, refused if any string is; ksh, ksh93, mksh, lksh, mksh-static and yash also get a reading of their own grammar, for that name only; ksh gets ksh93's and mksh's), and every `fish -c`/`-C` string as POSIX text with fish's command prefixes dropped, reads `busybox` as its applet, reads every word of a command with its quote characters taken off and after bash's and zsh's quote removal, and skips the wrappers
 // below (env also as GNU, busybox and uutils read it and as FreeBSD and macOS read it). Everything else it does not read is a known limit, listed in the README and pinned by tests/kill.test.ts.
+// The stop line (#1191, 2026-11-10): the rail reads nothing new. A later miss changes it only if it meets the README's
+// accident test; any other miss is a known-limit row.
 // ---------------------------------------------------------------------------------------------------------
 
 export const KILL_REMEDY = 'List first, read the PIDs, then kill by literal PID in a separate call (kill 12345). To stop your own job use `write proc://<id>/kill` (OMP) or TaskStop (Claude Code). Never signal processes you did not name.'
@@ -1591,19 +1595,97 @@ function zshText(args: readonly string[], raw: readonly string[], pieces: readon
 }
 
 // A pattern that matches every name in the probe set. A pattern that is not a regular expression to JS matches nothing here.
-function broadPattern(pattern: string, anchored: boolean, ignoreCase: boolean): boolean {
+function broadPattern(pattern: string, anchored: boolean, ignoreCase: boolean, probes: readonly string[] = KILL_PROBES): boolean {
   if (pattern === '') return true
   try {
     const source = pattern.replace(/\[:([a-z]+):\]/g, (whole, name: string) => POSIX_CLASSES[name] ?? whole)
     const re = new RegExp(anchored ? `^(?:${source})$` : source, ignoreCase ? 'i' : '')
-    return KILL_PROBES.every(probe => re.test(probe))
+    return probes.every(probe => re.test(probe))
   } catch {
     return false
   }
 }
 
-// pkill and killall: the reason to refuse, or undefined.
-function killByName(name: 'pkill' | 'killall', args: readonly string[]): string | undefined {
+// #1191: the one command line a `pkill -f` pattern is also tested against, beside the four names (a -f pattern is
+// matched against whole command lines, which hold blanks and paths that no name does). It is a command line's
+// punctuation alone, a path's slash, a blank and an option's dashes, with no letter or digit: a pattern that matches
+// it needs no name to match, so it can match a command line by its punctuation alone, the user manager's
+// (`/usr/lib/systemd/systemd --user`, whose end took the session down in #1099) among them. So `pkill -f /`,
+// `pkill -f ' '` and `pkill -f -- --` are refused, and a pattern that needs a letter or digit (`pkill -f 'node
+// server.js'`) never matches it. A pattern anchored to the probe's shape (`pkill -fx '/ --'`) is refused too, though
+// it matches almost nothing: a deliberate false stop. The probe is no longer than the longest name, `systemd` (the
+// user manager's whole line cost up to a second per backtracking pattern in bun's regular expressions). The pattern
+// is the user's own regular expression, so one built to backtrack costs time against this probe as it does against
+// the names, which have run it since the names test began: a known limit, not a verdict.
+const KILL_LINE_PROBE = ['/ --']
+
+// #1191: a pattern's letters and digits outside its expansions, and whether it holds one, read from its raw token.
+// An expansion is a `$` word (`$NAME`, `$1`, `$@`, `$$`, zsh's `$=NAME`), a `${…}`, `$[…]` or `$((…))` span, a
+// backtick or `$(…)` piece (blank masks one in double quotes), and a lone `$` (an unquoted `$(…)` is joined into one
+// `$`, so the reader cannot tell it from a literal one, and the letters after it are read as a name). A special
+// parameter's character (`@`, `#`) is no letter, so it is left to be read as text. A positional parameter takes every digit after the `$` (zsh's `$10` is the tenth;
+// bash's is `$1` and a 0, read here as part of the expansion, toward a stop), and the text after them is literal
+// (`$1abc` is `${1}abc` in both). Text in '…' and $'…' is literal, and so is a character after a backslash; any other
+// piece ("…", `$$`, a `$(…)` in double quotes) is read as the text around it is. A `${…}`'s default value is not
+// counted, except a double-quoted one inside a double-quoted `${…}`, which is read as literal (the quote pieces pair
+// flat, so an unclosed `${` runs to the end of its own piece only). A variable set earlier in the same call is not
+// read. A marker is a NUL, one or more ASCII digits and a NUL, the shape blank mints (MARKER); any other NUL is text,
+// read as a character that is no letter. Each piece is walked at most once per pattern: a second reference to one
+// (only a forged marker makes one) is read as an expansion, toward a stop, so a forged chain neither recurses nor fans
+// out. Linear: each character of the token and of each piece is read once, and a span is skipped whole; a '…' piece's
+// text is put back with expand, as every reading of the word already does before this runs.
+const PATTERN_MARKER = /\u0000(\d+)\u0000/y
+const PATTERN_NAME = /[=^~+]*(?:[A-Za-z_][A-Za-z0-9_]*|[0-9]+)?/y
+const PATTERN_LETTER = /[\p{L}\p{N}]/u
+function patternLiterals(token: string, pieces: readonly string[]): { letters: number; expands: boolean } {
+  let letters = 0
+  let expands = false
+  const literal = (text: string) => { for (const char of text) if (PATTERN_LETTER.test(char)) letters += 1 }
+  // The index after the span that opens at text[at] and closes with `shut`, nesting counted; the text's end if none.
+  const span = (text: string, at: number, open: string, shut: string): number => {
+    let depth = 0
+    for (let j = at; j < text.length; j++) {
+      if (text[j] === open) depth += 1
+      else if (text[j] === shut && --depth === 0) return j + 1
+    }
+    return text.length
+  }
+  const piece = (body: string): void => {
+    if (body.length >= 2 && body[0] === "'" && body.endsWith("'")) literal(expand(body.slice(1, -1), pieces))
+    else if (body.length >= 3 && body.startsWith("$'") && body.endsWith("'")) literal(ansiC(body.slice(2, -1)))
+    else if (body.startsWith('`')) expands = true
+    else walk(body)
+  }
+  const walked = new Set<number>()
+  const walk = (text: string): void => {
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]!
+      PATTERN_MARKER.lastIndex = i
+      const marker = char === '\u0000' ? PATTERN_MARKER.exec(text) : null
+      if (marker !== null) {
+        const at = Number(marker[1])
+        i += marker[0].length - 1
+        if (walked.has(at)) expands = true
+        else { walked.add(at); piece(pieces[at] ?? '') }
+      } else if (char === '\\') {
+        literal(text[i + 1] ?? '')
+        i += 1
+      } else if (char !== '$') literal(char)
+      else {
+        expands = true
+        const next = text[i + 1]
+        if (next === '{' || next === '[' || next === '(') i = span(text, i + 1, next, next === '{' ? '}' : next === '[' ? ']' : ')') - 1
+        else { PATTERN_NAME.lastIndex = i + 1; PATTERN_NAME.exec(text); i = PATTERN_NAME.lastIndex - 1 }
+      }
+    }
+  }
+  walk(token)
+  return { letters, expands }
+}
+
+// pkill and killall: the reason to refuse, or undefined. `raw` holds the same words as the shell wrote them (markers
+// for their quoted pieces), for the literal-part test.
+function killByName(name: 'pkill' | 'killall', args: readonly string[], raw: readonly string[], pieces: readonly string[]): string | undefined {
   const values = name === 'pkill' ? 'GgPstF' : 'syoZ'
   const longValues = name === 'pkill' ? ['group', 'pgroup', 'parent', 'session', 'terminal', 'pidfile', 'signal', 'ns', 'nslist'] : ['signal']
   const criteria = name === 'pkill' ? 'GgPstF' : ''
@@ -1612,10 +1694,11 @@ function killByName(name: 'pkill' | 'killall', args: readonly string[]): string 
   let regexp = false
   let selected = false
   let help = false
-  const patterns: string[] = []
+  let full = false
+  const patterns: number[] = []
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!
-    if (arg === '--') { patterns.push(...args.slice(i + 1)); break }
+    if (arg === '--') { for (let k = i + 1; k < args.length; k++) patterns.push(k); break }
     if (arg.startsWith('--')) {
       if (arg === '--help' || arg === '--version') help = true
       if (/^--(?:euid|uid|user)(?:=|$)/.test(arg)) return 'pkill and killall by user (-u, -U, --euid, --uid) cannot be read'
@@ -1623,6 +1706,7 @@ function killByName(name: 'pkill' | 'killall', args: readonly string[]): string 
       if (bare === 'exact') exact = true
       if (bare === 'ignore-case') ignoreCase = true
       if (bare === 'regexp') regexp = true
+      if (bare === 'full' && name === 'pkill') full = true
       if (name === 'pkill' && ['group', 'pgroup', 'parent', 'session', 'terminal', 'pidfile', 'ns'].includes(bare)) selected = true
       if (!arg.includes('=') && longValues.includes(bare)) i += 1
       continue
@@ -1636,18 +1720,27 @@ function killByName(name: 'pkill' | 'killall', args: readonly string[]): string 
         if (flag === 'x') exact = true
         if (flag === 'i') ignoreCase = true
         if (flag === 'r' && name === 'killall') regexp = true
+        if (flag === 'f' && name === 'pkill') full = true
         if (criteria.includes(flag)) selected = true
         if (values.includes(flag)) { if (k === arg.length - 1) i += 1; break }
       }
       continue
     }
-    patterns.push(arg)
+    patterns.push(i)
   }
   if (patterns.length === 0) return selected || help ? undefined : `${name} with no pattern`
   const literal = name === 'killall' && !regexp
   // pkill takes its pattern from the first operand; killall takes every operand as a name.
-  for (const pattern of name === 'pkill' ? patterns.slice(0, 1) : patterns)
+  for (const at of name === 'pkill' ? patterns.slice(0, 1) : patterns) {
+    const pattern = args[at]!
     if (literal ? pattern === '' : broadPattern(pattern, exact, ignoreCase)) return `${name} with a pattern that matches every process name`
+    if (literal) continue
+    // #1191: a pattern held in an expansion, with fewer than three letters or digits spelled out beside it, is empty
+    // or nearly so when the variable is gone (a variable set in one tool call is gone in the next).
+    const { letters, expands } = patternLiterals(raw[at] ?? '', pieces)
+    if (expands && letters < 3) return `${name} with a pattern held in a variable (${pattern}): empty, it matches every process`
+    if (full && broadPattern(pattern, exact, ignoreCase, KILL_LINE_PROBE)) return 'pkill -f with a pattern that matches a command line by its punctuation alone: it matches nearly every process'
+  }
   return undefined
 }
 
@@ -1952,7 +2045,7 @@ function killScan(command: string, scan: KillScan, runners: boolean, splitLevel 
     else if (name === 'kill') {
       scan.signals = true
       scan.reason ??= killOperands(args)
-    } else if (name === 'pkill' || name === 'killall') scan.reason ??= killByName(name, args)
+    } else if (name === 'pkill' || name === 'killall') scan.reason ??= killByName(name, args, rest, pieces)
     else if (name === 'killall5') scan.reason ??= 'killall5 signals every process but the session\'s own'
     else if (name === 'systemctl') {
       const has = (word: string) => args.includes(word)
