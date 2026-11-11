@@ -22,7 +22,7 @@ source "$_RULE_DIR/helpers.sh" 2>/dev/null || true
 detect() {
   local target_file="$1"
   [[ -r "$target_file" ]] || return 0
-  # Only scan .mcp.json or mcp.json under .claude/
+  # Only scan a file named .mcp.json or mcp.json (the project's root .mcp.json, and one among the files read).
   local basename; basename="$(basename "$target_file")"
   if [[ "$basename" != ".mcp.json" && "$basename" != "mcp.json" ]]; then
     return 0

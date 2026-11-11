@@ -81,7 +81,7 @@ test_enum_missing_cache_returns_provenance() {
   rm -rf "$fixture"
 }
 
-# 7. Symlink skipped + info logged (SPEC §13 edge 1)
+# 7. A symlink in a target dir is one stop line, not followed and not a target (SPEC §13 edge 1)
 test_enum_symlink_in_target_dir() {
   local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-sym.XXXXXX")"
   mkdir -p "$fixture/.claude"

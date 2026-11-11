@@ -96,7 +96,7 @@ RULE_SENSITIVE_RE="$(IFS='|'; printf '%s' "${_RULE_SENSITIVE_ALTS[*]}")"
 # it can only split a uid relative to the names part, so what it mishandles either reads NEW, an extra stop (a quote
 # change, any whitespace change inside a line), or adds no line and leaves the uid on the names floor (a command
 # split across lines, a path in a variable). The caller hashes this with
-# csa_finding_uid_raw: the plain form would cap it at 200 characters. The lines go only to sha256, never to output.
+# csa_finding_uid_raw: the plain form would cap it at 200 characters (bytes under bin/csa). The lines go only to sha256, never to output.
 _csa_hook004_excerpt() {
   local LC_ALL=C c="$1" i a net="" path="" lines cr=$'\r' tab=$'\t'
   for i in "${!_RULE_NETWORK_ALTS[@]}"; do

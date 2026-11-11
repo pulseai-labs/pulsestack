@@ -357,6 +357,24 @@ test_a_read_only_gitignore_prints_one_line() {
   assert_eq "csa: cannot write $P/.gitignore; add this line yourself: .claude/audits/" "$(cat "$D/err")" "stderr" || return 1
 }
 
+# The size stop holds whatever bytes lie above the audited tree: under a project root, and a HOME, whose names hold
+# UTF-8 (`u\xc3\xa9`), a .claude/ file, a CLAUDE.md and a plugin file over 1 MiB are each one size stop and are not
+# read. Control: the same files under an ASCII root and HOME give the same stops.
+test_the_size_stop_holds_under_a_non_ascii_root_and_home() {
+  _mk
+  local key='KEY=sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' u=$'u\xc3\xa9' r h out want
+  for r in "$D/$u" "$D/ascii"; do
+    h="$r-home"; mkdir -p "$r/.claude" "$h"
+    local d; d="$(H="$h" _plugin pl)"
+    { printf '%s\n' "$key"; head -c 1100000 /dev/zero | tr '\0' 'x'; printf '\n'; } > "$r/.claude/big.md"
+    cp "$r/.claude/big.md" "$r/CLAUDE.md"; cp "$r/.claude/big.md" "$d/big.md"
+    out="$(cd "$r" && HOME="$h" "$CSA" rule_engine_scan_all "$r" all 2>"$D/err" </dev/null)" || { printf '    %q: %s\n' "$r" "$(cat "$D/err")" >&2; return 1; }
+    want="SCANNER-003 CLAUDE.md it is over 1 MiB,SCANNER-003 big.md it is over 1 MiB,SCANNER-003 big.md it is over 1 MiB (plugin pl@m)"
+    assert_eq "$want" "$(printf '%s\n' "$out" | jq -sr 'map("\(.rule_id) \(.file | split("/") | last) \(.preview | ltrimstr("path not read: "))") | sort | join(",")')" \
+      "root $(printf '%q' "$r"): three size stops and nothing read" || return 1
+  done
+}
+
 # ---- settings that cannot be read ------------------------------------------
 
 # A user settings.json that is not JSON leaves the enabled-plugin set unknown: rc 2, not a scan of no plugins.
@@ -636,6 +654,7 @@ csa_test_run test_an_unreadable_dir_under_codex_or_opencode_is_a_stop || _csa_fa
 csa_test_run test_settings_with_trailing_content_refuses            || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_gitignore_line_below_a_repository_root_is_anchored || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_a_read_only_gitignore_prints_one_line             || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_the_size_stop_holds_under_a_non_ascii_root_and_home || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_user_settings_that_is_not_json_refuses            || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_project_settings_symlink_refuses                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_each_input_outside_the_set_is_one_stop            || _csa_failed=$((_csa_failed + 1))

@@ -105,6 +105,20 @@ test_tmp_scope_removes_its_dir_on_exit() {
   assert_eq "" "$(ls -A "$p")" "nothing is left after a normal exit" || return 1
 }
 
+# The scope sits at its parent's physical path: a TMPDIR reached through a symlink or spelled with `..` gives a scope
+# under the directory it names, so a path a test builds from TMPDIR is the one the engine prints. Control: a plain
+# TMPDIR gives a scope right under it.
+test_tmp_scope_is_at_a_physical_path() {
+  local real="$_CSA_TMP/scope-real" t got
+  mkdir -p "$real" "$_CSA_TMP/scope-lead"
+  ln -s "$real" "$_CSA_TMP/scope-link"
+  for t in "$_CSA_TMP/scope-link" "$_CSA_TMP/scope-lead/../scope-real" "/$real" "$real"; do
+    got="$(TMPDIR="$t" bash -c 'source "$1"; csa_tmp_scope t; printf %s "$TMPDIR"' _ "$CSA_LIB_DIR/helpers.sh")"
+    assert_eq "$real" "${got%/csa-t.*}" "TMPDIR=$t" || return 1
+  done
+  assert_eq "" "$(ls -A "$real")" "control: each scope is removed" || return 1
+}
+
 test_tmp_scope_removes_its_dir_on_each_signal() {
   local p sig want rc
   for sig in TERM:143 INT:130 HUP:129; do
@@ -150,6 +164,7 @@ csa_test_run test_root_ok_takes_only_an_absolute_directory  || _csa_failed=$((_c
 csa_test_run test_version_name_reads_bytes                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_tmp_scope_removes_its_dir_on_exit         || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_tmp_scope_removes_its_dir_on_each_signal  || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_tmp_scope_is_at_a_physical_path           || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_tmp_scope_removes_an_unreadable_dir       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_no_test_file_sets_an_exit_trap            || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_a_test_file_leaves_no_temp_dir            || _csa_failed=$((_csa_failed + 1))

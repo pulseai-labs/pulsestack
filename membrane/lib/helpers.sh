@@ -119,12 +119,15 @@ _csa_enum_linked_part() {
 }
 
 # csa_tmp_scope <label> — THE one temp helper, for the engine (bin/csa) and the tests. Makes one directory under the
-# caller's TMPDIR (/tmp when it is unset, relative or not a directory), exports TMPDIR as that directory so every
-# mktemp below it lands there, and removes it on EXIT, INT, TERM and HUP. A signal exits 128 plus its number after
+# caller's TMPDIR (/tmp when it is unset, relative or not a directory), at that directory's physical path (`cd -P`,
+# `pwd -P`, leading slashes cut to one: macOS's TMPDIR and /tmp lie behind symlinks, and the engine names every file
+# by its physical path), exports TMPDIR as that directory so every mktemp below it lands there, and removes it on EXIT,
+# INT, TERM and HUP. A signal exits 128 plus its number after
 # the removal. Call it once per process; a later `trap … EXIT` in the same shell replaces the removal.
 csa_tmp_scope() {
-  local parent="${TMPDIR:-/tmp}" d
+  local parent="${TMPDIR:-/tmp}" d p
   [[ "$parent" == /* && -d "$parent" ]] || parent=/tmp
+  p="$(cd -P -- "$parent" 2>/dev/null && pwd -P)" && [[ -n "$p" ]] && parent="$(_csa_lead_slash "$p")"
   d="$(mktemp -d "${parent%/}/csa-${1:-run}.XXXXXX")" || return 1
   _CSA_TMP_SCOPE="$d"
   TMPDIR="$d"

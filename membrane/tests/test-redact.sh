@@ -91,7 +91,7 @@ test_mask_command_mysql_password() {
     "control: -p in another command, and a bare -p" || return 1
 }
 
-# csa_redact_command cuts first, then masks: a command of any length costs one 200-character pass, and a cut command
+# csa_redact_command cuts first, then masks: a command of any length costs one 200-byte pass, and a cut command
 # says so.
 test_redact_command_cuts_before_masking() {
   local s; s="$(printf 'X_TOKEN=abcdefghij %.0s' $(seq 1 50000))"

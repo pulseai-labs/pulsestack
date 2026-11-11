@@ -62,7 +62,7 @@ csa_finding_uid() {
 
 # csa_finding_uid_raw <rule_id> <file_path> <match_excerpt>
 # The uid for a caller whose excerpt is free text of any length (a grep line, a JSON
-# value). csa_finding_uid hashes the REDACTED excerpt, and csa_redact caps it at 200 characters and
+# value). csa_finding_uid hashes the REDACTED excerpt, and csa_redact caps it at 200 characters (bytes under bin/csa's LC_ALL=C) and
 # masks every secret-like run to its first and last four, so two long excerpts that share their first
 # 200 characters, or their redacted form, share a uid, and a crafted finding can then share a suppressed
 # finding's uid (#1072 C11). This one hashes the whitespace-squeezed excerpt itself, so no character

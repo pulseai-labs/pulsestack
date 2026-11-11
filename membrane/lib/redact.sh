@@ -3,10 +3,14 @@
 # What is masked, and nothing else (a secret of another shape is printed as written: the README's
 # "Not read, by design" list says so):
 #   csa_redact            — every preview, and a finding id's excerpt: a key of one of the five shapes below
-#                           keeps its first 4 and last 4 characters; the text is cut to 200 characters.
+#                           keeps its first 4 and last 4 characters; the text is cut to 200 (bytes under bin/csa's
+#                           LC_ALL=C, so a cut can split a multibyte character).
 #   csa_mask_assignments  — SECRETS-003's preview and the hook-command list: the value of a secret-named variable.
 #   csa_mask_command      — the hook-command list and a hook entry's preview: the shapes a command line carries.
-#   csa_redact_command    — the three above for a hook command, cut to 200 characters first.
+#   csa_redact_command    — the three above for a hook command, cut to 200 bytes first.
+# Skill-first: the masks read open input (a project's hook text, a file's lines), so they are question 3: each only
+# removes text from what is printed, and a shape one misses is printed as written. The suppression count and the
+# hook-command list read membrane's own output, question 2.
 
 # csa_redact <string> — redact secret-like substrings; emit redacted form on stdout.
 # Recognized patterns (regex), each kept to its first 4 and last 4 characters:
@@ -73,9 +77,10 @@ csa_redact() {
 
 # csa_mask_assignments <string> — every value assigned to a name holding API_KEY, SECRET, TOKEN or PASSWORD (any case;
 # `NAME=value`, `NAME = value`) replaced by `***`: the name stays, the value is gone. The value is the run of
-# non-space bytes after `=`. Byte-wise in every locale. Used for SECRETS-003's preview and the report's list of hook
-# commands, so a password of any length never reaches chat or the report. Its loop is quadratic in the number of
-# assignments, so every caller cuts the text to 200 characters first.
+# non-space bytes after `=`, so a value holding a space keeps its tail (`--token='a b'` prints `--token=*** b'`; the
+# README's limit list says so). Byte-wise in every locale. Used for SECRETS-003's preview and the report's list of hook
+# commands. Skill-first question 3: it reads open text and only removes from it. Its loop is quadratic in the number
+# of assignments, so every caller cuts the text to 200 bytes first.
 csa_mask_assignments() {
   local LC_ALL=C s="$1" out=""
   local kw='[Aa][Pp][Ii]_[Kk][Ee][Yy]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]'
@@ -94,7 +99,10 @@ csa_mask_assignments() {
 #   - `-u user:password` and `--user user:password` (also `-uuser:password`, `--user=user:password`): `user:***`.
 #   - `scheme://user:password@`: `scheme://user:***@`.
 #   - `--token`, `--password`, `--passwd`, `--secret`, `--api-key`, `--apikey`, `--auth`, as `--flag value` or
-#     `--flag=value` (a quoted value up to its closing quote): `--flag ***`, `--flag=***`.
+#     `--flag=value`: `--flag ***`, `--flag=***`. A quoted value is masked up to its closing quote, except that
+#     csa_mask_assignments has already masked `--token=`, `--password=` and `--secret=` up to the first space, so
+#     `--token='a b'` prints `--token=*** b'`. A quoted token after `Bearer` and a quoted `-u "user:pw 1"` are
+#     masked only up to a space or a quote (the README's limit list names these spellings).
 #   - an attached `-p<value>` in a command whose command word (its first word that is not `NAME=value`, path
 #     dropped) is `mysql`, `mysqldump` or `mysqladmin`: `-p***`. A command ends at `;`, `|` or `&`.
 # Skill-first question 3: a mechanical edit of open text that only hides more of it; a shape it misses is printed as
@@ -177,7 +185,7 @@ csa_mask_command() {
 }
 
 # csa_redact_command <command> — a hook command as the report and a hook entry's preview print it: cut to 200
-# characters, then csa_mask_assignments, csa_mask_command and csa_redact's shapes, then `…(truncated)` when it was cut.
+# bytes (`${#t}` counts bytes under bin/csa's LC_ALL=C; a cut can split a multibyte character), then csa_mask_assignments, csa_mask_command and csa_redact's shapes, then `…(truncated)` when it was cut.
 # Cutting first bounds the masks' work, whatever the command's length.
 csa_redact_command() {
   local t="$1" more="" max=200

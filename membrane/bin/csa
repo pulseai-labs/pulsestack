@@ -8,7 +8,9 @@
 # kernel on direct execution, regardless of caller shell. Libs sourced through
 # here get the bash runtime they were written for.
 #
-# The front door (0.9.0): the run's environment is fixed here, so the caller's environment does not steer the engine.
+# The front door (0.9.0): the pieces of the run's environment listed below are fixed here, whatever the caller's
+# environment holds for them. Variables the dynamic loader and the C library read (LD_PRELOAD, LD_LIBRARY_PATH,
+# DYLD_*, GCONV_PATH) are not: the README's "What this does not stop" names them.
 # The audit runs inside a session of the project it audits, so a project's settings `env` block can reach this
 # process's environment.
 #   - bash -p (the shebang): bash imports no function from the environment (`BASH_FUNC_<name>%%`, which would shadow

@@ -70,7 +70,8 @@ _csa_enum_candidate() {
 
 # _csa_enum_classify <mode> <key> <tree> <path> <oversize-list> — print <path> as a target line on stdout, or one stop
 # line on stderr, or nothing (a file the walk does not read). <oversize-list> holds the tree's regular files over
-# 1 MiB, one per line between newlines; only a printable path is ever looked up in it.
+# 1 MiB, one per line between newlines, each one printable below <tree> (the bytes above it, the root, HOME or a plugin
+# dir, are not tested); only a path printable below the tree is ever looked up in it.
 _csa_enum_classify() {
   local mode="$1" key="$2" tree="$3" path="$4" big="$5" rel id=SCANNER-003
   rel="${path#"$tree"/}"
@@ -114,7 +115,7 @@ _csa_enum_walk() {
   local -a prune=()
   for p in "$@"; do prune+=( -path "$(_csa_enum_glob_quote "$p")" -prune -o ); done
   while LC_ALL=C IFS= read -r -d '' f; do
-    csa_printable "$f" && big="$big$f"$'\n'
+    csa_printable "${f#"$tree"/}" && big="$big$f"$'\n'
   done < <(find "$tree" ${prune[@]+"${prune[@]}"} -type f -size +"${_CSA_SIZE_MAX}c" -print0 2>/dev/null || :)
   while LC_ALL=C IFS= read -r -d '' f; do
     _csa_enum_classify "$mode" "$key" "$tree" "$f" "$big"
@@ -143,7 +144,7 @@ _csa_enum_named() {
   local root="$1" f big=$'\n'
   shift
   while LC_ALL=C IFS= read -r -d '' f; do
-    csa_printable "$f" && big="$big$f"$'\n'
+    csa_printable "${f#"$root"/}" && big="$big$f"$'\n'
   done < <(find "$root" "$@" -type f -size +"${_CSA_SIZE_MAX}c" -print0 2>/dev/null || :)
   while LC_ALL=C IFS= read -r -d '' f; do
     _csa_enum_classify name "" "$root" "$f" "$big"
