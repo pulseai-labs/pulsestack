@@ -203,7 +203,7 @@ csa_hook_entry_emit() {
   preview="$(csa_redact_command "$text")"
   sep="$(printf '\xe2\x90\x9f')"
   digest="$(csa_sha256 "${jp}${sep}${text}")"
-  # 24 hex characters: under csa_redact's 32-character mask and 200-character cap,
+  # 24 hex characters: under csa_redact's 32-character mask and 200-byte cap under bin/csa's LC_ALL=C,
   # so the whole digest reaches the uid however long the json path is.
   fuid="$(csa_finding_uid "$rule_id" "$file" "${digest:0:24}")"
   jq -nc --arg rule_id "$rule_id" --arg file "$file" --arg preview "$preview" \

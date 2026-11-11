@@ -40,7 +40,7 @@ detect_text() {
   [[ -n "$counts" ]] || return 1
   preview="$(csa_redact "hook entries not inspected: $counts")"
   # Hash first, as HOOK-005 does: the counts hold attacker-chosen type names, and
-  # csa_finding_uid redacts and caps its match at 200 characters.
+  # csa_finding_uid redacts and caps its match at 200 bytes under bin/csa's LC_ALL=C.
   fuid="$(csa_finding_uid "$RULE_ID" "$target_file" "$(csa_sha256 "$counts" | cut -c1-24)")"
   jq -nc --arg rule_id "$RULE_ID" --arg file "$target_file" --arg preview "$preview" \
     --arg severity "$RULE_SEVERITY" --arg fuid "$fuid" --arg counts "$counts" \

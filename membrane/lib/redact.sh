@@ -101,8 +101,9 @@ csa_mask_assignments() {
 #   - `--token`, `--password`, `--passwd`, `--secret`, `--api-key`, `--apikey`, `--auth`, as `--flag value` or
 #     `--flag=value`: `--flag ***`, `--flag=***`. A quoted value is masked up to its closing quote, except that
 #     csa_mask_assignments has already masked `--token=`, `--password=` and `--secret=` up to the first space, so
-#     `--token='a b'` prints `--token=*** b'`. A quoted token after `Bearer` and a quoted `-u "user:pw 1"` are
-#     masked only up to a space or a quote (the README's limit list names these spellings).
+#     `--token='a b'` prints `--token=*** b'`. A quoted token after `Bearer` (`Bearer "tok"`, `Bearer 'tok'`) is not
+#     masked: it is printed whole. A quoted `-u "user:pw 1"` value is masked up to the space: `user:*** 1"`. The
+#     README's limit list names these spellings.
 #   - an attached `-p<value>` in a command whose command word (its first word that is not `NAME=value`, path
 #     dropped) is `mysql`, `mysqldump` or `mysqladmin`: `-p***`. A command ends at `;`, `|` or `&`.
 # Skill-first question 3: a mechanical edit of open text that only hides more of it; a shape it misses is printed as
