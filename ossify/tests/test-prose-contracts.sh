@@ -2722,4 +2722,89 @@ pin "$WI/references/handoff-contract.md" 'never derive it from the spine'"'"'s `
 pin "$WI/references/report-contract.md" "its class as the handoff's §2 states it" \
   "report-contract §1 row does not take the spine class as the handoff's §2 states it (#1121) - a report may restate a class the handoff never sourced"
 
+# ossify 1.38.0 (#195, #473): the handoff ceremonies' safety rules. Each pin is red on cbc2a49e (ossify 1.37.1).
+_HR="$HERE/../skills/handoff-resume/references/resume.md"
+_HC="$HERE/../skills/handoff/references/compose.md"
+_HS="$HERE/../skills/handoff/references/sections.md"
+_HG="$HERE/../commands/handoff-resume.md"
+# #195 item 1: git log, diff, show and rev-list take --output=<path> and write a file with no prompt, so the grant holds
+# none of them. The WHOLE allowed-tools value is checked as a CLOSED SET (our own file, eleven known entries: the eight
+# Bash probes plus Read, Glob and Grep): an extra entry (`Write`, `Edit`, `Bash(git:*)`, `Bash(git log *)`, a bare
+# `Bash`), a missing one or a respelled one fails. The line is read alone: resume.md's own sentence names the four verbs.
+_hg_got="$(awk '/^allowed-tools:/' "$_HG" | sed 's/^allowed-tools:[[:space:]]*//' | tr ',' '\n' \
+  | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | LC_ALL=C sort)"
+_hg_want="$(printf '%s\n' 'Bash(git status:*)' 'Bash(git rev-parse:*)' 'Bash(git ls-files:*)' 'Bash(gh issue view:*)' \
+  'Bash(gh pr view:*)' 'Bash(gh pr list:*)' 'Bash(test:*)' 'Bash(ls:*)' 'Read' 'Glob' 'Grep' | LC_ALL=C sort)"
+if [ "$_hg_got" = "$_hg_want" ]; then _pin 0 ""; else
+  _pin 1 "handoff-resume's allowed-tools is not exactly the eight read probes plus Read, Glob, Grep (#195) - extra: [$(comm -13 <(printf '%s\n' "$_hg_want") <(printf '%s\n' "$_hg_got") | tr '\n' ' ')] missing: [$(comm -23 <(printf '%s\n' "$_hg_want") <(printf '%s\n' "$_hg_got") | tr '\n' ' ')]"
+fi
+# The ceremony's second entry surface is the skill itself (`ossify:handoff-resume`, `skill://handoff-resume`), which
+# molt, omp-roles and crew invoke by name. Its frontmatter grants nothing: any allowed-tools key there fails.
+_hg_skill="$HERE/../skills/handoff-resume/SKILL.md"
+if awk 'NR==1 && !/^---$/ {exit 1} NR>1 && /^---$/ {exit 1} /^allowed-tools[[:space:]]*:/ {found=1} END {exit found ? 0 : 1}' "$_hg_skill"; then
+  _pin 1 "skills/handoff-resume/SKILL.md frontmatter carries an allowed-tools grant (#195) - the skill surface must grant nothing"
+else _pin 0 ""; fi
+pin "$_HR" '`git log`, `diff`, `show` and `rev-list`' \
+  "resume.md does not say git log, diff, show and rev-list prompt on purpose (#195)"
+pin "$_HR" 'prompt on purpose: each takes `--output=<path>` and writes a file (#195).' \
+  "resume.md does not say git log, diff, show and rev-list prompt on purpose because each writes a file (#195)"
+# #195 item 2: an explicit path to a work order is named, stale, and not worked.
+pin "$_HR" '"this is a work order, not session state", the verdict is' \
+  "resume.md §1 does not make an explicit path to a work order say what it is (#195)"
+pin "$_HR" 'If it is a per-work-item `handoff.md`' \
+  "resume.md §1 does not name a per-work-item handoff.md as the work-order trigger (#195)"
+pin "$_HR" "(a work order, not session state), the read-out's first line is" \
+  "resume.md §1 does not make the work-order statement the read-out's first line (#195)"
+pin "$_HR" '`stale — re-plan before acting`, and its steps are not worked unless the' \
+  "resume.md §1 does not give an explicit path to a work order the stale verdict (#195)"
+pin "$_HR" 'operator says so. The drift report is still emitted.' \
+  "resume.md §1 does not say a work order's steps wait for the operator and the drift report is still emitted (#195)"
+pin "$_HR" 'the later suffix is newer); where the naming carries no date, by the' \
+  "resume.md §1 does not say which of two same-date handoffs is newer (#195)"
+pin "$_HR" 'outside a git repo) — most recent by the filename date (on the same date,' \
+  "resume.md §1 does not rank undated-name candidates after the filename date (#195)"
+pin "$_HR" 'authored date in the header; where the header carries none, by file' \
+  "resume.md §1 does not rank by the header's authored date before file history (#195)"
+pin "$_HR" 'history (`git log -1` per candidate); where git carries none either' \
+  "resume.md §1 does not rank by git history after the header date (#195)"
+pin "$_HR" '(gitignored precedent, a non-git repo), by modification time.' \
+  "resume.md §1 does not rank by modification time last (#195)"
+pin "$_HR" '(step 1'"'"'s precondition is gone, or the target is a work order, §1), not' \
+  "resume.md §3 does not give a work order's stale verdict a second trigger (#195)"
+# #195 item 5: a taken file name is never overwritten (data loss under gitignored precedent).
+pin "$_HC" '**Never overwrite an existing handoff.** Before stating the read-out, check' \
+  "compose.md does not forbid overwriting an existing handoff, or checks after the read-out is stated (#195)"
+pin "$_HC" 'the chosen name against the directory itself (`test -e`, not `git ls-files` —' \
+  "compose.md does not check the name against the directory, so an ignored handoff is overwritten (#195)"
+pin "$_HC" 'an ignored file is in no index). If it is taken, use the next free name' \
+  "compose.md does not say to use the next free name when the name is taken (#195)"
+pin "$_HC" '(`sections.md`, file name), and say in the read-out'"'"'s Location line that the' \
+  "compose.md does not say the read-out names the taken name and the one used (#195)"
+pin "$_HC" 'name was taken and which one was used.' \
+  "compose.md does not say the read-out names which name was taken and which one was used (#195)"
+pin "$_HS" '**A name already taken is never reused.** Take the next free one: the repo'"'"'s' \
+  "sections.md has no next-free-name rule (#195)"
+pin "$_HS" 'own suffix precedent where there is one (a letter after the date: the next' \
+  "sections.md does not follow the repo's own suffix precedent for a taken name (#195)"
+pin "$_HS" 'letter unused on that date, `2026-11-09d-<topic>.md`), else `-2`, `-3` before' \
+  "sections.md does not give the suffix forms for a taken name (#195)"
+# #195 items 3 and 4: the header date is recorded because resume ranks by it; §2 names the root the checks ran from.
+pin "$_HS" "resume needs it for §3's age and to rank candidates, and a gitignored file" \
+  "sections.md does not say the header's authored date is what resume ranks candidates by (#195)"
+pin "$_HS" 'Open with one line naming the directory the checks were run from: the repo' \
+  "sections.md §2 does not open with a line naming the directory the checks were run from (#195)"
+pin "$_HS" 'root, or the package root for a package-scoped handoff. The proven form is a' \
+  "sections.md §2 does not name the package root for a package-scoped handoff (#195)"
+# #473: trap facts. Compose adds the row; resume counts and does not check.
+pin "$_HS" 'A trap that states a checkable fact also gets a §2 row.' \
+  "sections.md §6 does not require a §2 row for a trap that states a fact (#473)"
+pin "$_HR" '§6 traps   <n> traps · <m> state facts · <k> of those have a §2 row' \
+  "resume.md's drift report has no §6 traps line (#473)"
+pin "$_HR" '- §6 is counted, not checked: report how many traps it lists, how many state a' \
+  "resume.md §2 does not say §6 is counted, not checked (#473)"
+pin "$_HR" 'checkable fact, and how many of those have a §2 row (no §6: 0 traps).' \
+  "resume.md §2 does not count the traps with a §2 row, or does not give a handoff with no §6 zero traps (#473)"
+pin "$_HR" 'with no row is the gap this makes visible; resume does not check it.' \
+  "resume.md §2 does not say resume leaves a trap fact with no row unchecked (#473)"
+
 t_summary

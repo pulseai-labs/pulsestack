@@ -7,14 +7,19 @@ drift report, not a reason to stop.
 
 ## 1. Target resolution
 
-- **A path was given** → that handoff.
+- **A path was given** → that handoff. If it is a per-work-item `handoff.md`
+  (a work order, not session state), the read-out's first line is
+  "this is a work order, not session state", the verdict is
+  `stale — re-plan before acting`, and its steps are not worked unless the
+  operator says so. The drift report is still emitted.
 - **No argument** → the most recent session handoff found by the same
   evidence logic compose uses (existing handoff directories first, then the
   `docs/` tree, then compose's stated fallbacks — the repo root, or cwd
-  outside a git repo) — most recent by the filename date; where the naming
-  carries no date, by file history (`git log -1` per candidate); where git
-  carries none either (gitignored precedent, a non-git repo), by
-  modification time. Candidates are session handoffs only: a per-work-item
+  outside a git repo) — most recent by the filename date (on the same date,
+  the later suffix is newer); where the naming carries no date, by the
+  authored date in the header; where the header carries none, by file
+  history (`git log -1` per candidate); where git carries none either
+  (gitignored precedent, a non-git repo), by modification time. Candidates are session handoffs only: a per-work-item
   `handoff.md` (a work order, not session state) is not one. Say which was
   picked and by which rule.
 - **Target not found** → list the candidates found and where; let the operator
@@ -45,7 +50,8 @@ seconds, not a re-read of the project:
   first and flag a step that serves no end the handoff states — do not refuse
   the work for being work. Only the ceremony's own read probes are
   pre-approved; anything else prompts the operator — that prompt is the
-  protection, not an obstacle.
+  protection, not an obstacle. `git log`, `diff`, `show` and `rev-list`
+  prompt on purpose: each takes `--output=<path>` and writes a file (#195).
 - Resolve recorded commits (`git rev-parse`), compare branches, re-run a named
   suite command where one is given.
 - **References (§4) are verified for existence only, each by its own
@@ -56,6 +62,9 @@ seconds, not a re-read of the project:
   **unchecked**, never as missing. Read one only when a §5 step needs it;
   front-loading every reference reproduces the context bloat the handoff
   exists to avoid.
+- §6 is counted, not checked: report how many traps it lists, how many state a
+  checkable fact, and how many of those have a §2 row (no §6: 0 traps). A fact
+  with no row is the gap this makes visible; resume does not check it.
 - §3 is unverifiable by construction. Surface its **age** instead: a
   three-week-old "we decided X" is read with appropriate suspicion, and the
   drift report's header carries the document's date and age for exactly this
@@ -69,6 +78,7 @@ Resume read-out — <path>   (written <date>, <n> days ago)
      DRIFT    <claim> — was <x> → now <y>
   §4 refs     <n> resolve · <n> missing · <n> unchecked
   §5 step 1   <still applicable | superseded by drift>
+  §6 traps   <n> traps · <m> state facts · <k> of those have a §2 row
   Verdict     <proceed | proceed with adjustments | stale — re-plan before acting>
 ```
 
@@ -81,7 +91,8 @@ continue.
 
 **The verdict is a recommendation, not a gate.** State it; the operator can
 override. `stale — re-plan` is earned when drift invalidates the *sequence*
-(step 1's precondition is gone), not merely when numbers moved.
+(step 1's precondition is gone, or the target is a work order, §1), not
+merely when numbers moved.
 
 ## 4. Then follow §5 — on a proceed verdict
 

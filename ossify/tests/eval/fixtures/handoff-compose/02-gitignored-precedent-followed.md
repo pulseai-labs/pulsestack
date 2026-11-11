@@ -11,7 +11,7 @@ break.
 The repo: `.scratch/handoffs/` holds `2026-07-30-oauth-scopes.md` and
 `2026-08-08-token-schema.md`. `.gitignore`'s first line is `.scratch/`. There
 is a `docs/` tree with API references, none of it handoff-shaped. Nothing else
-in the repo resembles a handoff.
+in the repo resembles a handoff. Neither handoff is dated today.
 
 The work state: branch `opaque-tokens` is 11 commits ahead, two of the five
 integration suites still fail (`token-refresh`, `logout-cascade`), and the
