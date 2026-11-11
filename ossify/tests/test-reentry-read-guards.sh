@@ -180,7 +180,6 @@ if [ "$only" = all ] || [ "$only" = R3 ]; then
     esac
     if [ "$shape" = list-failure ]; then export PATH="$TMP/failgit-list:$PATH"; fi
     inventory
-    printf 'S6 %s rc=%s: %s\n' "$shape" "$T_RC" "$T_OUT"
     t_assert_rc 3 "S6 $shape halts the read-out"
     t_assert_eq halt:worktree-held "$(verdict item r0.s1.w1 4)" "S6 $shape: the read-out names the halt cleanup would refuse"
     t_capture oss worktree_remove core r0.s1.w1
@@ -207,6 +206,40 @@ if [ "$only" = all ] || [ "$only" = R3 ]; then
   t_assert_eq halt:worktree-held "$(verdict item r0.s1.w1 4)" 'S6 locked conventional worktree behind a symlinked root is worktree-held, never skip'
   t_capture oss worktree_remove core r0.s1.w1
   t_assert_rc 8 'S6 locked conventional worktree behind a symlinked root: the owning cleanup really refuses'
+  # git prints `locked <reason>` for a lock with a reason: the scan and the conv-present check must see it too.
+  fixture s6-locked-reason-recorded; healthy; spawn; land; recorded_root
+  git -C "$F/core" worktree lock --reason x "$moved"
+  inventory
+  t_assert_rc 3 'S6 recorded-root worktree locked with a reason halts the read-out'
+  t_assert_eq halt:worktree-held "$(verdict item r0.s1.w1 4)" 'S6 recorded-root lock with a reason is worktree-held, never skip'
+  t_capture oss worktree_remove core r0.s1.w1
+  t_assert_rc 8 'S6 recorded-root lock with a reason: the owning cleanup really refuses'
+  fixture s6-locked-reason-conventional; healthy; spawn; land
+  git -C "$F/core" worktree lock --reason x "$WT"
+  inventory
+  t_assert_rc 3 'S6 conventional worktree locked with a reason halts the read-out'
+  t_assert_eq halt:worktree-held "$(verdict item r0.s1.w1 4)" 'S6 conventional lock with a reason is worktree-held, never skip'
+  t_capture oss worktree_remove core r0.s1.w1
+  t_assert_rc 8 'S6 conventional lock with a reason: the owning cleanup really refuses'
+  # Control: a lock on an UNRELATED worktree does not make an unlocked conventional item held.
+  fixture s6-unrelated-lock; healthy; spawn; land
+  git -C "$F/core" worktree add -q --detach "$F/elsewhere"; git -C "$F/core" worktree lock "$F/elsewhere"
+  inventory
+  t_assert_rc 0 'S6 control: a lock on an unrelated worktree does not halt'
+  t_assert_eq skip "$(verdict item r0.s1.w1 4)" 'S6 control: an unlocked conventional item still skips beside an unrelated lock'
+  t_capture oss worktree_remove core r0.s1.w1
+  t_assert_rc 0 'S6 control: cleanup also ignores the unrelated lock'
+  # finish-merge (complete, branch holds commits the spine branch lacks, no PR) takes the same override.
+  fixture s6-finish-merge; healthy; spawn
+  echo ahead > "$WT/ahead"; git -C "$WT" add ahead; git -C "$WT" commit -qm ahead
+  oss work_item_status r0.s1.w1 complete >/dev/null
+  inventory
+  t_assert_rc 0 'S6 control: an unlocked complete item with unmerged commits is not a halt'
+  t_assert_eq finish-merge "$(verdict item r0.s1.w1 4)" 'S6 control: ...and routes finish-merge'
+  git -C "$F/core" worktree lock "$WT"
+  inventory
+  t_assert_rc 3 'S6 locked conventional worktree on a finish-merge item halts the read-out'
+  t_assert_eq halt:worktree-held "$(verdict item r0.s1.w1 4)" 'S6 the override covers finish-merge, not only skip'
   # Cleanup's conv-present arm reads no registration set: a foreign-root extra beside a live conventional worktree still skips.
   fixture s6-conventional-foreign; healthy; spawn; land
   mkdir -p "$F/other-root/.worktrees"; git -C "$F/core" worktree add -q --detach "$F/other-root/.worktrees/r0.s1.w1"

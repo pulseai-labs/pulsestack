@@ -460,7 +460,7 @@ HOLD
             # repairs had mutated state. A planned item's stray path at the
             # recorded location is the planned-with-worktree shape.
             if [ -e "$wtp" ] || [ -L "$wtp" ]; then route=halt:planned-with-worktree   # -L: a symlink is present-not-absent (U-157)
-            # #704: a recorded branch with no base_sha is the active arm's half-write; name it.
+            # #704: a recorded, present branch (brx = yes) with no base_sha is the active arm's half-write; name it.
             elif [ "$brx" = yes ] && [ -z "$bs" ]; then route=halt:base-unknown
             elif [ "$hab" != - ] && [ "$wtp" = "$conv" ]; then
               if [ "$descends" != yes ]; then route=halt:unclassified

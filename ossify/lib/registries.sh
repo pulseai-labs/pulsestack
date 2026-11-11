@@ -161,7 +161,7 @@ _oss_repoint_guard() { # $1=json-list $2=noun $3=csv-name $4=needle $5=blank-why
 # callers. Measured against that version: two concurrent `oss bone_add ADR-Rn`
 # each returned rc 0 and left two rows for ADR-Rn (the window is the caller's own
 # jq spawn between the count and the lock, and it is not narrow). The refusal is
-# unchanged - same rc 7, same message byte for byte - only the moment moves.
+# unchanged - same rc 7, same message (a case variant gains the existing spelling, #705) - only the moment moves.
 _oss_reg_uniq_bone() { # $1=state-file $2=payload about to be minted -> 0, or 7 if the ref exists
   local adr n have
   adr="$(printf '%s' "$2" | jq -r '.adr')" || return 4
@@ -170,7 +170,7 @@ _oss_reg_uniq_bone() { # $1=state-file $2=payload about to be minted -> 0, or 7 
   n="$(_oss_reg_count "$1" '.bones[] | select((.adr | ascii_downcase) == ($v | ascii_downcase))' "bones" "$adr")" || return $?
   [ "$n" -eq 0 ] || {
     have="$(jq -r --arg v "$adr" 'first(.bones[] | select((.adr | ascii_downcase) == ($v | ascii_downcase)) | .adr)' "$1" 2>/dev/null)" || have="$adr"
-    [ "$have" = "$adr" ] && have="" || have=" as '$have' (ADR refs compare ASCII case-insensitively)"
+    [ "$have" = "$adr" ] && have="" || have=" as '$have' (bone_add compares ADR refs ASCII case-insensitively)"
     echo "oss: bone '$adr' already exists$have - one ADR ref keys one bone, and duplicate refs have no supported repair yet (#305); correct its surface with 'oss bone_set_touch <adr> <touch-csv>', or mint a new ref for a second decision" >&2; return 7; }
 }
 
