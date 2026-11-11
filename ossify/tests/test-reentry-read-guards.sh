@@ -198,6 +198,15 @@ if [ "$only" = all ] || [ "$only" = R3 ]; then
   t_capture oss worktree_remove core r0.s1.w1
   t_assert_rc 8 'S6 locked conventional worktree: the owning cleanup really refuses'
   t_assert_eq yes "$(if [ -d "$WT" ]; then echo yes; else echo no; fi)" 'S6 locked conventional worktree: cleanup removed nothing'
+  # The lock check compares physically: a topology root that is a symlink to the real repo
+  # must still match git's printed (resolved) registration path.
+  fixture s6-locked-conventional-symroot; mv "$F/core" "$F/core-real"; ln -s "$F/core-real" "$F/core"
+  healthy; spawn; land; git -C "$F/core" worktree lock "$WT"
+  inventory
+  t_assert_rc 3 'S6 locked conventional worktree behind a symlinked root halts the read-out'
+  t_assert_eq halt:worktree-held "$(verdict item r0.s1.w1 4)" 'S6 locked conventional worktree behind a symlinked root is worktree-held, never skip'
+  t_capture oss worktree_remove core r0.s1.w1
+  t_assert_rc 8 'S6 locked conventional worktree behind a symlinked root: the owning cleanup really refuses'
   # Cleanup's conv-present arm reads no registration set: a foreign-root extra beside a live conventional worktree still skips.
   fixture s6-conventional-foreign; healthy; spawn; land
   mkdir -p "$F/other-root/.worktrees"; git -C "$F/core" worktree add -q --detach "$F/other-root/.worktrees/r0.s1.w1"

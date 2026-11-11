@@ -550,9 +550,8 @@ HOLD
           else route=halt:unclassified; fi ;;
         *) route=halt:unclassified ;;
       esac
-      # #706: a complete item that would skip or re-land reaches close's cleanup, so
-      # decide from the facts `oss_worktree_remove` checks - same helpers, same
-      # `-d` split. Any refusal there is a halt here, before anything mutates.
+      # #706: conv absent shares cleanup's helper; conv present checks only the lock its
+      # non-forced `git worktree remove` refuses. Same `-d` split; a refusal halts here.
       if [ "$st" = complete ] && { [ "$route" = skip ] || [ "$route" = finish-merge ]; }; then
         scan_rc=0
         if [ -d "$conv" ]; then _oss_worktree_reg_locked "$root" "$conv" || scan_rc=$?
