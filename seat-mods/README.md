@@ -214,7 +214,7 @@ it goes on to the role checks and the model exactly as if the rail were absent. 
 and `eval` best effort through its string literals, and an implementer's `debug` launch.
 
 **On OMP it also reaches a plain session** (#1102). `package.json`'s `omp` manifest names `omp/kill-rail.ts`, the rail
-alone (`bash` and `eval`; not `debug`), so every omp session with seat-mods enabled, unless started with `--no-extensions`, loads it after `omp plugin upgrade`, whether or not `omp-seat` launched it. That
+alone (`bash` and `eval`; not `debug`), so every omp session with seat-mods enabled loads it after `omp plugin upgrade`, whether or not `omp-seat` launched it. That
 entry ignores `SEAT_MODS_ROLE` and the agent kind: a plain session keeps every other freedom, and the role
 guard stays `omp-seat`-only. An unreadable `bash` command is refused with the same stop a free role gets; an unreadable `eval` string literal passes, as a literal need not be shell; it also turns off the joined reading of the code, the one that sees an argv list, so an argv-list kill beside it goes on to the model. Under
 `omp-seat` the rail runs twice, once from the manifest and once inside the guard; that is harmless, as the first
@@ -226,8 +226,7 @@ It refuses:
 - **A call that both lists processes and signals.** A `ps`, `pgrep`, `pidof` or `ls /proc…` head
   anywhere in the call (substitutions, pipes and loops included) together with `kill` or
   `xargs … kill`. So `kill $(pgrep -f x)`, `ps … | xargs kill`, `for p in $(pgrep x); do kill $p; done`
-  and `P=$(pgrep x); kill $P` are refused. `kill $(cat pidfile)` is not, and neither is a call that
-  only lists.
+  and `P=$(pgrep x); kill $P` are refused. A call that only lists is not.
 - **`kill` with `-1`** in any operand position (also `-01`, and with blanks around it), **`0`** (`kill 0`,
   `kill 00`, `kill +0`, `kill -- 0`, `kill -- -0`; `kill -0 <pid>` is allowed), or **a negative operand that
   holds a `$` or a backtick** (`-$X`, `-"$X"`, `-${X}`, `-$((…))`, ``-`cat f` ``): a variable may be empty
@@ -263,8 +262,7 @@ An unquoted `$(…)` or `$((…))` counts as one word of its command, so `kill 1
 
 It reads past assignments before the command word as bash and zsh take them: `NAME=`, `NAME+=`, `NAME[…]=` and
 `NAME[…]+=`, with any characters in the subscript (`A+=1 kill -1`, `a[1]=x kill -1`, `a["]"]=1 kill -1`;
-`A+=1 echo hi` passes). A word that holds `=` but is not `NAME=…` is also read as the command word, its path taken
-off, as the rail read it before, so `A+=/bin/kill -1` is refused. It reads through `sudo` (with its options), `env`, `command`, `builtin`, `exec`, `nohup`, `time`, `timeout`,
+`A+=1 echo hi` passes). It reads through `sudo` (with its options), `env`, `command`, `builtin`, `exec`, `nohup`, `time`, `timeout`,
 `setsid`, `nice`, `ionice`, `stdbuf`, `chrt`, `taskset`, `flock` and `busybox` (the next word is the applet: `busybox sh -c '…'`, `busybox kill -1`; each with its common options, and `--`);
 through a path (`/bin/kill`), a quoted command word (`'kill'`, `k""ill`) and the shell's reserved heads, among them
 the reserved `time`: unquoted at a command's head, and in bash after an optional `-p` and then an optional `--`, it times a pipeline, so a head word or
@@ -378,7 +376,7 @@ encoding of the command word, no construct absent from real session logs, and a 
 signal widely. Any other miss is a `LIMITS` row and a line below; no issue, no release. Past the line, a PID
 namespace per seat stops signals.
 
-**Known limits: not read, by design.** Each item but the first has a row in `tests/kill.test.ts`; the first is
+**Known limits: not read, by design.** Each item but the first and last has a row in `tests/kill.test.ts`; the first is
 untested here (PR #1119's Evidence records a live probe of `--no-extensions` and `omp plugin disable`).
 
 - Sessions and tools outside it: an omp session started with `--no-extensions`, with seat-mods off (`omp plugin
@@ -420,7 +418,7 @@ untested here (PR #1119's Evidence records a live probe of `--no-extensions` and
   (any wrapper too), where the rail reads the group 1234. 4.0.5 and Ubuntu's `2:4.0.4-9ubuntu1` fix it. Write
   `kill -- -1234` (#1180).
 - zsh past what it reads: functions zsh runs by itself (`function TRAPEXIT { kill -1 }`, also `zshexit`, `TRAPZERR`,
-  `TRAPDEBUG`; #1185; `TRAPEXIT() { … }` is read, as every `name() { … }` body is); an anonymous function's arguments
+  `TRAPDEBUG`; #1185); an anonymous function's arguments
   (`function { kill $1 } -1`; `() { kill $1 } -1` is refused); a `}` zsh keeps in a word, read as a group's close:
   glued to an assignment (`{ x=a}; kill -1}`), ending a `${…}` in which zsh nests a `{` (`${x:-{a} b}`), after `$${`,
   after a `$(…){` in the same command (#1184), or in a redirection word, glued (`{ true 2>/dev/null} always { … }`) or
@@ -433,11 +431,14 @@ untested here (PR #1119's Evidence records a live probe of `--no-extensions` and
   a `/proc/[0-9]*` glob and `cgroup.procs` are not read (`kill $(lsof -t)`).
 - Other signallers and criteria: `fuser -k`, `skill`, `snice`; `pkill` and `killall` by `-s`, `-g`, `-P`, `-t`, `-G`,
   `-F`, `-v`, `--older`, `-r`, `--env`, `--cgroup` or `--inverse` alone, `killall -g`, macOS `killall -m`; an option's
-  value read as the pattern (`-O`, `-r`, `-q`, `--cgroup`: `pkill -O 10 "$X"`); a pattern
-  broad in a way the probes do not show (`pkill s`, `pkill -f claude`) or that is not a JavaScript regular expression; and
-  a `killall` name, without `-r`, held in a variable.
+  value read as the pattern (`-O`, `-r`, `-q`, `--cgroup`: `pkill -O 10 "$X"`), and a value with an expansion there is a
+  false stop (`pkill -O "$AGE" node`); `--full` abbreviated (`pkill --fu /`); a pattern broad in a way the probes do
+  not show (`pkill s`, `pkill -f claude`) or that is not a JavaScript regular expression; and a `killall` name, without
+  `-r`, held in a variable.
 - Other ends of the session (not probed): `systemctl --user start exit.target`, `stop --all` or `poweroff`,
   `loginctl terminate-seat` or `disable-linger`, `busctl … Exit`, and system-scope `systemctl stop user@<uid>`.
+- A `-f` pattern is a regular expression run against five probe strings, and one built to
+  backtrack (`(\W?){200}\d`, nested `(…\W*)*`) can take seconds, as against the names since that test began.
 
 ## Status block (orchestrator)
 

@@ -1613,9 +1613,10 @@ function broadPattern(pattern: string, anchored: boolean, ignoreCase: boolean, p
 // (`/usr/lib/systemd/systemd --user`, whose end took the session down in #1099) among them. So `pkill -f /`,
 // `pkill -f ' '` and `pkill -f -- --` are refused, and a pattern that needs a letter or digit (`pkill -f 'node
 // server.js'`) never matches it. A pattern anchored to the probe's shape (`pkill -fx '/ --'`) is refused too, though
-// it matches almost nothing: a deliberate false stop. The probe is no longer than the longest name, `systemd`, so a
-// pattern that backtracks costs no more here: the user manager's whole line cost up to a second per such pattern in
-// bun's regular expressions.
+// it matches almost nothing: a deliberate false stop. The probe is no longer than the longest name, `systemd` (the
+// user manager's whole line cost up to a second per backtracking pattern in bun's regular expressions). The pattern
+// is the user's own regular expression, so one built to backtrack costs time against this probe as it does against
+// the names, which have run it since the names test began: a known limit, not a verdict.
 const KILL_LINE_PROBE = ['/ --']
 
 // #1191: a pattern's letters and digits outside its expansions, and whether it holds one, read from its raw token.
@@ -1628,7 +1629,12 @@ const KILL_LINE_PROBE = ['/ --']
 // piece ("…", `$$`, a `$(…)` in double quotes) is read as the text around it is. A `${…}`'s default value is not
 // counted, except a double-quoted one inside a double-quoted `${…}`, which is read as literal (the quote pieces pair
 // flat, so an unclosed `${` runs to the end of its own piece only). A variable set earlier in the same call is not
-// read. A NUL that opens no marker is text. Linear: each character is read once, and a span is skipped whole.
+// read. A marker is a NUL, one or more ASCII digits and a NUL, the shape blank mints (MARKER); any other NUL is text,
+// read as a character that is no letter. Each piece is walked at most once per pattern: a second reference to one
+// (only a forged marker makes one) is read as an expansion, toward a stop, so a forged chain neither recurses nor fans
+// out. Linear: each character of the token and of each piece is read once, and a span is skipped whole; a '…' piece's
+// text is put back with expand, as every reading of the word already does before this runs.
+const PATTERN_MARKER = /\u0000(\d+)\u0000/y
 const PATTERN_NAME = /[=^~+]*(?:[A-Za-z_][A-Za-z0-9_]*|[0-9]+)?/y
 const PATTERN_LETTER = /[\p{L}\p{N}]/u
 function patternLiterals(token: string, pieces: readonly string[]): { letters: number; expands: boolean } {
@@ -1650,13 +1656,17 @@ function patternLiterals(token: string, pieces: readonly string[]): { letters: n
     else if (body.startsWith('`')) expands = true
     else walk(body)
   }
+  const walked = new Set<number>()
   const walk = (text: string): void => {
     for (let i = 0; i < text.length; i++) {
       const char = text[i]!
-      const end = char === '\u0000' ? text.indexOf('\u0000', i + 1) : -1
-      if (end > i) {
-        piece(pieces[Number(text.slice(i + 1, end))] ?? '')
-        i = end
+      PATTERN_MARKER.lastIndex = i
+      const marker = char === '\u0000' ? PATTERN_MARKER.exec(text) : null
+      if (marker !== null) {
+        const at = Number(marker[1])
+        i += marker[0].length - 1
+        if (walked.has(at)) expands = true
+        else { walked.add(at); piece(pieces[at] ?? '') }
       } else if (char === '\\') {
         literal(text[i + 1] ?? '')
         i += 1

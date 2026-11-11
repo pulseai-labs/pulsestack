@@ -778,6 +778,15 @@ const REFUSE: ReadonlyArray<readonly [string, string]> = [
   ['killall -r node "$NAME"', 'killall -r node "abc$NAME"'],
   ["pkill $'\\x41\\x42'\"$X\"", "pkill $'\\x41\\x42\\x43'\"$X\""],
   ['pkill -f "abc|-$"', 'pkill -f "abc|-x$"'],
+  // round 1 C1: a marker is a NUL, ASCII digits and a NUL; an empty, spaced or signed index is text (the controls read
+  // three letters or digits only so), and a second reference to a piece is an expansion, not a second walk
+  // (the review's form first; a pattern that starts with a NUL is empty in zsh's reading, so the others start with a
+  // letter, and the empty index's row puts a piece 0 that an index of '' would name)
+  ['pkill "\u0000\u0000$X"', 'pkill "a\u0000\u0000bc$X"'],
+  ["echo 'xyz'; pkill \"a\u0000\u0000$X\"", "echo 'xyz'; pkill \"a\u0000\u0000bc$X\""],
+  ['pkill "a\u0000 1\u0000$X"', 'pkill "a\u0000 12\u0000$X"'],
+  ['pkill "a\u0000-1\u0000$X"', 'pkill "a\u0000-12\u0000$X"'],
+  ["echo ''; pkill \"\u00000\u0000\u00000\u0000ab\"", "echo ''; pkill \"\u00000\u0000ab\""],
 ]
 
 // What a seat does legitimately, and text that only mentions kill.
@@ -1041,6 +1050,7 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['killall "$NAME"', 'killall without -r: a name held in a variable (a name, not a pattern)'],
   ['echo "${ kill -1; }"', 'a bash 5.3 funsub (#925)'],
   ['pkill -O 10 "$X"', "an option's value read as the pattern (-O, -r, -q, --cgroup), so the pattern is not read"],
+  ['pkill --fu /', '--full abbreviated (--fu, --ful) is not read as -f; `pkill --full /` is refused'],
 ]
 
 describe('killRule: refuse, with a near-miss control beside each row', () => {
@@ -1339,6 +1349,8 @@ describe('killRule: deliberate false stops of the literal-part test and the grou
     ['pkill $(cat f)abc', 'pkill $(cat f)-abc'],
     ['PORT=3000; pkill -f ":$PORT"', 'PORT=3000; pkill -f "port:$PORT"'],
     ["pkill -fx '/ --'", "pkill -fx '/ --x'"],
+    // round 1 N1: an option's value with an expansion is read as the pattern
+    ['pkill -O "$AGE" node', 'pkill -O 10 node'],
     ['kill 0', 'kill 10'],
   ]
   for (const [command, control] of rows) {
@@ -1692,6 +1704,18 @@ describe('killRule: bounds', () => {
     const started = performance.now()
     try { killRule("xargs $'-\\x6e' $\"-n\" -i ".repeat(8) + 'zq' + " $'\\x61'".repeat(2000)) } catch {}
     expect(performance.now() - started).toBeLessThan(5000)
+  })
+  // round 1 C1: forged markers. A chain of segments whose pattern word holds two spaced markers, each naming the next
+  // segment's word, fanned out to 2^k walks on f46e8dcd; spaced markers are text now. 2,000 repeated references to one
+  // piece are walked once. Each finishes well under 100 ms (a few ms here).
+  test('2,000 forged or repeated markers in a pattern finish under 100 ms, each with a verdict', () => {
+    const forged = Array.from({ length: 1000 }, (_, i) => `${i === 0 ? 'pkill -f' : 'echo'} "\u0000 ${i + 1}\u0000\u0000 ${i + 1}\u0000$X"`).join(' ; ') + ' ; echo "x"'
+    const repeated = "echo ''; pkill \"" + '\u00000\u0000'.repeat(2000) + 'ab"'
+    for (const command of [forged, repeated]) {
+      const started = performance.now()
+      expect(killRule(command)).toContain('kill rail')
+      expect(performance.now() - started).toBeLessThan(100)
+    }
   })
   test('a 30 KB xargs chain finishes under a second', () => {
     const started = performance.now()
