@@ -63,7 +63,7 @@ oss_spine_inventory() { # $1=state $2=spine-id
   spine_dir="$matches"; slug="${spine_dir##*/}"; slug="${slug#$spine-}"
   spine_branch="$(oss_id_branch_name "$spine" "$slug")"
 
-  local repos repo root any=0 present head clean base verdict repo_por base_present base_rc ref_rc repo_refs=""
+  local repos repo root any=0 present head clean base verdict repo_por base_present base_rc base_ref_rc ref_rc repo_refs=""
   repos="$(jq -r --arg s "$spine" '[.work_items[] | select(.spine == $s and .status != "abandoned") | .target_repo] | unique[]' "$sf")" || return 2
   # Pass 1: does the spine branch exist in ANY hosting repo? That decides fresh.
   while IFS= read -r repo; do
@@ -126,8 +126,12 @@ EOF
     # guarantee. `spine_base_set` validates the branch EXISTS at record time,
     # so a missing ref here means the base was renamed or deleted afterwards;
     # no repair may guess a replacement (that is the operator's call).
-    if [ "$base_present" = 1 ] && ! _oss_inv_git -C "$root" show-ref --verify --quiet "refs/heads/$base"; then
-      printf 'repo\t%s\thalt:base-unresolved\tbranch=%s\thead=%s\tclean=%s\tbase=%s\n' "$repo" "$present" "$head" "$clean" "$base"
+    # #705: absent (rc 1) and unreadable (rc 2, a corrupt loose ref) are different repairs.
+    base_ref_rc=0
+    if [ "$base_present" = 1 ]; then _oss_inv_ref "$root" "refs/heads/$base" || base_ref_rc=$?; fi
+    if [ "$base_ref_rc" != 0 ]; then
+      verdict=halt:base-unresolved; [ "$base_ref_rc" = 1 ] || verdict=halt:unreadable
+      printf 'repo\t%s\t%s\tbranch=%s\thead=%s\tclean=%s\tbase=%s\n' "$repo" "$verdict" "$present" "$head" "$clean" "$base"
       halt=1; continue
     fi
     if [ "$any" -eq 0 ]; then verdict=fresh
@@ -155,7 +159,7 @@ EOF
 _oss_inv_items() { # $1=state $2=spine $3=spine-dir $4=spine-branch ; rc 1 if any halt
   local sf="$1" spine="$2" spine_dir="$3" sb="$4" halt=0
   local wi st repo br wtp bs dc root conv has_exec wt clean hab merged report tip route por cands wtp_phys top_phys wt_common root_common held holders hp hl adopt_br brx feed feed_rc=0 gr descends foreign ref_rc
-  local cleanup_kept derived_root rec_root hp_root pr
+  local cleanup_kept derived_root rec_root hp_root pr scan_rc
   # The feed's own rc is caught, and each item renders inside a `try`/`catch`
   # (#673 A2): one unrenderable field used to collapse the WHOLE stream - the
   # shell read a partial feed with no error channel, the empty-field skip
@@ -456,6 +460,8 @@ HOLD
             # repairs had mutated state. A planned item's stray path at the
             # recorded location is the planned-with-worktree shape.
             if [ -e "$wtp" ] || [ -L "$wtp" ]; then route=halt:planned-with-worktree   # -L: a symlink is present-not-absent (U-157)
+            # #704: a recorded branch with no base_sha is the active arm's half-write; name it.
+            elif [ "$brx" = yes ] && [ -z "$bs" ]; then route=halt:base-unknown
             elif [ "$hab" != - ] && [ "$wtp" = "$conv" ]; then
               if [ "$descends" != yes ]; then route=halt:unclassified
               elif [ "$held" = 1 ]; then route=halt:worktree-held; else route=reattach; fi
@@ -544,6 +550,15 @@ HOLD
           else route=halt:unclassified; fi ;;
         *) route=halt:unclassified ;;
       esac
+      # #706: a complete item that would skip or re-land reaches close's cleanup, so
+      # decide from the facts `oss_worktree_remove` checks - same helpers, same
+      # `-d` split. Any refusal there is a halt here, before anything mutates.
+      if [ "$st" = complete ] && { [ "$route" = skip ] || [ "$route" = finish-merge ]; }; then
+        scan_rc=0
+        if [ -d "$conv" ]; then _oss_worktree_reg_locked "$root" "$conv" || scan_rc=$?
+        else _oss_worktree_cleanup_scan "$root" "$wi" "$wtp" || scan_rc=$?; fi
+        [ "$scan_rc" = 0 ] || route=halt:worktree-held
+      fi
       # #673 L2: an unrelated recorded branch is never this item's - halt it
       # over whatever route the arm computed (skip included: a foreign branch
       # proves nothing landed for THIS item).

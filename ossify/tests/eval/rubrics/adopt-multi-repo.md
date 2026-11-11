@@ -51,7 +51,8 @@ about it, the same convention `start-topology-authoring` uses. There is no N/A.
    every repo holding it from the captured inventory. Compare case-folded references
    under bones-registry §3's authority, including the references that bare seed filenames
    would register; keep original spellings and bare filenames in the halt message.
-   Case variants and a bare/prefixed pair with the same reference halt too.
+   Case variants and a bare/prefixed pair with the same reference halt too, and so
+   does a pair held by two files in ONE repo: the halt names both files and their repo.
    No automatic renumbering
    or repo-qualified reference is allowed. Both the distinct aggregate and
    collision halt are scored; requiring two entries for a colliding pair is wrong.

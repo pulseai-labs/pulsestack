@@ -158,6 +158,63 @@ if [ "$only" = all ] || [ "$only" = R3 ]; then
   t_assert_eq halt:worktree-held "$(verdict item r0.s1.w1 4)" 'S1 suffix alone never authorizes cleanup'
   t_capture oss worktree_remove core r0.s1.w1
   t_assert_rc 8 'S1 cleanup really refuses the unowned suffix registration'
+  # #706: the complete arm decides from the facts cleanup checks. Each shape
+  # halts in the read-out AND the owning cleanup really refuses (rc 8).
+  mkdir -p "$TMP/failgit-list"
+  printf '#!/usr/bin/env bash\ncase " $* " in *" worktree list "*) echo "fatal: simulated worktree list failure" >&2; exit 128;; esac\nexec %s "$@"\n' "$(command -v git)" > "$TMP/failgit-list/git"
+  chmod +x "$TMP/failgit-list/git"
+  recorded_root() { # live worktree moved to a recorded root, as the S1 pins do
+    moved="$F/recorded-root/.worktrees/r0.s1.w1"; mkdir -p "${moved%/*}"
+    git -C "$F/core" worktree move "$WT" "$moved"
+    oss work_item_exec r0.s1.w1 work/r0.s1.w1-one "$moved" "$(git -C "$F/core" rev-parse main)" >/dev/null
+  }
+  for shape in foreign-root list-failure locked-recorded; do
+    fixture "s6-$shape"; healthy; spawn; land; recorded_root
+    case "$shape" in
+      foreign-root)
+        mkdir -p "$F/other-root/.worktrees"
+        git -C "$F/core" worktree add -q --detach "$F/other-root/.worktrees/r0.s1.w1"
+        expect_msg="not under this item's root" ;;
+      list-failure) expect_msg="cannot read the worktree list" ;;
+      locked-recorded) git -C "$F/core" worktree lock "$moved"; expect_msg="locked registration at" ;;
+    esac
+    if [ "$shape" = list-failure ]; then export PATH="$TMP/failgit-list:$PATH"; fi
+    inventory
+    printf 'S6 %s rc=%s: %s\n' "$shape" "$T_RC" "$T_OUT"
+    t_assert_rc 3 "S6 $shape halts the read-out"
+    t_assert_eq halt:worktree-held "$(verdict item r0.s1.w1 4)" "S6 $shape: the read-out names the halt cleanup would refuse"
+    t_capture oss worktree_remove core r0.s1.w1
+    if [ "$shape" = list-failure ]; then PATH="${PATH#"$TMP/failgit-list:"}"; fi
+    t_assert_rc 8 "S6 $shape: the owning cleanup really refuses"
+    t_assert_contains "$T_OUT" "$expect_msg" "S6 $shape: cleanup names the same reason"
+    t_assert_eq yes "$(if [ -d "$moved" ]; then echo yes; else echo no; fi)" "S6 $shape: cleanup removed nothing"
+  done
+  # A locked CONVENTIONAL worktree: cleanup's non-forced remove refuses it.
+  fixture s6-locked-conventional; healthy; spawn; land
+  git -C "$F/core" worktree lock "$WT"
+  inventory
+  t_assert_rc 3 'S6 locked conventional worktree halts the read-out'
+  t_assert_eq halt:worktree-held "$(verdict item r0.s1.w1 4)" 'S6 locked conventional worktree is worktree-held, never skip'
+  t_capture oss worktree_remove core r0.s1.w1
+  t_assert_rc 8 'S6 locked conventional worktree: the owning cleanup really refuses'
+  t_assert_eq yes "$(if [ -d "$WT" ]; then echo yes; else echo no; fi)" 'S6 locked conventional worktree: cleanup removed nothing'
+  # Cleanup's conv-present arm reads no registration set: a foreign-root extra beside a live conventional worktree still skips.
+  fixture s6-conventional-foreign; healthy; spawn; land
+  mkdir -p "$F/other-root/.worktrees"; git -C "$F/core" worktree add -q --detach "$F/other-root/.worktrees/r0.s1.w1"
+  inventory
+  t_assert_rc 0 'S6 control: a foreign extra beside a live conventional worktree does not halt'
+  t_assert_eq skip "$(verdict item r0.s1.w1 4)" 'S6 control: ...the conv-present arm checks only that worktree lock'
+  # The override reaches only skip/finish-merge: a dirty locked worktree keeps its own halt.
+  fixture s6-dirty-locked; healthy; spawn; land
+  echo dirty > "$WT/dirty"; git -C "$F/core" worktree lock "$WT"
+  inventory
+  t_assert_eq halt:dirty-worktree "$(verdict item r0.s1.w1 4)" 'S6 control: a dirty locked worktree keeps halt:dirty-worktree, not worktree-held'
+  # An unreadable list also halts a conventional-path item (the read-out cannot
+  # show cleanup would pass); cleanup itself has no list read on this arm.
+  fixture s6-list-failure-conventional; healthy; spawn; land
+  PATH="$TMP/failgit-list:$PATH" inventory
+  t_assert_rc 3 'S6 conventional worktree with an unreadable list halts the read-out'
+  t_assert_eq halt:worktree-held "$(verdict item r0.s1.w1 4)" 'S6 conventional worktree with an unreadable list is worktree-held'
   fixture r3-live; healthy; spawn; land; inventory
   t_assert_rc 0 'R3 live clean merged control succeeds'; t_assert_eq skip "$(verdict item r0.s1.w1 4)" 'R3 live clean merged worktree still skips'
   # Alias spelling of the SAME linked worktree remains valid.

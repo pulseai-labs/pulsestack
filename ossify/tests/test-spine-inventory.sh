@@ -433,6 +433,14 @@ t_assert_eq "halt:base-unresolved" "$(field repo ui 3)" "S29: a recorded base re
 t_assert_eq "base=main" "$(field repo ui 7)" "S29: ...naming the recorded base that no longer resolves"
 t_assert_eq "ok" "$(field repo core 3)" "S29: ...while the healthy repo's row is untouched"
 t_assert_rc 3 "S29: ...rc 3, before any repo repair can cut elsewhere"
+# #705: a CORRUPT base ref is not a renamed one - it routes halt:unreadable, not the
+# spine_base_reset repair. The absent base above keeps halt:base-unresolved.
+F="$TMP/s705"; fx "$F" 1
+printf 'broken-ref\n' > "$F/core/.git/refs/heads/main"
+inv "$F"
+t_assert_eq "halt:unreadable" "$(field repo core 3)" "#705: a corrupt loose ref for the recorded base halts unreadable"
+t_assert_eq "base=main" "$(field repo core 7)" "#705: ...with the same row shape, naming the base"
+t_assert_rc 3 "#705: ...rc 3"
 
 # S30 (#673 G2): a rejection record that EXISTS but cannot be read is not an
 # absent one - the staged result must halt, not route close-finished into the
@@ -835,6 +843,34 @@ for status in planned active; do
   inv "$F"; t_assert_rc 3 "E4 $status reset below base halts"
   t_assert_eq halt:unclassified "$(route r0.s1.w1)" "E4 $status never reattaches non-descendant"
 done
+# #704: a planned item with a branch recorded and base_sha empty (a half-written
+# work_item_exec, worktree gone) names halt:base-unknown, as the active arm does -
+# at the conventional path and at a recorded non-conventional one alike.
+for where in conventional recorded; do
+  F="$TMP/s704-$where"; fx "$F" 1; WT="$(spawn "$F" r0.s1.w1 one)"
+  rec="$WT"; [ "$where" = conventional ] || rec="$F/alt/r0.s1.w1"
+  oss_in "$F" work_item_exec r0.s1.w1 work/r0.s1.w1-one "$rec" "" >/dev/null
+  sf="$F/ws/.ossify/project-state.json"; jq '.work_items[0].status="planned"' "$sf" > "$F/changed.json"; mv "$F/changed.json" "$sf"
+  git -C "$F/core" worktree remove --force "$WT"
+  inv "$F"; t_assert_rc 3 "#704 planned half-write ($where path) halts"
+  t_assert_eq halt:base-unknown "$(route r0.s1.w1)" "#704 planned half-write ($where path) names base-unknown, not unclassified"
+  # The stray-path shape keeps priority over the half-write.
+  if [ "$where" = conventional ]; then
+    mkdir -p "$WT"; inv "$F"
+    t_assert_eq halt:planned-with-worktree "$(route r0.s1.w1)" "#704 control: a stray path with an empty base still routes planned-with-worktree"
+  fi
+done
+# #704 control: a recorded branch that is ABSENT (brx=no) with an empty base is not the half-write.
+F="$TMP/s704-absent"; fx "$F" 1; WT="$(spawn "$F" r0.s1.w1 one)"
+oss_in "$F" work_item_exec r0.s1.w1 work/r0.s1.w1-one "$WT" "" >/dev/null
+sf="$F/ws/.ossify/project-state.json"; jq '.work_items[0].status="planned"' "$sf" > "$F/changed.json"; mv "$F/changed.json" "$sf"
+git -C "$F/core" worktree remove --force "$WT"; git -C "$F/core" branch -D work/r0.s1.w1-one >/dev/null
+inv "$F"; t_assert_eq halt:unclassified "$(route r0.s1.w1)" "#704 control: planned + branch recorded but absent + empty base stays halt:unclassified"
+# #704 control: the same planned record WITH its base recorded still reattaches.
+F="$TMP/s704-control"; fx "$F" 1; WT="$(spawn "$F" r0.s1.w1 one)"
+sf="$F/ws/.ossify/project-state.json"; jq '.work_items[0].status="planned"' "$sf" > "$F/changed.json"; mv "$F/changed.json" "$sf"
+git -C "$F/core" worktree remove --force "$WT"
+inv "$F"; t_assert_eq reattach "$(route r0.s1.w1)" "#704 control: planned + branch + base recorded + worktree gone still reattaches"
 # E7/E8: occupied non-worktree paths are checked before finish-status/skip.
 for status in active complete; do
   for branch_shape in merged absent; do

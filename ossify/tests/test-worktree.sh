@@ -1288,6 +1288,49 @@ t_assert_rc 8 "L5b: a LIVE worktree under another root refuses the cleanup"
   || { T_FAIL=$((T_FAIL+1)); echo "FAIL: L5b: the live worktree under another root was destroyed"; }
 t_assert_contains "$T_OUT" "not under this item's root" "L5b: ...naming why it refused"
 
+# #706: a LOCKED registration cleanup would remove refuses before ANYTHING is
+# removed. Two kept dead registrations (derived root, recorded root), the
+# unlocked one first: the old loop removed it, then refused on the locked one.
+A5WI8="$(oss_entity_add_work_item "$A5S" "$A5SP" "t8" canonical)"
+A5W8="$(oss_worktree_add canonical "$A5WI8" "a5e" HEAD)"
+echo e > "$A5W8/e"; git -C "$A5W8" add e; git -C "$A5W8" commit -qm a5e
+A5REC8="$A5CAN/../a5rec/.worktrees/$A5WI8"; mkdir -p "$(dirname "$A5REC8")"
+oss_entity_set_work_item_exec "$A5S" "$A5WI8" "work/$A5WI8-a5e" "$A5REC8" "$(git -C "$A5W8" rev-parse HEAD)" >/dev/null
+git -C "$A5CAN" merge -q "work/$A5WI8-a5e" -m "merge $A5WI8"
+git -C "$A5CAN" worktree add -q -f "$A5REC8" "work/$A5WI8-a5e"
+git -C "$A5CAN" worktree lock "$A5REC8"
+rm -rf "$A5W8" "$A5REC8"
+t_assert_eq "$A5W8" "$(git -C "$A5CAN" worktree list --porcelain | awk -v s="/.worktrees/$A5WI8" '/^worktree /{w=substr($0,10); if (length(w)>=length(s) && substr(w,length(w)-length(s)+1)==s) {print w; exit}}')" "#706 setup: the UNLOCKED registration lists first"
+t_assert_eq "locked" "$(git -C "$A5CAN" worktree list --porcelain | awk -v l="$(cd -P "$(dirname "$A5REC8")" && pwd)/$A5WI8" '/^worktree /{w=substr($0,10)} /^locked/{if (w==l) print "locked"}')" "#706 setup: the second registration carries the lock"
+A8_BEFORE="$(git -C "$A5CAN" worktree list --porcelain)"
+t_capture env OSS_STATE_FILE="$A5S" bash "$OSS" worktree_remove canonical "$A5WI8"
+t_assert_rc 8 "#706: a locked registration cleanup would remove refuses the cleanup"
+t_assert_contains "$T_OUT" "has a locked registration at" "#706: ...naming the lock"
+t_assert_contains "$T_OUT" "$A5WI8" "#706: ...and the item"
+t_assert_contains "$T_OUT" "nothing was removed" "#706: ...and saying nothing was removed"
+t_assert_eq "$A8_BEFORE" "$(git -C "$A5CAN" worktree list --porcelain)" "#706: ...the whole registration set stands, byte-identical (no partial removal)"
+t_assert_eq "present" "$(git -C "$A5CAN" show-ref --verify --quiet "refs/heads/work/$A5WI8-a5e" && echo present || echo gone)" "#706: ...and the branch survives"
+# Control: unlocked, the same shape cleans up.
+git -C "$A5CAN" worktree unlock "$(cd -P "$(dirname "$A5REC8")" && pwd)/$A5WI8"
+t_capture env OSS_STATE_FILE="$A5S" bash "$OSS" worktree_remove canonical "$A5WI8"
+t_assert_rc 0 "#706 control: with the lock gone the same cleanup succeeds"
+t_assert_eq "0" "$(git -C "$A5CAN" worktree list --porcelain | awk -v s="/.worktrees/$A5WI8" '/^worktree /{w=substr($0,10); if (length(w)>=length(s) && substr(w,length(w)-length(s)+1)==s) c++} END{print c+0}')" "#706 control: ...both registrations are cleared"
+
+# #706: the lock check covers the DERIVED root too, not only the recorded one.
+A5WI9="$(oss_entity_add_work_item "$A5S" "$A5SP" "t9" canonical)"
+A5W9="$(oss_worktree_add canonical "$A5WI9" "a5f" HEAD)"
+echo f > "$A5W9/f"; git -C "$A5W9" add f; git -C "$A5W9" commit -qm a5f
+# The recorded root differs from the derived one, so only a derived-root lock check can see this lock.
+oss_entity_set_work_item_exec "$A5S" "$A5WI9" "work/$A5WI9-a5f" "$A5CAN/../a5rec9/.worktrees/$A5WI9" "$(git -C "$A5W9" rev-parse HEAD)" >/dev/null
+git -C "$A5CAN" merge -q "work/$A5WI9-a5f" -m "merge $A5WI9"
+git -C "$A5CAN" worktree lock "$A5W9"; rm -rf "$A5W9"
+t_capture env OSS_STATE_FILE="$A5S" bash "$OSS" worktree_remove canonical "$A5WI9"
+t_assert_rc 8 "#706: a locked registration at the DERIVED root refuses the cleanup"
+t_assert_contains "$T_OUT" "has a locked registration at $A5W9" "#706: ...naming the locked path"
+git -C "$A5CAN" worktree unlock "$A5W9"
+t_capture env OSS_STATE_FILE="$A5S" bash "$OSS" worktree_remove canonical "$A5WI9"
+t_assert_rc 0 "#706 control: unlocked, the derived-root registration is cleared"
+
 # L6 (#673 L6): the deleted-worktree arm's STATE read fails closed. Folding a
 # parse failure into an empty branch used to clear the registrations, leave
 # the work branch silently alive, and return 0 while close proceeded.
