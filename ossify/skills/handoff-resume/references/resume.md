@@ -15,11 +15,11 @@ drift report, not a reason to stop.
 - **No argument** → the most recent session handoff found by the same
   evidence logic compose uses (existing handoff directories first, then the
   `docs/` tree, then compose's stated fallbacks — the repo root, or cwd
-  outside a git repo) — most recent by the filename date; where the naming
-  carries no date, by the authored date in the header; where the header
-  carries none, by file history (`git log -1` per candidate); where git
-  carries none either (gitignored precedent, a non-git repo), by
-  modification time. Candidates are session handoffs only: a per-work-item
+  outside a git repo) — most recent by the filename date (on the same date,
+  the later suffix is newer); where the naming carries no date, by the
+  authored date in the header; where the header carries none, by file
+  history (`git log -1` per candidate); where git carries none either
+  (gitignored precedent, a non-git repo), by modification time. Candidates are session handoffs only: a per-work-item
   `handoff.md` (a work order, not session state) is not one. Say which was
   picked and by which rule.
 - **Target not found** → list the candidates found and where; let the operator
@@ -91,7 +91,8 @@ continue.
 
 **The verdict is a recommendation, not a gate.** State it; the operator can
 override. `stale — re-plan` is earned when drift invalidates the *sequence*
-(step 1's precondition is gone), not merely when numbers moved.
+(step 1's precondition is gone, or the target is a work order, §1), not
+merely when numbers moved.
 
 ## 4. Then follow §5 — on a proceed verdict
 

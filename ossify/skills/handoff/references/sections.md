@@ -15,8 +15,9 @@ resume needs it for §3's age and to rank candidates, and a gitignored file
 has no history to recover it from.
 
 **A name already taken is never reused.** Take the next free one: the repo's
-own suffix precedent where there is one (a letter after the date,
-`2026-11-09d-<topic>.md`), else `-2`, `-3` before `.md`.
+own suffix precedent where there is one (a letter after the date: the next
+letter unused on that date, `2026-11-09d-<topic>.md`), else `-2`, `-3` before
+`.md`.
 
 ## Header — title and relations
 

@@ -2728,35 +2728,50 @@ _HC="$HERE/../skills/handoff/references/compose.md"
 _HS="$HERE/../skills/handoff/references/sections.md"
 _HG="$HERE/../commands/handoff-resume.md"
 # #195 item 1: git log, diff, show and rev-list take --output=<path> and write a file with no prompt, so the grant holds
-# none of them. The grant line is read alone: resume.md's own sentence names the four verbs.
-_hg_line="$(awk '/^allowed-tools:/' "$_HG")"
-case "$_hg_line" in *'Bash(git status:'*) _pin 0 "";; *) _pin 1 "handoff-resume's allowed-tools line is empty or lost git status - the absence checks below would be vacuous";; esac
-for _v in log diff show rev-list; do
-  case "$_hg_line" in
-    *"Bash(git $_v:"*) _pin 1 "handoff-resume's allowed-tools grants git $_v (#195) - it takes --output=<path> and writes a file with no prompt";;
-    *) _pin 0 "";;
-  esac
-done
+# none of them. The grant's Bash entries are checked as a CLOSED SET (our own file, eight known entries): an extra, a
+# missing or a respelled entry (`Bash(git:*)`, `Bash(git log *)`, `Bash(git show)`, a bare `Bash`) fails. The line is
+# read alone: resume.md's own sentence names the four verbs.
+_hg_got="$(awk '/^allowed-tools:/' "$_HG" | sed 's/^allowed-tools:[[:space:]]*//' | tr ',' '\n' \
+  | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | awk '/^Bash/' | LC_ALL=C sort)"
+_hg_want="$(printf '%s\n' 'Bash(git status:*)' 'Bash(git rev-parse:*)' 'Bash(git ls-files:*)' 'Bash(gh issue view:*)' \
+  'Bash(gh pr view:*)' 'Bash(gh pr list:*)' 'Bash(test:*)' 'Bash(ls:*)' | LC_ALL=C sort)"
+if [ "$_hg_got" = "$_hg_want" ]; then _pin 0 ""; else
+  _pin 1 "handoff-resume's Bash grant is not exactly the eight read probes (#195) - extra: [$(comm -13 <(printf '%s\n' "$_hg_want") <(printf '%s\n' "$_hg_got") | tr '\n' ' ')] missing: [$(comm -23 <(printf '%s\n' "$_hg_want") <(printf '%s\n' "$_hg_got") | tr '\n' ' ')]"
+fi
 pin "$_HR" '`git log`, `diff`, `show` and `rev-list`' \
   "resume.md does not say git log, diff, show and rev-list prompt on purpose (#195)"
+pin "$_HR" 'prompt on purpose: each takes `--output=<path>` and writes a file (#195).' \
+  "resume.md does not say git log, diff, show and rev-list prompt on purpose because each writes a file (#195)"
 # #195 item 2: an explicit path to a work order is named, stale, and not worked.
 pin "$_HR" '"this is a work order, not session state", the verdict is' \
   "resume.md §1 does not make an explicit path to a work order say what it is (#195)"
 pin "$_HR" '`stale — re-plan before acting`, and its steps are not worked unless the' \
   "resume.md §1 does not give an explicit path to a work order the stale verdict (#195)"
+pin "$_HR" 'operator says so. The drift report is still emitted.' \
+  "resume.md §1 does not say a work order's steps wait for the operator and the drift report is still emitted (#195)"
+pin "$_HR" 'the later suffix is newer); where the naming carries no date, by the' \
+  "resume.md §1 does not say which of two same-date handoffs is newer (#195)"
+pin "$_HR" '(step 1'"'"'s precondition is gone, or the target is a work order, §1), not' \
+  "resume.md §3 does not give a work order's stale verdict a second trigger (#195)"
 # #195 item 5: a taken file name is never overwritten (data loss under gitignored precedent).
-pin "$_HC" '**Never overwrite an existing file.**' \
-  "compose.md does not forbid overwriting an existing handoff (#195)"
-pin "$_HC" 'against the directory itself (`test -e`, not `git ls-files` — an ignored file' \
+pin "$_HC" '**Never overwrite an existing handoff.** Before stating the read-out, check' \
+  "compose.md does not forbid overwriting an existing handoff, or checks after the read-out is stated (#195)"
+pin "$_HC" 'the chosen name against the directory itself (`test -e`, not `git ls-files` —' \
   "compose.md does not check the name against the directory, so an ignored handoff is overwritten (#195)"
+pin "$_HC" 'an ignored file is in no index). If it is taken, use the next free name' \
+  "compose.md does not say to use the next free name when the name is taken (#195)"
+pin "$_HC" '(`sections.md`, file name), and say in the read-out'"'"'s Location line that the' \
+  "compose.md does not say the read-out names the taken name and the one used (#195)"
 pin "$_HS" '**A name already taken is never reused.** Take the next free one: the repo'"'"'s' \
   "sections.md has no next-free-name rule (#195)"
-pin "$_HS" '`2026-11-09d-<topic>.md`), else `-2`, `-3` before `.md`.' \
+pin "$_HS" 'letter unused on that date, `2026-11-09d-<topic>.md`), else `-2`, `-3` before' \
   "sections.md does not give the suffix forms for a taken name (#195)"
 # #473: trap facts. Compose adds the row; resume counts and does not check.
 pin "$_HS" 'A trap that states a checkable fact also gets a §2 row.' \
   "sections.md §6 does not require a §2 row for a trap that states a fact (#473)"
 pin "$_HR" '§6 traps   <n> traps · <m> state facts · <k> of those have a §2 row' \
   "resume.md's drift report has no §6 traps line (#473)"
+pin "$_HR" '- §6 is counted, not checked: report how many traps it lists, how many state a' \
+  "resume.md §2 does not say §6 is counted, not checked (#473)"
 
 t_summary
