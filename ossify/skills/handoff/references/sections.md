@@ -11,8 +11,12 @@ even when it carries ids or prefixes. Absent precedent, the default is
 `<date>-<topic>.md` (e.g. `2026-08-16-auth-cutover-half-done.md`) — no ids,
 no scope prefixes, no naming regex; the date sorts, the topic tells. Where
 the chosen name carries no date, the header records the authored date —
-resume needs it for §3's age, and a gitignored file has no history to
-recover it from.
+resume needs it for §3's age and to rank candidates, and a gitignored file
+has no history to recover it from.
+
+**A name already taken is never reused.** Take the next free one: the repo's
+own suffix precedent where there is one (a letter after the date,
+`2026-11-09d-<topic>.md`), else `-2`, `-3` before `.md`.
 
 ## Header — title and relations
 
@@ -45,7 +49,9 @@ drifts by construction.
 ## 2. State — as checkable claims
 
 Where the work is, written so a fresh session can *verify* rather than trust.
-The proven form is a two-column table:
+Open with one line naming the directory the checks were run from: the repo
+root, or the package root for a package-scoped handoff. The proven form is a
+two-column table:
 
 ```
 | Claim | How to check |
@@ -105,6 +111,7 @@ What not to do, and assumptions now invalid. Carry forward any standing
 constraint a resuming session could innocently violate (a freeze, a settled
 decision, a command that destroys state). If a prior handoff's traps still
 bite, say "everything in <file>'s §6 stands" and list only the new ones.
+A trap that states a checkable fact also gets a §2 row.
 
 ## 7. Read-out (embedded)
 

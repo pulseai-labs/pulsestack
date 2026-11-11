@@ -2722,4 +2722,41 @@ pin "$WI/references/handoff-contract.md" 'never derive it from the spine'"'"'s `
 pin "$WI/references/report-contract.md" "its class as the handoff's §2 states it" \
   "report-contract §1 row does not take the spine class as the handoff's §2 states it (#1121) - a report may restate a class the handoff never sourced"
 
+# ossify 1.38.0 (#195, #473): the handoff ceremonies' safety rules. Each pin is red on cbc2a49e (ossify 1.37.1).
+_HR="$HERE/../skills/handoff-resume/references/resume.md"
+_HC="$HERE/../skills/handoff/references/compose.md"
+_HS="$HERE/../skills/handoff/references/sections.md"
+_HG="$HERE/../commands/handoff-resume.md"
+# #195 item 1: git log, diff, show and rev-list take --output=<path> and write a file with no prompt, so the grant holds
+# none of them. The grant line is read alone: resume.md's own sentence names the four verbs.
+_hg_line="$(awk '/^allowed-tools:/' "$_HG")"
+case "$_hg_line" in *'Bash(git status:'*) _pin 0 "";; *) _pin 1 "handoff-resume's allowed-tools line is empty or lost git status - the absence checks below would be vacuous";; esac
+for _v in log diff show rev-list; do
+  case "$_hg_line" in
+    *"Bash(git $_v:"*) _pin 1 "handoff-resume's allowed-tools grants git $_v (#195) - it takes --output=<path> and writes a file with no prompt";;
+    *) _pin 0 "";;
+  esac
+done
+pin "$_HR" '`git log`, `diff`, `show` and `rev-list`' \
+  "resume.md does not say git log, diff, show and rev-list prompt on purpose (#195)"
+# #195 item 2: an explicit path to a work order is named, stale, and not worked.
+pin "$_HR" '"this is a work order, not session state", the verdict is' \
+  "resume.md §1 does not make an explicit path to a work order say what it is (#195)"
+pin "$_HR" '`stale — re-plan before acting`, and its steps are not worked unless the' \
+  "resume.md §1 does not give an explicit path to a work order the stale verdict (#195)"
+# #195 item 5: a taken file name is never overwritten (data loss under gitignored precedent).
+pin "$_HC" '**Never overwrite an existing file.**' \
+  "compose.md does not forbid overwriting an existing handoff (#195)"
+pin "$_HC" 'against the directory itself (`test -e`, not `git ls-files` — an ignored file' \
+  "compose.md does not check the name against the directory, so an ignored handoff is overwritten (#195)"
+pin "$_HS" '**A name already taken is never reused.** Take the next free one: the repo'"'"'s' \
+  "sections.md has no next-free-name rule (#195)"
+pin "$_HS" '`2026-11-09d-<topic>.md`), else `-2`, `-3` before `.md`.' \
+  "sections.md does not give the suffix forms for a taken name (#195)"
+# #473: trap facts. Compose adds the row; resume counts and does not check.
+pin "$_HS" 'A trap that states a checkable fact also gets a §2 row.' \
+  "sections.md §6 does not require a §2 row for a trap that states a fact (#473)"
+pin "$_HR" '§6 traps   <n> traps · <m> state facts · <k> of those have a §2 row' \
+  "resume.md's drift report has no §6 traps line (#473)"
+
 t_summary

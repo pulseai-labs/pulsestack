@@ -10,7 +10,7 @@ fix direction is already written as a checklist in issue #42 ("normalize via
 Rack::Headers, three call sites listed"). The PR description carries the same
 list. Branch `rack-31-bump`, 2 commits ahead, nothing else in flight.
 
-The repo has `docs/handoffs/` with several tracked handoffs. Everything about
+The repo has `docs/handoffs/` with several tracked handoffs, none dated today. Everything about
 this work is codified: the issue holds the plan, the PR holds the state, the
 failing spec names the file and line. Nothing was decided in conversation that
 is not already in the issue thread.

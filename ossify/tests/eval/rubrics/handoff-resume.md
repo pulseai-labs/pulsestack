@@ -32,6 +32,12 @@ reasoning is stated, not just the conclusion).
    it as fatal and silently skipping it are both wrong. On a scenario where
    every reference resolves, this criterion scores that resolution being
    checked and said (existence-only, contents unread until a step needs them).
+4. **Work order recognised** — when the named file is a per-work-item
+   `handoff.md` (a work order, not session state), the read-out's first line
+   says it is a work order and not session state, the verdict is `stale —
+   re-plan before acting`, none of the file's steps is worked, and the drift
+   report is still given. For a session handoff the output does not call it a
+   work order and gives no work-order verdict.
 
 ## Output format
-`{"scores":{"drift_detected":N,"no_false_drift":N,"missing_reference_reported":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.
+`{"scores":{"drift_detected":N,"no_false_drift":N,"missing_reference_reported":N,"work_order_recognised":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.

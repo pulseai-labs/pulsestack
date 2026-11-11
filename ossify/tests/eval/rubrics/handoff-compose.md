@@ -43,6 +43,13 @@ output correctly **declined** to do it. There is no N/A. Scoring convention:
    handoff, a lean §3 is *called correct* and the output resists the operator's
    request to pad it — manufactured depth scores this criterion down, honesty
    about thinness scores it up.
+7. **Name taken, never overwritten** — the chosen file name is checked
+   against the directory itself (not `git ls-files`: an ignored file is in no
+   index). A name already on disk is never reused: the output takes the next
+   free name (the repo's own suffix precedent where one exists, else `-2`)
+   and the read-out says the name was taken and which name was used. Where
+   no file of that name exists, the output uses the plain name and invents
+   no suffix and no collision.
 
 ## Output format
-`{"scores":{"location_correct":N,"tracked_decision_stated":N,"references_not_duplicated":N,"claims_checkable":N,"sequence_ordered":N,"weakness_surfaced":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.
+`{"scores":{"location_correct":N,"tracked_decision_stated":N,"references_not_duplicated":N,"claims_checkable":N,"sequence_ordered":N,"weakness_surfaced":N,"name_taken_not_overwritten":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.

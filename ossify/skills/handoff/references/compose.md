@@ -68,6 +68,12 @@ State the read-out (template in `sections.md` §7) **in conversation before
 writing the file**, blocking nothing. It is a preview the operator can react
 to, not a gate. Then embed the same read-out as the document's final section.
 
+**Never overwrite an existing file.** Before writing, check the chosen name
+against the directory itself (`test -e`, not `git ls-files` — an ignored file
+is in no index). If it is taken, use the next free name (`sections.md`, file
+name), and say in the read-out's Location line that the name was taken and
+which one was used.
+
 `Weakest` is named honestly or the read-out is theater: a thin §3 on a trivial
 handoff is correct; a thin §3 nobody noticed is how context dies. If the
 operator gave no topic, the read-out is also where the derived topic is

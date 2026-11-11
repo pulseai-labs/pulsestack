@@ -18,6 +18,13 @@ records — batch flushes were capped at 50 after the unbounded version starved
 the consumer in staging, and the team rejected moving retries to Redis because
 ops won't take a new dependency this quarter.
 
+One step remains: the consumer still acks per message. The next action is to
+write `tests/test_consumer_batched_ack.py` and run
+`pytest tests/test_consumer_batched_ack.py` (it must fail until `ack_batch()`
+replaces the per-message `ack()` call at `queue/consumer.py:88`); the branch is
+done when that test and the full suite pass and it is opened as a PR to `main`.
+No handoff in that directory is dated today.
+
 The operator adds: "just drop it in /tmp or wherever, honestly — I only need it
 for tomorrow morning."
 

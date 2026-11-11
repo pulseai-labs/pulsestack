@@ -1,7 +1,7 @@
 ---
 description: Resume from a session handoff — verify its claims against the live repo, report drift, then follow its sequence; never refuses
 argument-hint: "[path]"
-allowed-tools: Bash(git log:*), Bash(git status:*), Bash(git rev-parse:*), Bash(git rev-list:*), Bash(git diff:*), Bash(git show:*), Bash(git ls-files:*), Bash(gh issue view:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(test:*), Bash(ls:*), Read, Glob, Grep
+allowed-tools: Bash(git status:*), Bash(git rev-parse:*), Bash(git ls-files:*), Bash(gh issue view:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(test:*), Bash(ls:*), Read, Glob, Grep
 ---
 
 Handoff to resume, if one was named: $ARGUMENTS
