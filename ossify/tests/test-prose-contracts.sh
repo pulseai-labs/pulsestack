@@ -2738,6 +2738,12 @@ _hg_want="$(printf '%s\n' 'Bash(git status:*)' 'Bash(git rev-parse:*)' 'Bash(git
 if [ "$_hg_got" = "$_hg_want" ]; then _pin 0 ""; else
   _pin 1 "handoff-resume's allowed-tools is not exactly the eight read probes plus Read, Glob, Grep (#195) - extra: [$(comm -13 <(printf '%s\n' "$_hg_want") <(printf '%s\n' "$_hg_got") | tr '\n' ' ')] missing: [$(comm -23 <(printf '%s\n' "$_hg_want") <(printf '%s\n' "$_hg_got") | tr '\n' ' ')]"
 fi
+# The ceremony's second entry surface is the skill itself (`ossify:handoff-resume`, `skill://handoff-resume`), which
+# molt, omp-roles and crew invoke by name. Its frontmatter grants nothing: any allowed-tools key there fails.
+_hg_skill="$HERE/../skills/handoff-resume/SKILL.md"
+if awk 'NR==1 && !/^---$/ {exit 1} NR>1 && /^---$/ {exit 1} /^allowed-tools[[:space:]]*:/ {found=1} END {exit found ? 0 : 1}' "$_hg_skill"; then
+  _pin 1 "skills/handoff-resume/SKILL.md frontmatter carries an allowed-tools grant (#195) - the skill surface must grant nothing"
+else _pin 0 ""; fi
 pin "$_HR" '`git log`, `diff`, `show` and `rev-list`' \
   "resume.md does not say git log, diff, show and rev-list prompt on purpose (#195)"
 pin "$_HR" 'prompt on purpose: each takes `--output=<path>` and writes a file (#195).' \
