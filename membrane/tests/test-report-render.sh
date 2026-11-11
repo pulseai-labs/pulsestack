@@ -9,7 +9,6 @@ source "$CSA_LIB_DIR/report-render.sh"
 _csa_failed=0
 
 _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-test.XXXXXX")"
-trap 'rm -rf "$_CSA_TMP"' EXIT
 
 # ---------------------------------------------------------------------------
 # 1. zero findings → renders empty summary cleanly

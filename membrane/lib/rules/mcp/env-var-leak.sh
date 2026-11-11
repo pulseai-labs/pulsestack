@@ -4,8 +4,6 @@ RULE_NAME="env-var-leak"
 RULE_ASPECT="mcp"
 RULE_SEVERITY="medium"
 RULE_DESCRIPTION="Literal secret-shaped string detected in MCP server args or env block."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Replace the literal secret with an environment variable reference (e.g. \${MY_TOKEN}). Store actual secrets in a secret manager or .env file excluded from version control."
 RULE_REFERENCES=""
 

@@ -1,52 +1,84 @@
-#!/usr/bin/env bash
-# bin/csa — dispatcher entry point for membrane
+#!/usr/bin/env -S bash -p
+# bin/csa — dispatcher entry point for membrane, and its front door.
 #
 # Why this exists: Claude Code's Bash tool on macOS runs under zsh by default
 # ($SHELL=zsh). Skill bodies that `source lib/*.sh` then inherit zsh, where
 # ${BASH_SOURCE[0]} is unset and ${BASH_REMATCH[…]} returns empty silently.
-# This dispatcher's shebang (#!/usr/bin/env bash) forces bash via the kernel
-# on direct execution, regardless of caller shell. Libs sourced through here
-# get the bash runtime they were written for.
+# This dispatcher's shebang (#!/usr/bin/env -S bash -p) forces bash via the
+# kernel on direct execution, regardless of caller shell. Libs sourced through
+# here get the bash runtime they were written for.
+#
+# The front door (0.9.0): the pieces of the run's environment listed below are fixed here, whatever the caller's
+# environment holds for them. Variables the dynamic loader and the C library read (LD_PRELOAD, LD_LIBRARY_PATH,
+# DYLD_*, GCONV_PATH) are not: the README's "What this does not stop" names them.
+# The audit runs inside a session of the project it audits, so a project's settings `env` block can reach this
+# process's environment.
+#   - bash -p (the shebang): bash imports no function from the environment (`BASH_FUNC_<name>%%`, which would shadow
+#     a tool the engine runs by name) and ignores SHELLOPTS, BASHOPTS, CDPATH, GLOBIGNORE, ENV and BASH_ENV. Claude
+#     Code runs `csa` by name from PATH, so the shebang governs; `bash bin/csa` would not apply it. `env` and `bash`
+#     themselves are found on the caller's PATH, before any line here runs.
+#   - LC_ALL=C for the whole run: every regex, glob, read and sort is byte-wise.
+#   - TMPDIR: one directory of its own under the caller's TMPDIR, removed on EXIT,
+#     INT, TERM and HUP (csa_tmp_scope).
+#   - CSA_PLUGIN_ROOT, CSA_LIB_DIR, CSA_RULES_DIR, CSA_FIXTURES_DIR are set from this
+#     file's own location; CSA_PROJECT_ROOT and CSA_REDACT_MAX_LEN are unset. A
+#     caller's value is never read. The test suite reaches its own rule fixtures by
+#     sourcing the libraries in a child bash, never through this file.
+#   - PATH: each tool the engine runs is resolved once from the caller's PATH, and
+#     PATH is cut to the directories those tools sit in. A tool that resolves inside
+#     the working directory, or inside a directory an argument names, directly or
+#     through a symlink, refuses the run, however the PATH entry is spelled (`//`,
+#     `.`, `..`, a trailing `/`).
+#   - lib/ is the one beside the bin/ directory of the path the kernel ran, so a
+#     symlink to this file in another bin/ loads the lib/ beside that bin/.
 #
 # Contract:
 #   csa <function-suffix> [args...]
 #     → resolves to csa_<function-suffix>, dispatches with remaining args.
 #       Examples:
-#         csa state_bootstrap_gitignore       → csa_state_bootstrap_gitignore
-#         csa rule_engine_scan_all "$tgts"    → csa_rule_engine_scan_all "$tgts"
-#         csa apply_resolve_id "SA-..."       → csa_apply_resolve_id "SA-..."
+#         csa state_bootstrap_gitignore "$PWD"  → csa_state_bootstrap_gitignore "$PWD"
+#         csa rule_engine_scan_all "$PWD" all   → csa_rule_engine_scan_all "$PWD" all
 #   csa --list
 #     → prints all csa_-prefixed functions, one per line, sorted.
 #
 # Exit codes:
 #   0    function ran successfully (or matched function's exit code)
-#   2    usage error (no args, unknown function)
+#   2    usage error (no args, unknown function), or the front door refused
 #   *    propagated verbatim from the dispatched function
 # stdout/stderr are passed through unchanged — no wrapping.
 
 set -euo pipefail
+export LC_ALL=C
 
 readonly _DISPATCHER_PREFIX="csa"
 
-_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_ROOT="$(cd "$_BIN_DIR/.." && pwd)"
+case "${BASH_SOURCE[0]}" in
+  */*) _BIN_DIR="${BASH_SOURCE[0]%/*}" ;;
+  *) _BIN_DIR=. ;;
+esac
+_BIN_DIR="$(cd -P -- "$_BIN_DIR" && pwd -P)"
+PLUGIN_ROOT="${_BIN_DIR%/*}"
+[[ -n "$PLUGIN_ROOT" ]] || PLUGIN_ROOT=/
 export PLUGIN_ROOT
 _LIB_DIR="$PLUGIN_ROOT/lib"
-CSA_PLUGIN_ROOT="${CSA_PLUGIN_ROOT:-$PLUGIN_ROOT}"
-CSA_LIB_DIR="${CSA_LIB_DIR:-$_LIB_DIR}"
-CSA_RULES_DIR="${CSA_RULES_DIR:-$CSA_LIB_DIR/rules}"
-CSA_FIXTURES_DIR="${CSA_FIXTURES_DIR:-$PLUGIN_ROOT/fixtures}"
+unset CSA_PROJECT_ROOT CSA_REDACT_MAX_LEN
+CSA_PLUGIN_ROOT="$PLUGIN_ROOT"
+CSA_LIB_DIR="$_LIB_DIR"
+CSA_RULES_DIR="$_LIB_DIR/rules"
+CSA_FIXTURES_DIR="$PLUGIN_ROOT/fixtures"
 export CSA_PLUGIN_ROOT CSA_LIB_DIR CSA_RULES_DIR CSA_FIXTURES_DIR
 
+# shellcheck source=/dev/null
+source "$_LIB_DIR/helpers.sh"
+
+# Tools first, so nothing below runs a command the audited project placed on PATH.
+_csa_pin_tools "$PWD" "$@" || exit 2
+csa_tmp_scope engine || { printf 'csa: cannot create a temp directory; nothing done\n' >&2; exit 2; }
+
 # Source the conventional helpers first, then everything else in glob order.
-# membrane names its helpers file `helpers.sh` (no underscore prefix).
-if [ -f "$_LIB_DIR/helpers.sh" ]; then
-  # shellcheck source=/dev/null
-  source "$_LIB_DIR/helpers.sh"
-fi
 for _f in "$_LIB_DIR"/*.sh; do
   [ -e "$_f" ] || continue
-  [ "$(basename "$_f")" = "helpers.sh" ] && continue
+  [ "${_f##*/}" = "helpers.sh" ] && continue
   # shellcheck source=/dev/null
   source "$_f"
 done
@@ -60,13 +92,13 @@ fi
 
 if [ $# -lt 1 ]; then
   cat >&2 <<USAGE
-Usage: $(basename "$0") <function-suffix> [args...]
-       $(basename "$0") --list
+Usage: ${0##*/} <function-suffix> [args...]
+       ${0##*/} --list
 
 Function suffix resolves to ${_DISPATCHER_PREFIX}_<suffix>.
 Examples:
-  $(basename "$0") state_bootstrap_gitignore
-  $(basename "$0") rule_engine_scan_all "\$targets"
+  ${0##*/} state_bootstrap_gitignore "\$PWD"
+  ${0##*/} rule_engine_scan_all "\$PWD" all
 USAGE
   exit 2
 fi
@@ -75,7 +107,7 @@ _fn="${_DISPATCHER_PREFIX}_$1"
 shift
 if ! declare -f "$_fn" >/dev/null 2>&1; then
   echo "Unknown function: $_fn" >&2
-  echo "Run '$(basename "$0") --list' to see available functions." >&2
+  echo "Run '${0##*/} --list' to see available functions." >&2
   exit 2
 fi
 "$_fn" "$@"

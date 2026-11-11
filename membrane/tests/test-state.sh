@@ -9,7 +9,6 @@ _csa_failed=0
 
 # Shared sandbox — create once for the whole test file.
 _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-test.XXXXXX")"
-trap 'rm -rf "$_CSA_TMP"' EXIT
 # record_audit reads the enabled-plugin set from $HOME; keep these tests off the host's.
 export HOME="$_CSA_TMP/home"
 mkdir -p "$HOME/.claude"
@@ -151,24 +150,6 @@ test_record_audit_refreshes_a_sighting_and_keeps_the_display_id() {
 }
 
 # ---------------------------------------------------------------------------
-# 5. record_applied_fix appends to applied_fixes
-# ---------------------------------------------------------------------------
-test_record_applied_fix_appends() {
-  local root="$_CSA_TMP/t05"
-  mkdir -p "$root/.claude/audits"
-  csa_state_init "$root"
-
-  csa_state_record_applied_fix "$root" "FUID-abcd1234" "SA-2026-05-25-01-001" "PERM-003" "claude-code" "Narrowed allow list"
-
-  local state_file; state_file="$(csa_state_path "$root")"
-  local len; len="$(jq '.applied_fixes | length' "$state_file")"
-  assert_eq "1" "$len" "applied_fixes length must be 1" || return 1
-
-  local stored_fuid; stored_fuid="$(jq -r '.applied_fixes[0].finding_uid' "$state_file")"
-  assert_eq "FUID-abcd1234" "$stored_fuid" "applied_fixes[0].finding_uid must match" || return 1
-}
-
-# ---------------------------------------------------------------------------
 # 6. GC evicts finding absent for > 10 runs (gap = 11)
 # ---------------------------------------------------------------------------
 test_gc_evicts_after_10_run_absence() {
@@ -247,71 +228,85 @@ test_gc_keeps_within_10_run_window() {
 }
 
 # ---------------------------------------------------------------------------
-# 8. First-run tamper check is silent (no state.json)
+# 8–15. The first audit's .gitignore line: only <root>/.gitignore, only appended, only at a repository root
 # ---------------------------------------------------------------------------
-test_tamper_check_silent_on_first_run() {
-  local root="$_CSA_TMP/t08"
-  mkdir -p "$root"
-  # No state.json exists.
-  local out; out="$(csa_state_check_tamper "$root" 2>&1)"
-  assert_eq "" "$out" "tamper check must produce no output on first run" || return 1
-}
+_GI_TAIL=$'# claude-security-audit\n.claude/audits/'
 
-# ---------------------------------------------------------------------------
-# 9. TAMPER-001 fires on state.json mtime drift
-# ---------------------------------------------------------------------------
-test_tamper_001_fires_on_state_mtime_drift() {
-  local root="$_CSA_TMP/t09"
-  mkdir -p "$root/.claude/audits"
-  csa_state_init "$root"
-
-  # Record a real mtime into self_integrity.
-  csa_state_update_self_integrity "$root"
-
-  local state_file; state_file="$(csa_state_path "$root")"
-
-  # Change mtime to something in the distant past to force drift.
-  touch -m -t 200001010000 "$state_file"
-
-  local out; out="$(csa_state_check_tamper "$root" 2>&1)"
-  assert_contains "$out" "TAMPER-001" "TAMPER-001 must fire when state.json mtime drifts" || return 1
-}
-
-# ---------------------------------------------------------------------------
-# 10. TAMPER-002 fires on suppressions.json mtime drift
-# ---------------------------------------------------------------------------
-test_tamper_002_fires_on_suppressions_mtime_drift() {
-  local root="$_CSA_TMP/t10"
-  mkdir -p "$root/.claude/audits"
-  csa_state_init "$root"
-
-  # Create an empty suppressions.json so update_self_integrity records its mtime.
-  local suppressions_file; suppressions_file="$(csa_suppressions_path "$root")"
-  printf '{}' > "$suppressions_file"
-
-  csa_state_update_self_integrity "$root"
-
-  # Now change suppression file mtime to something old.
-  touch -m -t 200001010000 "$suppressions_file"
-
-  local out; out="$(csa_state_check_tamper "$root" 2>&1)"
-  assert_contains "$out" "TAMPER-002" "TAMPER-002 must fire when suppressions.json mtime drifts" || return 1
-}
-
-# ---------------------------------------------------------------------------
-# 11. bootstrap_gitignore appends entry on existing .gitignore
-# ---------------------------------------------------------------------------
+# A repository root's .gitignore without the line gets it appended; every line it had is kept as it was.
 test_bootstrap_gitignore_appends_to_existing() {
   local root="$_CSA_TMP/t11"
-  mkdir -p "$root"
+  mkdir -p "$root/.git"
+  printf 'node_modules/\n.env\n' > "$root/.gitignore"
+  csa_state_bootstrap_gitignore "$root" >/dev/null || return 1
+  assert_eq $'node_modules/\n.env\n\n'"$_GI_TAIL" "$(cat "$root/.gitignore")" "the old lines, then the comment and the line" || return 1
+}
 
-  # Create a .gitignore that does NOT contain .claude/audits/.
-  printf 'node_modules/\n' > "$root/.gitignore"
+# The whole line must be there: a line that only holds the text (a comment, a longer path) is not the entry, so the
+# entry is appended. Control: the exact line already there leaves the file byte for byte as it was.
+test_bootstrap_gitignore_matches_a_whole_line() {
+  local root="$_CSA_TMP/t11b" before
+  mkdir -p "$root/.git"
+  printf '# not .claude/audits/ here\n.claude/audits/old/\n' > "$root/.gitignore"
+  csa_state_bootstrap_gitignore "$root" >/dev/null || return 1
+  assert_eq $'# not .claude/audits/ here\n.claude/audits/old/\n\n'"$_GI_TAIL" "$(cat "$root/.gitignore")" "a partial match is not the line" || return 1
+  before="$(cat "$root/.gitignore"; printf x)"
+  csa_state_bootstrap_gitignore "$root" >/dev/null || return 1
+  assert_eq "$before" "$(cat "$root/.gitignore"; printf x)" "control: a second run with the line present writes nothing" || return 1
+}
 
-  csa_state_bootstrap_gitignore "$root"
+# No .gitignore at a repository root: it is created with the comment and the line.
+test_bootstrap_gitignore_creates_one_at_a_repository_root() {
+  local root="$_CSA_TMP/t11c"
+  mkdir -p "$root/.git"
+  csa_state_bootstrap_gitignore "$root" >/dev/null || return 1
+  assert_eq "$_GI_TAIL" "$(cat "$root/.gitignore")" "created with the two lines" || return 1
+}
 
-  local content; content="$(cat "$root/.gitignore")"
-  assert_contains "$content" ".claude/audits/" "bootstrap must append .claude/audits/ to existing .gitignore" || return 1
+# A project below a repository root: nothing is written there or above; the line to add is printed. The ancestor's
+# .gitignore keeps its four lines (it was replaced by membrane's two, and the project's own .claude/audits/ was not
+# even ignored by them).
+test_bootstrap_gitignore_never_writes_above_the_root() {
+  local repo="$_CSA_TMP/t11d/repo" out
+  mkdir -p "$repo/.git" "$repo/pkg/app"
+  printf 'node_modules/\n.env\nsecrets/\n*.pem\n' > "$repo/.gitignore"
+  out="$(csa_state_bootstrap_gitignore "$repo/pkg/app")" || return 1
+  assert_eq $'node_modules/\n.env\nsecrets/\n*.pem' "$(cat "$repo/.gitignore")" "the ancestor's .gitignore is untouched" || return 1
+  [[ ! -e "$repo/pkg/app/.gitignore" && ! -e "$repo/pkg/.gitignore" ]] || { printf '    a .gitignore was created\n' >&2; return 1; }
+  assert_contains "$out" "nothing written" "says nothing was written" || return 1
+  assert_contains "$out" ".claude/audits/" "prints the line to add" || return 1
+}
+
+# A git worktree's .git is a file: its root is a repository root, so its own .gitignore is written and the main
+# checkout's is not touched.
+test_bootstrap_gitignore_takes_a_git_file_as_a_root() {
+  local main="$_CSA_TMP/t11e/main" wt
+  wt="$main/.worktrees/wt"
+  mkdir -p "$main/.git" "$wt"
+  printf 'gitdir: %s/.git/worktrees/wt\n' "$main" > "$wt/.git"
+  printf 'node_modules/\n' > "$main/.gitignore"
+  csa_state_bootstrap_gitignore "$wt" >/dev/null || return 1
+  assert_eq "node_modules/" "$(cat "$main/.gitignore")" "the main checkout's .gitignore is untouched" || return 1
+  assert_eq "$_GI_TAIL" "$(cat "$wt/.gitignore" 2>/dev/null)" "the worktree's own .gitignore holds the line" || return 1
+}
+
+# A relative root is refused at once (it looped forever: the dirname of . is .).
+test_bootstrap_gitignore_refuses_a_relative_root() {
+  local d="$_CSA_TMP/t11f" rc=0
+  mkdir -p "$d/.git"
+  (cd "$d" && timeout 5 bash -c 'source "$1/helpers.sh"; source "$1/state.sh"; csa_state_bootstrap_gitignore .' _ "$CSA_LIB_DIR") >/dev/null 2>&1 || rc=$?
+  assert_eq 2 "$rc" "rc 2, not a loop" || return 1
+  [[ ! -e "$d/.gitignore" ]] || { printf '    a .gitignore was written\n' >&2; return 1; }
+}
+
+# A .gitignore that is a symlink is not written through.
+test_bootstrap_gitignore_does_not_write_through_a_symlink() {
+  local root="$_CSA_TMP/t11g" out
+  mkdir -p "$root/.git"
+  printf 'keep\n' > "$_CSA_TMP/t11g-target"
+  ln -s "$_CSA_TMP/t11g-target" "$root/.gitignore"
+  out="$(csa_state_bootstrap_gitignore "$root")" || return 1
+  assert_eq "keep" "$(cat "$_CSA_TMP/t11g-target")" "the link's target is untouched" || return 1
+  assert_contains "$out" "nothing written" "says nothing was written" || return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -524,13 +519,15 @@ csa_test_run test_record_audit_updates_findings_registry          || _csa_failed
 csa_test_run test_record_audit_reads_a_findings_file                || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_record_audit_marks_suppressed_findings            || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_record_audit_refreshes_a_sighting_and_keeps_the_display_id || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_record_applied_fix_appends                      || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_gc_evicts_after_10_run_absence                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_gc_keeps_within_10_run_window                   || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_tamper_check_silent_on_first_run                || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_tamper_001_fires_on_state_mtime_drift           || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_tamper_002_fires_on_suppressions_mtime_drift    || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_bootstrap_gitignore_appends_to_existing         || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bootstrap_gitignore_matches_a_whole_line        || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bootstrap_gitignore_creates_one_at_a_repository_root || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bootstrap_gitignore_never_writes_above_the_root || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bootstrap_gitignore_takes_a_git_file_as_a_root  || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bootstrap_gitignore_refuses_a_relative_root     || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_bootstrap_gitignore_does_not_write_through_a_symlink || _csa_failed=$((_csa_failed + 1))
 
 csa_test_run test_focused_scans_do_not_age_unscanned_aspects      || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_full_scans_age_as_before                        || _csa_failed=$((_csa_failed + 1))

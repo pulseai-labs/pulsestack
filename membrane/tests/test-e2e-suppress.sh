@@ -15,7 +15,6 @@ source "$CSA_LIB_DIR/baseline.sh"
 source "$CSA_LIB_DIR/suppress.sh"
 
 _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-e2e-sup.XXXXXX")"
-trap 'rm -rf "$_CSA_TMP"' EXIT
 
 _csa_failed=0
 _test_n=0
@@ -30,7 +29,7 @@ _next_scratch() {
 # ---------------------------------------------------------------------------
 # test_e2e_suppress_medium_disappears_next_run
 # Audit permissions-issue (has PERM-001 Medium), suppress it, re-audit;
-# suppressed finding must not appear in the filtered output.
+# the suppressed finding is marked SUPPRESSED in the filtered output.
 # ---------------------------------------------------------------------------
 test_e2e_suppress_medium_disappears_next_run() {
   _next_scratch; local scratch="$_CSA_TMP/t$_test_n"
@@ -67,16 +66,14 @@ test_e2e_suppress_medium_disappears_next_run() {
   local sup_ec=$?
   [[ "$sup_ec" -eq 0 ]] || { printf '    csa_suppress_add failed ec=%d\n' "$sup_ec" >&2; return 1; }
 
-  # Run 2: re-audit; suppressed fuid must not appear in filtered output.
+  # Run 2: re-audit; the suppressed fuid is marked SUPPRESSED.
   HOME=/nonexistent csa_rule_engine_scan_all "$project" "all" > "$scratch/raw2.jsonl" 2>/dev/null
   csa_baseline_tag "$scratch/raw2.jsonl" "$project" > "$scratch/tagged2.jsonl" 2>/dev/null
   csa_suppress_filter "$scratch/tagged2.jsonl" "$project" > "$scratch/fil2.jsonl" 2>/dev/null
   local out2; out2="$(cat "$scratch/fil2.jsonl")"
 
-  printf '%s\n' "$out2" | grep -q "$medium_fuid" && {
-    printf '    suppressed finding %s still appears in run2 output\n' "$medium_fuid" >&2; return 1
-  }
-  return 0
+  local st; st="$(printf '%s\n' "$out2" | jq -r --arg u "$medium_fuid" 'select(.finding_uid == $u) | .state' | sort -u)"
+  assert_eq "SUPPRESSED" "$st" "run 2 marks the suppressed finding SUPPRESSED, so it is counted and not listed" || return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -138,7 +135,7 @@ test_e2e_suppressed_finding_stays_current_in_registry() {
   for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
     csa_audit_harness "$project" all > "$scratch/out-r$i.jsonl" 2>/dev/null
   done
-  assert_eq "0" "$(jq -r --arg u "$uid" 'select(.finding_uid == $u)' "$scratch/out-r12.jsonl" | grep -c . || true)" "the report output still hides it" || return 1
+  assert_eq "SUPPRESSED" "$(jq -r --arg u "$uid" 'select(.finding_uid == $u) | .state' "$scratch/out-r12.jsonl" | sort -u)" "the report output still marks it suppressed" || return 1
   assert_eq "13" "$(jq -r --arg u "$uid" '.findings[$u].last_run_index // "evicted"' "$state_file")" "registry entry is current after 12 more runs" || return 1
   assert_eq "true" "$(jq -r --arg u "$uid" '.findings[$u].suppressed' "$state_file")" "entry is marked suppressed" || return 1
   assert_eq "$first" "$(jq -r --arg u "$uid" '.findings[$u].first_seen' "$state_file")" "first_seen kept" || return 1

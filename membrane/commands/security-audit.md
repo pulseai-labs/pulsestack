@@ -8,4 +8,4 @@ If `$ARGUMENTS` contains `--suppress <id>`, route to suppression mode (refuses C
 
 If `$ARGUMENTS` contains `--unsuppress <FUID>`, route to unsuppress mode (removes that one suppression; the finding shows again if it still fires).
 
-If `$ARGUMENTS` is empty, run a full audit across all 7 aspects.
+If `$ARGUMENTS` is empty, run a full audit across all 6 aspects.

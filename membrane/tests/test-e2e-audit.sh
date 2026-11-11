@@ -63,7 +63,7 @@ test_e2e_unresolved_plugin_is_a_recorded_high_finding() {
   [[ "$uid" == FUID-* ]] || { printf '    no finding_uid: %s\n' "$out" >&2; return 1; }
   local reg; reg="$(jq -r --arg u "$uid" '.findings[$u].rule_id // empty' "$tmp/.claude/audits/state.json")"
   assert_eq "PROVENANCE-002" "$reg" "the state registry holds it" || return 1
-  assert_eq 0 "$(jq -r '.self_integrity.state_mtime_at_last_audit' "$tmp/.claude/audits/state.json")" "the harness, like the flow, records no self_integrity" || return 1
+  assert_eq false "$(jq -r 'has("self_integrity")' "$tmp/.claude/audits/state.json")" "a new state.json holds no tamper record" || return 1
   mkdir -p "$tmp/home/.claude/plugins/cache"
   cp -R "$tmp/.fake-plugin-cache/clean-sample-plugin" "$tmp/home/.claude/plugins/cache/clean-sample-plugin"
   out="$(HOME="$tmp/home" csa_audit_harness "$tmp" 2>/dev/null)"
@@ -124,13 +124,6 @@ test_e2e_issue_permissions_detected() {
   [[ "$found" -eq 1 ]] || { printf '    no PERM-* finding in: %s\n' "$out" >&2; return 1; }
 }
 
-test_e2e_issue_perm005_typo_detected() {
-  local tmp; tmp="$(mktemp -d "${TMPDIR:-/tmp}/csa-e2e.XXXXXX")"
-  trap "rm -rf '$tmp'" RETURN
-  cp -R "$CSA_FIXTURES_DIR/issues/permissions-schema-typo/." "$tmp/"
-  local out; out="$(HOME=/nonexistent csa_audit_harness "$tmp" 2>/dev/null)"
-  assert_contains "$out" "PERM-005" "permissions-schema-typo should detect PERM-005"
-}
 
 test_e2e_issue_hook_injection_detected() {
   local tmp; tmp="$(mktemp -d "${TMPDIR:-/tmp}/csa-e2e.XXXXXX")"
@@ -140,13 +133,6 @@ test_e2e_issue_hook_injection_detected() {
   assert_contains "$out" "HOOK-001" "hook-injection should detect HOOK-001"
 }
 
-test_e2e_issue_marketplace_untrusted_detected() {
-  local tmp; tmp="$(mktemp -d "${TMPDIR:-/tmp}/csa-e2e.XXXXXX")"
-  trap "rm -rf '$tmp'" RETURN
-  cp -R "$CSA_FIXTURES_DIR/issues/marketplace-untrusted/." "$tmp/"
-  local out; out="$(HOME=/nonexistent csa_audit_harness "$tmp" 2>/dev/null)"
-  assert_contains "$out" "MARKETPLACE-001" "marketplace-untrusted should detect MARKETPLACE-001"
-}
 
 # ---------------------------------------------------------------------------
 # Run
@@ -161,8 +147,6 @@ csa_test_run test_e2e_real_layout_plugin_scanned_and_finding_id_survives_a_bump 
 csa_test_run test_e2e_clean_teamworkflow_zero_findings  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_e2e_issue_secrets_detected            || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_e2e_issue_permissions_detected        || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_e2e_issue_perm005_typo_detected       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_e2e_issue_hook_injection_detected     || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_e2e_issue_marketplace_untrusted_detected || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

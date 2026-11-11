@@ -4,41 +4,91 @@ Static-analysis security audit for Claude Code and Codex project configurations 
 
 > **Inspired by AgentShield in [Everything Claude Code](https://github.com/affaan-m/everything-claude-code)** (Mustafa, 2026; MIT). This implementation is an independent, focused MIT-licensed audit tool tailored to composable plugin marketplaces.
 
-## What it catches (v0.1)
+## Read this first: what a clean audit means
 
-- **Plaintext secrets** in `CLAUDE.md`, `AGENTS.md`, `.claude/`, and `.codex/` files (API keys, JWTs, GitHub PATs, AWS keys, env-var-shaped leaks)
-- **Permission misconfigurations** including the high-impact **schema-validation** check that catches typo'd field names like `"allowed"` instead of `"allow"` (which Claude Code silently ignores → user has no enforcement)
-- **Hook injection** patterns (curl|bash, rm -rf, unbounded eval, plaintext network exfiltration) in hook scripts, **in hook handler code** (an enabled plugin's `hooks/` module and node or python handlers, executable files there, and code under the project's `.claude/hooks/` whatever its mode) **and in hook commands declared in JSON**: the project's `.claude/settings.json` and `.claude/settings.local.json`, and an enabled plugin's `hooks/hooks.json` and `.claude-plugin/plugin.json`. A hook entry or a `hooks.json` `modules` path that cannot be read is a High finding (HOOK-005); hooks of another type are counted (HOOK-006); every report states how many hook entries were checked, flagged, not inspected and unreadable, and how many `modules` entries resolved (`modules=N` counts entries, not distinct files)
-- **MCP server misconfiguration** (untrusted endpoints, missing auth, env-var leaks)
-- **Prompt injection** in agent definitions and slash commands (common patterns)
-- **Marketplace integrity** (non-HTTPS URLs, malformed marketplace.json, Claude `.claude-plugin/` manifests, Codex `.agents/plugins/` and `.codex-plugin/` manifests)
-- **`settings.local.json` silent broadening** (gitignored file overrides committed settings)
+membrane matches **common, unobfuscated patterns** with bash, jq and regular expressions, in the files it reads and nowhere else. A determined adversary who obfuscates a payload (base64, `eval` of a variable, a split string, a command built at run time) evades the rules.
 
-## What it does NOT catch (v0.1)
+**Treat a clean audit as:** "doesn't trip the common-pattern rules in the files membrane reads."
+**NOT as:** "this plugin or config is safe to trust."
 
-v0.1 uses bash + jq + regex (no AST). A determined adversary who obfuscates payloads (base64, eval indirection, dynamic command construction) will evade most v0.1 rules. AST-based detection is on the v0.2 roadmap.
+Every report says what was not read: each path below that is a stop is a High finding naming it, the report lists every hook command it read for you to read yourself, and [Not read, by design](#not-read-by-design) lists what an audit never looks at.
 
-**Treat a clean audit as:** "doesn't trip our v0.1 common-pattern rules."
-**NOT as:** "this plugin/config is safe to trust."
+## What it reads
 
-**Hook limits.** The hook patterns are the same common-pattern regexes everywhere, so obfuscation (base64, `eval` of a variable, a split string) still gets through; the "clean audit" caveat above covers hook commands too. Also not read:
+The audited trees: the project's `.claude/` (not `.claude/audits/`), `.opencode/`, `.codex/`, every `CLAUDE.md` and `*/.codex-plugin/plugin.json` below the project root, the single files `AGENTS.md`, `.mcp.json`, `package.json`, `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` at the root, `~/.codex/config.toml` when the project has a Codex surface, and every file of each enabled plugin. A path there is read only when
+
+- every byte of it below the tree is printable ASCII (0x20 to 0x7E),
+- it is a regular file, reached through no symlink, and
+- it is 1 MiB (1,048,576 bytes) or smaller.
+
+Anything else is **one stop**: a High finding that names the path (escaped: `\n`, `\t`, `\xe9`) and says why, and the file is not read. Below a plugin's `hooks/` or the project's `.claude/hooks/` (not below a `node_modules/` there) the stop is HOOK-005; anywhere else it is SCANNER-003. A symlink or a file that is not regular is a stop wherever it sits in a walked tree; a name or a size is a stop only for a file the audit would read. A project `.claude/settings.json` or `.claude/settings.local.json` that is a symlink, is over 1 MiB, or exists and is not valid JSON, and a `~/.claude/settings.json` that is not valid JSON, refuse the whole audit (exit 2): which plugins are enabled is then unknown. Valid JSON is one value with nothing after it but white space.
+
+## What it catches
+
+- **Plaintext secrets** in `CLAUDE.md`, `AGENTS.md`, `.claude/`, `.codex/` and plugin files (Anthropic, OpenAI, GitHub and AWS keys, JWTs, a value of 12 or more characters assigned to a variable whose name holds `API_KEY`, `SECRET`, `TOKEN` or `PASSWORD`, long base64 runs). A preview shows a variable's name and `***` for its value, and masks a key to its first and last four characters.
+- **Permission grants**: `Bash(*)`, `Read(*)` or `Write(*)` in `allow`; such a grant with an empty or missing `deny` (Critical for `Bash(*)`); and a `settings.local.json` that grants what `settings.json` does not.
+- **Hook injection** patterns (`curl … | bash`, `rm -rf` of an absolute path, unbounded `eval`, plaintext network exfiltration) in hook scripts, **in hook handler code** (an enabled plugin's `hooks/` module and node or python handlers, executable files there, and code under the project's `.claude/hooks/` whatever its mode) **and in hook commands declared in JSON**: the project's `.claude/settings.json` and `.claude/settings.local.json`, and an enabled plugin's `hooks/hooks.json` and `.claude-plugin/plugin.json`. A hook entry or a `hooks.json` `modules` path that cannot be read is a High finding (HOOK-005); hooks of another type are counted (HOOK-006). Every report states how many hook entries were checked, flagged, not inspected and unreadable, and how many `modules` entries resolved (`modules=N` counts entries, not distinct files); `flagged` counts pattern matches only. The report then lists every hook command it read under **Hook commands read**: they run automatically, and no finding does not mean a command is safe. Each command there, and in a hook entry's finding preview, is cut to 200 bytes (`bin/csa` runs under `LC_ALL=C`, so a cut can split a multibyte character) with these values written `***`: a variable's value whose name holds `API_KEY`, `SECRET`, `TOKEN` or `PASSWORD`; `Bearer <token>`; the password in `-u`/`--user user:password` and in `scheme://user:password@`; the value of `--token`, `--password`, `--passwd`, `--secret`, `--api-key`, `--apikey` and `--auth`; an attached `-p<value>` in a `mysql`, `mysqldump` or `mysqladmin` command. A key of the shapes `lib/redact.sh` knows (`sk-…`, `ghp_…` and its family, a JWT, `AKIA…`, a base64 run of 32 or more) keeps its first and last four characters. Anything else is printed as written.
+- **MCP server misconfiguration** (an `http://` endpoint, no auth, a literal secret in `env`) in the project's root `.mcp.json` and any `.mcp.json` or `mcp.json` among the files read.
+- **Prompt injection** in the project's agent definitions and slash commands (common patterns).
+- **`settings.local.json` silent broadening** (a gitignored file that grants more than the committed one).
+
+**Hook limits.** The hook patterns are the same common-pattern regexes everywhere, so the clean-audit caveat above covers hook commands too. Also not read:
 - a handler outside `.claude/hooks/` and outside a plugin's `hooks/` (codex's `scripts/*.mjs`), and a file a hooks module imports from outside `hooks/` (the command that calls a handler is checked; a `modules` path outside `hooks/` is HOOK-005);
 - in handler code, code-shaped forms: `fetch` or `$.http.fetch` of a file read, a path built with `homedir()` or concatenation, an argv `rm`, `fs.rmSync`, `eval(`; HOOK-001 to HOOK-003 read a command written as a string, and HOOK-004 also reads one written as quoted argv words. A guard or prompt that names what it looks for fires, and so does an executable doc file under a plugin's `hooks/` (`hooks/README.md`), which is read as a handler;
 - a non-executable handler with another suffix (`.bash .zsh .rb .pl .ps1`, run as `bash hooks/x.bash`), in a plugin's `hooks/` or the project's `.claude/hooks/`;
 - handler code (`.ts … .py`) below `hooks/tests/`, `test/`, `fixtures/` or `node_modules/`, and a `.d.ts`, `*.test.*` or `*.spec.*` file (a `.sh` file, or an executable file under the project's `.claude/hooks/`, is still read there as before), and OMP extensions;
 - `http`, `prompt`, `agent` and `mcp_tool` hooks (counted, not inspected);
-- user-level `~/.claude/settings.json` hooks (the audit is project-scoped);
 - hooks declared in skill or agent frontmatter, inline hooks in a marketplace entry, managed-policy hooks, and Codex or OpenCode hook formats;
 - a plugin installed outside the `cache/<marketplace>/<plugin>/<version>/` layout (a `local/` plugin, a two-level `cache/<plugin>/<version>/` install, or an install record that points elsewhere): its `hooks/hooks.json` and `plugin.json` are not read as hook entries, or hook code;
-- a `plugin.json` hooks path or a `hooks.json` `modules` path that is a symlink, escapes the plugin root (for a module, its `hooks/`) or is missing: reported as HOOK-005, not followed;
-- a symlink below an enabled plugin's `hooks/` or the project's `.claude/hooks/`, or either dir when it is a symlink: reported as HOOK-005, not followed (one below a `node_modules/` there is neither read nor reported);
+- a `plugin.json` hooks path or a `hooks.json` `modules` path that is a symlink, escapes the plugin root (for a module, its `hooks/`) or is missing, and a `plugin.json` hooks path outside the narrowed input (a byte outside printable ASCII, a symlinked directory on its way, a file over 1 MiB): reported as HOOK-005, not followed;
 - `rm -rf "$HOME"/x`: HOOK-002 matches only `rm -rf` of an absolute path, in files and in hook entries alike.
 
-Realistic v0.1 value:
+Realistic value:
 1. Catching accidental friendly-fire (secrets committed to CLAUDE.md)
 2. Naive-malicious teammate PRs
 3. Pre-publish hygiene before open-sourcing a Claude project
 4. The common-pattern subset of compromised-plugin attacks
+
+## The front door
+
+Every call goes through `bin/csa`, which fixes the run's environment before any library loads. The audit runs inside a session of the project it audits, so a project's settings `env` block can reach the caller's environment; `bin/csa` does not read it for these:
+
+- **Shell:** the shebang runs `bash -p`, so bash imports no function from the environment (an exported `find` or `jq` function would shadow the tool) and ignores `SHELLOPTS`, `BASHOPTS`, `CDPATH`, `GLOBIGNORE`, `ENV` and `BASH_ENV`. Claude Code runs `csa` by name from `PATH`, so the shebang applies; `bash bin/csa` would not apply it.
+- **Locale:** `LC_ALL=C` for the whole run, so every regex, glob, `read` and `sort` is byte-wise.
+- **Temp files:** one directory of its own under the caller's `TMPDIR`, removed by one `trap` on exit and on INT, TERM and HUP. A run leaves nothing behind. The test suite uses the same helper (`csa_tmp_scope` in `lib/helpers.sh`).
+- **Its own paths:** `CSA_PLUGIN_ROOT`, `CSA_LIB_DIR`, `CSA_RULES_DIR` and `CSA_FIXTURES_DIR` are set from `bin/csa`'s own location, and `CSA_PROJECT_ROOT` and `CSA_REDACT_MAX_LEN` are unset. A caller's value is never read. The test suite reaches its own rule fixtures by sourcing the libraries directly in a child `bash`, never through `bin/csa`; that is the only way to point the engine at other rules.
+- **Tools:** each command the engine runs (`jq`, `grep`, `find`, `awk`, `cut` and the rest) is resolved once, from the caller's `PATH`, to an absolute path, and `PATH` is cut to the directories those tools sit in, in the caller's order. A tool that resolves inside the working directory or inside a directory an argument names (the audited root), directly or through a symlink, refuses the run (exit 2, one line naming it), however its `PATH` entry is spelled (a leading `//`, `/./`, `..`, a trailing `/`, a relative or empty entry). A Homebrew `jq` on macOS is found as any other.
+- **Root:** the calls that scan or write (`rule_engine_scan_all`, `enum_targets_all`, `enum_project_targets`, `state_bootstrap_gitignore`, `state_init`, `state_record_audit`, `suppress_init`, `suppress_add` and `suppress_remove`) take only an absolute directory with no control character as the project root; anything else refuses (exit 2), and nothing is written. The other calls that take a root take it as given (see [Not read, by design](#not-read-by-design)). Every walk starts at the root's physical path, so a root that is a symlink (the working directory after `cd` into a linked project) is read as the directory it names.
+
+What this does not stop: anything that already runs code in the session before `bin/csa` does. A project hook, a `bin/` directory the session puts on `PATH` ahead of membrane's (which also picks the `env` and `bash` that start `bin/csa`, before its first line), or an edited membrane file can source the libraries with any values, or replace `bin/csa` itself. Nor the variables the dynamic loader and the C library read before any tool's code runs (`LD_PRELOAD`, `LD_LIBRARY_PATH`, `DYLD_*` on macOS, `GCONV_PATH`): a settings `env` block can set them, and they reach every tool the engine runs.
+
+## Release policy after 0.9.0
+
+0.9.0 closes membrane's input to the set above, and membrane is frozen after it. **A membrane issue becomes a release only if the engine changes a user's file wrongly, hides a finding on input inside the narrowed set that an ordinary config could hold, or Claude Code moves or reshapes a file the engine reads.** A new odd-input form is a stop or a line in the list below, not new code.
+
+## Not read, by design
+
+Each of these is a permanent limit. An audit says nothing about them, so a clean audit says nothing about them either.
+
+- **Names outside printable ASCII, symlinks, files that are not regular, files over 1 MiB:** one stop each, never read (see [What it reads](#what-it-reads)). A symlinked directory elsewhere in the project, outside the walked trees, is not followed by the project-wide `CLAUDE.md` and `.codex-plugin/plugin.json` walks, so a match below it is neither read nor a stop.
+- **macOS and BSD tools:** the suite runs on Linux (GNU tools, bash 5.2 and 5.3) only. BSD `grep`, `sed`, `awk`, `find` and `date`, and macOS bash 3.2, are untested until it runs there.
+- **User-level config:** `~/.claude/settings.json` is read only for `enabledPlugins`; its hooks, permissions and `env`, `~/.claude.json`, `~/.claude/CLAUDE.md` and user-level agents and commands are not read. A value in `enabledPlugins` that is not a boolean, beside ones that are, is dropped without a word.
+- **Plugin components other than hooks:** a plugin's `agents/`, `commands/` and `skills/` are read by the secrets rules but not by the prompt-injection rules; MCP servers declared inline in `plugin.json`, `monitors/monitors.json`, `.lsp.json` and `lspServers`, executables in `bin/` (on the session's `PATH`), and `` !`…` `` shell in a command file are not read as code that runs.
+- **Settings that run a command and are not hooks:** `statusLine.command` and `apiKeyHelper` are not read.
+- **Secrets in a hook command outside the masked shapes:** the report's hook-command list and a hook entry's finding preview print a command as written except the shapes listed under [What it catches](#what-it-catches); a secret of another shape (`mysql -p <password>` with a space, `sudo mysql -pX`, a password in a header other than `Authorization: Bearer`) is printed. So is the part after a space of a quoted value the masks take only up to the space: `--token='a b'` and `export PASSWORD="a b c"` print `--token=*** b'` and `export PASSWORD=*** b c"`, `curl -u "user:pw 1"` prints `user:*** 1"`, and a quoted token after `Bearer` (`Bearer "tok"`, `Bearer 'tok'`) is printed whole.
+- **SECRETS-001's left boundary:** a key right after a JSON `\n` or `\t` escape, after `%3D` or after `_` (`"a\nsk-ant-…"`, `token%3Dsk-…`, `my_sk-…`) is not found.
+- **Permission and secret shapes outside the lists:** bare `Bash`, `Edit`, `Bash(:*)`, `mcp__*`, `defaultMode: bypassPermissions` and `additionalDirectories: ["/"]` are not flagged; a key or token shape the secrets rules do not list is not found, and neither is a value under 12 characters assigned to a secret-named variable (`PASSWORD=hunter2`) or a password not assigned to one.
+- **A checkout that already ran in the session that audits it:** its hooks and its settings `env` took effect before the audit started (see [The front door](#the-front-door) for what that can reach).
+- **The project-wide walks prune nothing:** every `CLAUDE.md` and `.codex-plugin/plugin.json` below the root is read, worktree copies, `node_modules/` and vendored trees included; an unreadable directory there is not a stop.
+- **A plugin whose marketplace or plugin name holds a byte that is not valid UTF-8** is a PROVENANCE-002 and is not scanned.
+- **Writes follow a symlinked `.claude/audits/`:** the report, `state.json` and `suppressions.json` are written through it. A symlinked `suppressions.json` is read and honoured, and the findings it hides are counted.
+- **A checkout that ships `state.json` with an audit history** silences the warning about a `suppressions.json` that came with it; the count of findings it hid still shows.
+- **A backtick in a finding's preview** ends the report's code span for that preview; the rest of the preview reads as Markdown.
+- **The interpreter and the dispatcher's own path:** the `env` and `bash` that start `bin/csa` are found on the caller's `PATH` before `bin/csa`'s first line, so the tool pin does not cover them; a symlink to `bin/csa` in another `bin/` loads the `lib/` beside that `bin/`, not membrane's own.
+- **`FUNCNEST` in the environment** can end a run part way: it exits 2 with no `csa:` line.
+- **The other calls take the root as given:** every `csa` call that takes a project root, except the nine that refuse (see [The front door](#the-front-door)), takes it as given and does not refuse a relative, missing or control-character root. There are 16: `baseline_tag`, `enum_codex_project_targets`, `enum_enabled_plugins`, `enum_opencode_project_targets`, `enum_resolve_plugin_path`, `report_next_run_of_day`, `report_render_chat`, `report_render_markdown`, `state_gc_findings`, `state_path`, `state_read`, `suppress_filter`, `suppress_list`, `suppress_path`, `suppress_stale` and `suppressions_path`. All of them only read, except `state_gc_findings`, which rewrites `state.json`, and `report_render_markdown`, which writes the report file. The four `enum_*` calls are reached in a skill flow only through `enum_project_targets`, `enum_targets_all` and `state_record_audit`, and `state_gc_findings` only through `state_record_audit`, all of which refuse; the skill passes `$PWD` to the others.
+- **A plugin directory reached through a symlink** (an `.active` that names a linked version dir, a linked version or plugin dir) is walked at its physical path with no stop; the read stays inside `~/.claude/plugins`.
+- **Two audits of one project at once:** each writes `state.json` by rename; the last one to finish wins.
 
 ## Install
 
@@ -66,8 +116,6 @@ codex plugin marketplace add github:pulseai-labs/pulsestack
 /security-audit --unsuppress FUID-a3f9b21c  # remove one suppression
 /secrets-scan                             # alias for --focus secrets
 /permissions-review                       # alias for --focus permissions
-/apply-fix SA-2026-05-24-01-013           # apply one safe-category fix
-/apply-fix FUID-a3f9b21c                  # same, using durable ID
 ```
 
 ## Opt-in SessionStart reminder
@@ -90,24 +138,25 @@ Why opt-in: the plugin's threat model flags plugin-installed SessionStart hooks 
 
 The plugin writes audit state to `<project>/.claude/audits/` for compatibility
 with the existing report/state format, even when scanning Codex surfaces:
-- `state.json` — durable finding registry + audit history + the tamper checks' recorded mtimes and tracked status (`self_integrity`: zeros in a new `state.json`; a value is recorded only by `csa state_update_self_integrity`, which `/security-audit` does not call)
+- `state.json` — durable finding registry + audit history
 - `<date>-<NN>.md` — per-run report with stable finding IDs
 - `suppressions.json` — your dismissed findings (gitignored per-developer)
-- `.lock` — transient lock file during audit runs
 
-The **first audit run** adds `.claude/audits/` to your `.gitignore` automatically (idempotent; handles nested git repos and missing `.gitignore`).
+The **first audit run** appends `# claude-security-audit` and `.claude/audits/` to the project's own `.gitignore` when no line there is exactly `.claude/audits/`, creating the file when it is absent. It writes only `<project>/.gitignore`, and only at a repository root (a `.git` file or directory there). Anywhere else, or when `.gitignore` is a symlink or not a regular file, it writes nothing and prints the line to add. Below a repository root (the nearest directory above the project holding a `.git`, which it only looks for), that line is the project's path from the repository root followed by `/.claude/audits/` (`pkg/app/.claude/audits/`), for the repository root's `.gitignore`: a line with an inner `/` matches only from the `.gitignore` that holds it. A path holding a glob character, a backslash or a byte outside printable ASCII, or starting with `#` or `!`, gets the reason and no line. It never writes above the project.
+
+**Suppressions.** Chat and the report always say how many findings `suppressions.json` hid, 0 included, and the report lists each hidden one marked SUPPRESSED. A checkout can ship its own `suppressions.json`, and finding ids can be computed from the files, so when `.claude/audits/state.json` records no audit of the project while `suppressions.json` is there, chat and the report warn: read it before you trust what it hides. A checkout that also ships a `state.json` with an audit history silences the warning (see [Not read, by design](#not-read-by-design)); the count still shows.
 
 ## Findings reference
 
 | Severity | Meaning | Examples |
 |---|---|---|
 | Critical | Immediate action | hook running `curl ... \| bash`; plaintext production API key |
-| High | Fix this session | MCP with no auth; settings.local.json broadens; schema typo silently disables |
+| High | Fix this session | MCP with no auth; settings.local.json broadens; a path the audit did not read |
 | Medium | Fix within sessions | `Bash(*)` instead of `Bash(git:*)`; agent prompt with vague injection signals |
 | Low | Hygiene | localhost dev URLs; permissions slightly too broad |
 | Info | Observation | "N plugins in cache not enabled here"; "no audit baseline yet" |
 
-Scanner failures are findings too, not a clean read: SCANNER-001 (a rule failed to load, High), SCANNER-002 (a rule's check failed on a target, for example a `settings.json` or `mcp.json` that is not JSON, High) and SCANNER-003 (the scan could not read a target, Medium; one per target, and one per directory of an enabled plugin or below the project's `.claude/` that it could not read, except `.claude/audits/` (not scanned) and `.claude/hooks/`, where an unreadable directory still refuses the audit). A malformed `settings.json` gives four SCANNER-002, one per permissions rule that reads it, or five when a `settings.local.json` sits beside it; that alone trips the "⚠ 4 rule(s) failed during scan" banner.
+Scanner failures are findings too, not a clean read: SCANNER-001 (a rule failed to load, High), SCANNER-002 (a rule's check failed on a target, for example an `.mcp.json`, or a `settings.json` nested below `.claude/`, that is not JSON, High) and SCANNER-003: High for a path outside the narrowed input (a symlink, a file that is not regular, a name outside printable ASCII, a file over 1 MiB; see [What it reads](#what-it-reads)), Medium for a target this process cannot read (one per target) and for a directory of an enabled plugin or below the project's `.claude/`, `.codex/` or `.opencode/` that it could not read, except `.claude/audits/` (not scanned) and `.claude/hooks/`, where an unreadable directory still refuses the audit. The project's own `.claude/settings.json` and `.claude/settings.local.json` are not scanned when they are not JSON: the audit refuses (see [What it reads](#what-it-reads)).
 
 Critical findings **cannot be suppressed**; they must be remediated. A Critical finding is shown even if `suppressions.json` lists it. `--suppress` takes the id of a finding an earlier audit recorded (it reads `.claude/audits/state.json` and the shipped rules, never the caller), so run an audit first. A suppressed finding that still fires stays in `state.json`, marked `"suppressed": true`, and keeps its `first_seen`; unsuppress it and it reads PERSISTED, not NEW.
 
@@ -141,9 +190,11 @@ Critical findings **cannot be suppressed**; they must be remediated. A Critical 
 
 **Upgrading to 0.8.5.** In a UTF-8 locale, on bash 5.2 and 5.3, a plugin file whose path below the plugin cache holds a byte that is not valid UTF-8 (Latin-1 text, say) is read as any other plugin file. Its handler code under `hooks/` is a hook target, a plugin whose version dir holds one has its `hooks/hooks.json` and `plugin.json` hook entries read, and its findings get the `@plugin:…` id that survives a plugin update. Such a finding gets a new durable id once: it reads NEW in the next audit, and the old entry in `.claude/audits/suppressions.json` matches nothing. A full audit lists it, and `/security-audit --unsuppress <FUID>` removes it. In a multibyte locale that is not UTF-8 (EUC-JP, Big5), a plugin path holding a valid UTF-8 character that locale cannot decode (`中文`, `Straße`) moves the same way, to the id `C.UTF-8` already gives. Expect new findings only on such paths. Every other finding keeps its id, and under `LC_ALL=C` nothing changes. See the CHANGELOG.
 
+**Upgrading to 0.9.0.** `/apply-fix`, the tamper checks, MARKETPLACE-001 and -002 and PERM-005 are gone: their findings stop showing, and a suppression of one is listed as matching no finding (`/security-audit --unsuppress <FUID>` removes it). SECRETS-001 no longer fires on a kebab-case word holding `sk-`. Expect new High findings, one for each path the audit does not read (see [What it reads](#what-it-reads)), and MCP findings on the project's root `.mcp.json`. A HOOK-005 for a hook file named with a newline or tab gets a new id once. An audit refuses (exit 2) when a project `settings.json` or `settings.local.json` is a symlink, over 1 MiB or not JSON (a second value after the first included), when `~/.claude/settings.json` is not JSON, and when a tool it runs resolves inside the project. Chat and the report now print how many findings `suppressions.json` hid. A project audited through a path that holds a symlink (a symlinked home, macOS `/tmp`) is now named by its physical path, so its project files' findings get a new id once and read NEW; their old suppressions match nothing. See the CHANGELOG.
+
 ## Composition
 
-`membrane` is fully standalone. It runs in any Claude Code project, with or without other plugins. It has no integration with any other plugin in v0.1.
+`membrane` is fully standalone. It runs in any Claude Code project, with or without other plugins. It has no integration with any other plugin.
 
 ## License
 

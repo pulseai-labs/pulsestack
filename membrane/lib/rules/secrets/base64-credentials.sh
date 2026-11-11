@@ -4,8 +4,6 @@ RULE_NAME="base64-credentials"
 RULE_ASPECT="secrets"
 RULE_SEVERITY="medium"
 RULE_DESCRIPTION="Long base64-encoded blob detected; may contain embedded credentials."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Review the base64 blob. If it encodes a credential or private key, remove it from the file and rotate the secret."
 RULE_REFERENCES=""
 

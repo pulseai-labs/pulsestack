@@ -1,7 +1,7 @@
 {
   "name": "membrane",
-  "version": "0.8.5",
-  "description": "Static-analysis security audit for agent project configs, marketplaces, hooks, MCP, and secrets.",
+  "version": "0.9.0",
+  "description": "Static-analysis security audit for agent project configs, enabled plugins, hooks, MCP, and secrets.",
   "author": {
     "name": "Pras"
   },
@@ -11,15 +11,14 @@
   "keywords": [
     "security",
     "audit",
-    "marketplace",
     "secrets",
     "hooks"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Membrane",
-    "shortDescription": "Audit agent project configs and plugin marketplaces.",
-    "longDescription": "Membrane scans agent project configuration, enabled plugins, marketplaces, hooks, MCP settings, command prompts, and secrets. The Codex build adds Codex-specific config and marketplace targets while preserving Claude Code checks.",
+    "shortDescription": "Audit agent project configs and enabled plugins.",
+    "longDescription": "Membrane scans agent project configuration, enabled plugins, hooks, MCP settings, agent and command prompts, and secrets, over a closed input: a symlink, a file that is not regular, a name outside printable ASCII or a file over 1 MiB is one stop that names it. The Codex build adds Codex-specific config targets while preserving Claude Code checks.",
     "developerName": "Pras",
     "category": "Security",
     "capabilities": [
@@ -30,7 +29,7 @@
     "defaultPrompt": [
       "Run a security audit for this agent project.",
       "Scan this project for leaked credentials.",
-      "Review Claude and Codex marketplace security."
+      "Review the hooks this project and its plugins run."
     ],
     "websiteURL": "https://github.com/pulseai-labs/pulsestack/tree/main/membrane",
     "brandColor": "#DC2626"

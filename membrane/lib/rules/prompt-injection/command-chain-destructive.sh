@@ -4,8 +4,6 @@ RULE_NAME="command-chain-destructive"
 RULE_ASPECT="prompt-injection"
 RULE_SEVERITY="high"
 RULE_DESCRIPTION="Slash command body contains destructive shell construct — rm -rf, force-push chain, or eval of user input."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Review the command body for injected destructive instructions. Remove dangerous patterns; if the file came from an untrusted source, treat it as compromised."
 RULE_REFERENCES=""
 

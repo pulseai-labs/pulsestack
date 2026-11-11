@@ -8,11 +8,10 @@ CSA="$CSA_PLUGIN_ROOT/bin/csa"
 
 _csa_failed=0
 _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-reg.XXXXXX")"
-trap 'rm -rf "$_CSA_TMP"' EXIT
 _n=0
 
 _mk_root() { _n=$((_n + 1)); root="$_CSA_TMP/t$_n"; mkdir -p "$root/.claude/audits"; st="$root/.claude/audits/state.json"; }
-_c() { ( cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" "$CSA" "$@" ); }
+_c() { ( cd "$root" && HOME=/nonexistent "$CSA" "$@" ); }
 
 # A healthy entry, last seen at run 1, first seen long ago.
 _good='{"rule_id":"PERM-002","severity":"high","file":".claude/settings.json","first_seen":"2026-01-01T00:00:00Z","last_seen":"2026-01-01T00:00:00Z","seen_in_runs":1,"last_run_index":1,"last_display_id":"SA-2026-01-01-01-001","suppressed":false}'
@@ -74,11 +73,6 @@ test_non_object_entry_is_skipped_by_readers_and_dropped_by_writers() {
     _line FUID-good0001 SA-2026-01-02-01-002 > "$root/f3"
     assert_eq PERSISTED "$(_c baseline_tag "$root/f3" "$root" | jq -r .state)" "control: the healthy entry beside $bad is PERSISTED" || return 1
 
-    rc=0; out="$(_c apply_resolve_id "$root" SA-2026-01-01-01-001 2>/dev/null)" || rc=$?
-    assert_eq "0 FUID-good0001" "$rc $out" "apply_resolve_id gets past $bad" || return 1
-    rc=0; out="$(_c apply_run "$root" FUID-bad00001 2>&1)" || rc=$?
-    assert_eq 1 "$rc" "apply_run on the uid of $bad" || return 1
-    assert_contains "$out" "Finding not found in state: FUID-bad00001" "apply_run reads $bad as not found" || return 1
 
     # suppress_add keeps its own reading: an entry it cannot read is exit 1, an absent one exit 3.
     rc=0; _c suppress_add "$root" FUID-bad00001 n >/dev/null 2>&1 || rc=$?
@@ -107,10 +101,6 @@ test_registry_that_is_not_an_object_reads_as_empty() {
     _state "$v"
     rc=0; out="$(_c baseline_tag "$root/f1" "$root" 2>/dev/null)" || rc=$?
     assert_eq "0 NEW" "$rc $(jq -r .state <<<"$out")" "baseline_tag on findings=$v" || return 1
-    rc=0; _c apply_resolve_id "$root" SA-2026-01-01-01-001 >/dev/null 2>&1 || rc=$?
-    assert_eq 1 "$rc" "apply_resolve_id on findings=$v is not found" || return 1
-    rc=0; _c apply_run "$root" FUID-ddddddd1 >/dev/null 2>&1 || rc=$?
-    assert_eq 1 "$rc" "apply_run on findings=$v is not found" || return 1
     rc=0; _c suppress_add "$root" FUID-ddddddd1 n >/dev/null 2>&1 || rc=$?
     assert_eq 2 "$rc" "suppress_add on findings=$v keeps exit 2" || return 1
     rc=0; _c state_record_audit "$root" 2 "$root/.claude/audits/2026-01-02-01.md" "$root/f1" all >/dev/null 2>&1 || rc=$?
@@ -176,20 +166,14 @@ test_display_id_resolves_only_in_the_latest_run() {
     _mk_root
     if [[ "$order" == old-first ]]; then _state "{\"FUID-a0000old\":$older,\"FUID-b0000new\":$newer}" 3
     else _state "{\"FUID-b0000new\":$newer,\"FUID-a0000old\":$older}" 3; fi
-    assert_eq FUID-b0000new "$(_c apply_resolve_id "$root" SA-2026-01-01-01-001)" "the latest run's entry, $order" || return 1
     _state "{\"FUID-a0000old\":$older}" 3
-    rc=0; out="$(_c apply_resolve_id "$root" SA-2026-01-01-01-001 2>/dev/null)" || rc=$?
-    assert_eq "1 " "$rc $out" "an id only an older run's entry holds, apply_resolve_id, $order" || return 1
     rc=0; _c suppress_add "$root" SA-2026-01-01-01-001 n >/dev/null 2>&1 || rc=$?
     assert_eq 3 "$rc" "an id only an older run's entry holds, suppress_add, $order" || return 1
     [[ ! -e "$root/.claude/audits/suppressions.json" ]] || { printf '    suppress_add wrote a file\n' >&2; return 1; }
   done
   # Control: a FUID still reaches the older entry.
-  assert_eq FUID-a0000old "$(_c apply_resolve_id "$root" FUID-a0000old)" "control: the older entry by FUID" || return 1
   # Two entries holding one id in the latest run (only a hand edit makes this) name no one finding.
   _state "{\"FUID-a0000one\":$newer,\"FUID-b0000two\":$newer}" 3
-  rc=0; out="$(_c apply_resolve_id "$root" SA-2026-01-01-01-001 2>/dev/null)" || rc=$?
-  assert_eq "1 " "$rc $out" "an id two latest-run entries hold, apply_resolve_id" || return 1
   rc=0; _c suppress_add "$root" SA-2026-01-01-01-001 n >/dev/null 2>&1 || rc=$?
   assert_eq 3 "$rc" "an id two latest-run entries hold, suppress_add" || return 1
 }
@@ -212,10 +196,7 @@ test_reused_display_id_does_not_reach_a_stale_entry() {
   assert_eq 3 "$rc" "suppress_add on the reused number" || return 1
   assert_contains "$out" "names no registered finding in the latest audit" "the message says the display id names no registered finding" || return 1
   [[ ! -e "$root/.claude/audits/suppressions.json" ]] || { printf '    suppressions.json written: %s\n' "$(cat "$root/.claude/audits/suppressions.json")" >&2; return 1; }
-  rc=0; _c apply_resolve_id "$root" SA-2026-01-02-01-002 >/dev/null 2>&1 || rc=$?
-  assert_eq 1 "$rc" "apply_resolve_id on the reused number" || return 1
   # Control: this run's registered finding resolves by its number.
-  assert_eq FUID-new00001 "$(_c apply_resolve_id "$root" SA-2026-01-02-01-001)" "control: this run's finding" || return 1
 }
 
 test_empty_display_id_matches_nothing() {
@@ -223,21 +204,12 @@ test_empty_display_id_matches_nothing() {
   # Every entry holds an empty display id, as the skill flow wrote before it assigned them.
   _state "{\"FUID-blank001\":$(jq -c '.last_display_id = ""' <<<"$_good"),\"FUID-blank002\":$(jq -c '.last_display_id = ""' <<<"$_good")}"
   local rc=0 out
-  out="$(_c apply_resolve_id "$root" "" 2>/dev/null)" || rc=$?
-  assert_eq "1 " "$rc $out" "apply_resolve_id on an empty id" || return 1
-  rc=0; out="$(_c apply_run "$root" "" 2>&1)" || rc=$?
-  assert_eq 1 "$rc" "apply_run on an empty id" || return 1
-  assert_contains "$out" "Finding not found" "apply_run reports no finding" || return 1
   rc=0; _c suppress_add "$root" "" n >/dev/null 2>&1 || rc=$?
   assert_eq 3 "$rc" "suppress_add on an empty id" || return 1
   [[ ! -e "$root/.claude/audits/suppressions.json" ]] || { printf '    suppress_add wrote a file\n' >&2; return 1; }
   # Control: a FUID still resolves to itself, and a held display id still resolves.
-  assert_eq FUID-blank002 "$(_c apply_resolve_id "$root" FUID-blank002)" "control: a FUID" || return 1
   _state "{\"FUID-blank001\":$(jq -c '.last_display_id = ""' <<<"$_good"),\"FUID-good0001\":$_good}"
-  assert_eq FUID-good0001 "$(_c apply_resolve_id "$root" SA-2026-01-01-01-001)" "control: a held display id" || return 1
   # One entry of the latest run holds an empty id, so only the empty-id rule stops a match.
-  rc=0; out="$(_c apply_resolve_id "$root" "" 2>/dev/null)" || rc=$?
-  assert_eq "1 " "$rc $out" "apply_resolve_id on an empty id, one blank holder" || return 1
   rc=0; _c suppress_add "$root" "" n >/dev/null 2>&1 || rc=$?
   assert_eq 3 "$rc" "suppress_add on an empty id, one blank holder" || return 1
 }
@@ -248,11 +220,8 @@ test_display_id_without_a_recorded_run_matches_nothing() {
   _state "{\"FUID-good0001\":$_good}" 0
   assert_eq 0 "$(jq '.audit_history | length' "$st")" "the state has no recorded run" || return 1
   local rc=0 out
-  out="$(_c apply_resolve_id "$root" SA-2026-01-01-01-001 2>/dev/null)" || rc=$?
-  assert_eq "1 " "$rc $out" "apply_resolve_id with no recorded run" || return 1
   rc=0; _c suppress_add "$root" SA-2026-01-01-01-001 n >/dev/null 2>&1 || rc=$?
   assert_eq 3 "$rc" "suppress_add with no recorded run" || return 1
-  assert_eq FUID-good0001 "$(_c apply_resolve_id "$root" FUID-good0001)" "control: the FUID" || return 1
 }
 
 # ---- one uid printed under several display ids ---------------------------------------------
@@ -261,7 +230,7 @@ test_display_id_without_a_recorded_run_matches_nothing() {
 # report_assign_display_ids, state_record_audit); leaves the numbered findings in $root/tagged.
 _scan_record() {
   local r="$1"
-  ( cd "$r" && HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" rule_engine_scan_all "$r" all 2>/dev/null ) > "$r/raw" || return 1
+  ( cd "$r" && HOME=/nonexistent "$CSA" rule_engine_scan_all "$r" all 2>/dev/null ) > "$r/raw" || return 1
   _c baseline_tag "$r/raw" "$r" > "$r/base" || return 1
   _c report_assign_display_ids "$r/base" "$2" > "$r/tagged" || return 1
   _c state_record_audit "$r" "$3" "$r/.claude/audits/$2.md" "$r/tagged" all >/dev/null 2>&1 || return 1
@@ -283,9 +252,6 @@ test_every_id_a_shared_uid_was_printed_with_resolves() {
     || { printf '    two PERM-001 lines, two ids: got %s\n' "$ids" >&2; return 1; }
   [[ "$uid" == FUID-* && "$uid" != *$'\n'* ]] || { printf '    the two lines do not share one uid: %s\n' "$uid" >&2; return 1; }
   for id in $ids; do
-    assert_eq "$uid" "$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" "apply_resolve_id $id" || return 1
-  done
-  for id in $ids; do
     rc=0; _c suppress_add "$root" "$id" n >/dev/null 2>&1 || rc=$?
     assert_eq 0 "$rc" "suppress_add $id" || return 1
   done
@@ -296,12 +262,7 @@ test_every_id_a_shared_uid_was_printed_with_resolves() {
   local ids2
   ids2="$(jq -r 'select(.rule_id == "PERM-001") | .display_id' "$root/tagged" | tr '\n' ' ' | sed 's/ $//')"
   [[ "$ids2" =~ ^SA-2026-01-02-02-[0-9]{3}\ SA-2026-01-02-02-[0-9]{3}$ ]] || { printf '    run 2 ids: got %s\n' "$ids2" >&2; return 1; }
-  for id in $ids2; do
-    assert_eq "$uid" "$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" "run 2: apply_resolve_id $id" || return 1
-  done
   for id in $ids; do
-    rc=0; out="$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" || rc=$?
-    assert_eq "1 " "$rc $out" "run 2: run 1's $id is refused by apply_resolve_id" || return 1
     rc=0; _c suppress_add "$root" "$id" n >/dev/null 2>&1 || rc=$?
     assert_eq 3 "$rc" "run 2: run 1's $id is refused by suppress_add" || return 1
   done
@@ -322,7 +283,6 @@ test_every_id_of_a_shared_critical_uid_is_refused_as_critical() {
   assert_eq 3 "$(grep -c . <<<"$ids")" "three Critical lines" || return 1
   [[ "$uid" == FUID-* && "$uid" != *$'\n'* ]] || { printf '    the three lines do not share one uid: %s\n' "$uid" >&2; return 1; }
   for id in $ids; do
-    assert_eq "$uid" "$(_c apply_resolve_id "$root" "$id" 2>/dev/null)" "apply_resolve_id $id" || return 1
     rc=0; out="$(_c suppress_add "$root" "$id" n 2>&1)" || rc=$?
     assert_eq 1 "$rc" "suppress_add $id" || return 1
     assert_contains "$out" "Cannot suppress a critical-severity finding" "$id is refused as Critical" || return 1
@@ -337,10 +297,9 @@ test_an_id_two_entries_hold_through_the_list_matches_nothing() {
   a="$(jq -c '.last_display_id = "SA-2026-01-01-01-002" | .last_display_ids = ["SA-2026-01-01-01-001","SA-2026-01-01-01-002"]' <<<"$_good")"
   b="$(jq -c '.last_display_id = "SA-2026-01-01-01-001" | .last_display_ids = ["SA-2026-01-01-01-001"]' <<<"$_good")"
   _state "{\"FUID-a0000001\":$a,\"FUID-b0000001\":$b}"
-  local rc=0 out
-  out="$(_c apply_resolve_id "$root" SA-2026-01-01-01-001 2>/dev/null)" || rc=$?
-  assert_eq "1 " "$rc $out" "an id two entries hold" || return 1
-  assert_eq FUID-a0000001 "$(_c apply_resolve_id "$root" SA-2026-01-01-01-002)" "control: an id one entry holds" || return 1
+  local rc=0
+  _c suppress_add "$root" SA-2026-01-01-01-001 n >/dev/null 2>&1 || rc=$?
+  assert_eq 3 "$rc" "an id two entries hold names no finding for suppress_add" || return 1
 }
 
 # The first audit of a project has no .claude/audits/: state_record_audit creates it. When it cannot,

@@ -4,8 +4,6 @@ RULE_NAME="dangerous-combo"
 RULE_ASPECT="permissions"
 RULE_SEVERITY="critical"
 RULE_DESCRIPTION="Bash(*) allowed with no deny rules — unrestricted shell execution with zero guardrails."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Remove Bash(*) or add deny rules for at minimum Bash(rm -rf:*), Bash(curl:*), and Bash(eval:*)."
 RULE_REFERENCES=""
 

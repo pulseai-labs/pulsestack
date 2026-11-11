@@ -10,9 +10,6 @@ test_fixture_secrets_issue_exists() {
 test_fixture_permissions_issue_exists() {
   jq -e '.permissions.allow | index("Bash(*)")' "$CSA_FIXTURES_DIR/issues/permissions-issue/.claude/settings.json" >/dev/null || return 1
 }
-test_fixture_permissions_schema_typo_exists() {
-  jq -e '.permissions.allowed' "$CSA_FIXTURES_DIR/issues/permissions-schema-typo/.claude/settings.json" >/dev/null || return 1
-}
 test_fixture_hook_injection_exists() {
   grep -q 'curl.*|.*bash' "$CSA_FIXTURES_DIR/issues/hook-injection/.claude/hooks-handlers/session-start.sh" || return 1
 }
@@ -25,17 +22,12 @@ test_fixture_claude_md_secret_exists() {
 test_fixture_prompt_injection_exists() {
   grep -q '~/.ssh/id_rsa' "$CSA_FIXTURES_DIR/issues/prompt-injection-agent/.claude/agents/helper.md" || return 1
 }
-test_fixture_marketplace_untrusted_exists() {
-  jq -e '.marketplaces[0].url | startswith("http://")' "$CSA_FIXTURES_DIR/issues/marketplace-untrusted/.claude-plugin/marketplace.json" >/dev/null || return 1
-}
 
 csa_test_run test_fixture_secrets_issue_exists           || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_fixture_permissions_issue_exists       || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_fixture_permissions_schema_typo_exists || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_fixture_hook_injection_exists          || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_fixture_mcp_misconfigured_exists       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_fixture_claude_md_secret_exists        || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_fixture_prompt_injection_exists        || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_fixture_marketplace_untrusted_exists   || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

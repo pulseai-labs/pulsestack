@@ -4,8 +4,6 @@ RULE_NAME="hook-type-not-inspected"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="info"
 RULE_DESCRIPTION="A JSON file declares hooks of a type the audit counts but does not inspect (http, prompt, agent, mcp_tool or a type added later)."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Read these hooks by hand. Only command hooks are checked against the HOOK patterns."
 RULE_REFERENCES=""
 # detect_text receives ALL of a file's entries at once (one JSON line each):
@@ -42,7 +40,7 @@ detect_text() {
   [[ -n "$counts" ]] || return 1
   preview="$(csa_redact "hook entries not inspected: $counts")"
   # Hash first, as HOOK-005 does: the counts hold attacker-chosen type names, and
-  # csa_finding_uid redacts and caps its match at 200 characters.
+  # csa_finding_uid redacts and caps its match at 200 bytes under bin/csa's LC_ALL=C.
   fuid="$(csa_finding_uid "$RULE_ID" "$target_file" "$(csa_sha256 "$counts" | cut -c1-24)")"
   jq -nc --arg rule_id "$RULE_ID" --arg file "$target_file" --arg preview "$preview" \
     --arg severity "$RULE_SEVERITY" --arg fuid "$fuid" --arg counts "$counts" \

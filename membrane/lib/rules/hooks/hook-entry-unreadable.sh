@@ -3,10 +3,8 @@ RULE_ID="HOOK-005"
 RULE_NAME="hook-entry-unreadable"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="high"
-RULE_DESCRIPTION="A hook declared in JSON (settings, a plugin's hooks/hooks.json or plugin.json), a hooks.json modules path, or a hook file whose name holds a newline or tab or that is a symlink could not be read, so that command, module or file was not checked."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
-RULE_REMEDIATION="Read the named JSON path or file by hand. Fix a malformed file or a hook entry of the wrong shape, point a hooks.json modules path at handler code inside the plugin's hooks/ dir, replace a symlink below a hook dir with the file it points at, rename a file whose name holds a newline or tab, or remove the entry, so the audit can read every hook command and module."
+RULE_DESCRIPTION="A hook declared in JSON (settings, a plugin's hooks/hooks.json or plugin.json), a hooks.json modules path, a plugin.json hooks path, or a file below a hooks dir outside the narrowed input (a name holding a byte outside printable ASCII, a symlink, a file that is not regular, a file over 1 MiB) could not be read, so that command, module or file was not checked."
+RULE_REMEDIATION="Read the named JSON path or file by hand. Fix a malformed file or a hook entry of the wrong shape, point a hooks.json modules path at handler code inside the plugin's hooks/ dir and a plugin.json hooks path at a file inside the plugin, replace a symlink with the file it points at, rename a file whose name holds a byte outside printable ASCII, keep a hook file to 1 MiB, or remove the entry, so the audit can read every hook command and module."
 RULE_REFERENCES=""
 
 if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
@@ -39,7 +37,7 @@ detect_text() {
   why="$(printf '%s' "$entry" | jq -r '.inconclusive // ""')"
   preview="$(csa_redact "hook entry not read: $why")"
   sep="$(printf '\xe2\x90\x9f')"
-  # Hash first: csa_finding_uid redacts its match (200-character cap), and both
+  # Hash first: csa_finding_uid redacts its match (a 200-byte cap under bin/csa's LC_ALL=C), and both
   # parts can be long and attacker-chosen.
   fuid="$(csa_finding_uid "$RULE_ID" "$target_file" "$(csa_sha256 "${jp}${sep}${why}" | cut -c1-24)")"
   jq -nc --arg rule_id "$RULE_ID" --arg file "$target_file" --arg preview "$preview" \

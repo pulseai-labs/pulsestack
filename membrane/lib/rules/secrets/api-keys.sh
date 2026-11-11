@@ -4,8 +4,6 @@ RULE_NAME="api-keys"
 RULE_ASPECT="secrets"
 RULE_SEVERITY="critical"
 RULE_DESCRIPTION="API key or token detected in plaintext (Anthropic / OpenAI / GitHub / AWS)."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Remove the key and rotate it at the provider. If discovered in a committed file, force-push history rewrite OR rotate the key and accept the leak."
 RULE_REFERENCES=""
 
@@ -30,8 +28,10 @@ detect() {
   # which is emitted, since the engine drops a detector's stdout on rc 2 (#1089). Skill-first question 3.
   # LC_ALL=C grep -a reads the file byte by byte in every locale, as HOOK-004 does: a NUL or a byte that is not
   # UTF-8 does not make grep call the file binary and print no line.
+  # A key starts at the line's start or after a byte that is not a letter, digit, `_` or `-`, so a kebab-case word that
+  # holds `sk-` (`task-scoped-review-dispatch`, `risk-assessment-framework-notes`) is not a key.
   local hits grc=0
-  hits="$(LC_ALL=C grep -anE 'sk-ant-api03-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|gh[psorau]_[A-Za-z0-9]{36,}|AKIA[0-9A-Z]{16}' "$target_file" 2>/dev/null)" || grc=$?
+  hits="$(LC_ALL=C grep -anE '(^|[^A-Za-z0-9_-])(sk-ant-api03-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|gh[psorau]_[A-Za-z0-9]{36,}|AKIA[0-9A-Z]{16})' "$target_file" 2>/dev/null)" || grc=$?
   [[ "$grc" -le 1 ]] || [[ -n "$hits" ]] || return 2
   [[ -n "$hits" ]] || return 0
   # LC_ALL=C on read only: in a UTF-8 locale, bash 5.2 joins a line that ends in an invalid byte to the next.

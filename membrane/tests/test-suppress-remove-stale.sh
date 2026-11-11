@@ -7,7 +7,6 @@ CSA="$CSA_PLUGIN_ROOT/bin/csa"
 
 _csa_failed=0
 _CSA_TMP="$(mktemp -d "${TMPDIR:-/tmp}/csa-sup-rm.XXXXXX")"
-trap 'rm -rf "$_CSA_TMP"' EXIT
 _n=0
 
 # _mk_root: sets $root to a fresh project dir with .claude/audits/.
@@ -24,7 +23,7 @@ _write_sup() {
 }
 
 _scan() { # <project> <focus> > raw jsonl
-  HOME=/nonexistent CSA_PROJECT_ROOT="$1" "$CSA" rule_engine_scan_all "$1" "$2" 2>/dev/null
+  HOME=/nonexistent "$CSA" rule_engine_scan_all "$1" "$2" 2>/dev/null
 }
 
 # ---- remove ----------------------------------------------------------------
@@ -79,8 +78,8 @@ test_remove_no_file_rc1_creates_nothing() {
 # as step 9 does, then backdates every first_seen past the 60 s suppression window.
 _record_run() {
   local r="$1" f="$_CSA_TMP/state-tmp$_n.json" st="$1/.claude/audits/state.json"
-  [[ -f "$st" ]] || HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" state_init "$r" >/dev/null
-  HOME=/nonexistent CSA_PROJECT_ROOT="$r" "$CSA" state_record_audit "$r" 1 ".claude/audits/r.md" "$2" all >/dev/null \
+  [[ -f "$st" ]] || HOME=/nonexistent "$CSA" state_init "$r" >/dev/null
+  HOME=/nonexistent "$CSA" state_record_audit "$r" 1 ".claude/audits/r.md" "$2" all >/dev/null \
     || { printf '    state_record_audit failed\n' >&2; return 1; }
   jq '.findings |= map_values(.first_seen = "2026-01-01T00:00:00Z")' "$st" > "$f" && mv "$f" "$st"
 }
@@ -146,12 +145,13 @@ test_stale_no_file_lists_nothing() {
   [[ ! -e "$root/.claude/audits/suppressions.json" ]] || { printf '    stale created a file\n' >&2; return 1; }
 }
 
-test_stale_excludes_tamper_uids() {
+test_stale_lists_the_former_tamper_uids() {
   _mk_root
   : > "$_CSA_TMP/empty$_n.jsonl"
   _write_sup "$root" FUID-tamper01 FUID-tamper02 FUID-tamper03 FUID-bbbbbbbb
   local out; out="$("$CSA" suppress_stale "$_CSA_TMP/empty$_n.jsonl" "$root" all)" || return 1
-  assert_eq "FUID-bbbbbbbb" "$(jq -r '.finding_uid' <<<"$out")" "only the non-tamper uid is listed" || return 1
+  assert_eq "FUID-tamper01 FUID-tamper02 FUID-tamper03 FUID-bbbbbbbb" "$(jq -r '.finding_uid' <<<"$out" | paste -sd' ' -)" \
+    "the tamper checks are gone, so their fixed uids are listed like any other" || return 1
 }
 
 # A suppression whose uid moves (the finding's file is renamed, so its path and uid change)
@@ -170,10 +170,10 @@ test_e2e_uid_move_old_stale_new_is_new() {
   assert_eq "$old" "$(jq -r '.finding_uid' <<<"$out")" "old uid is stale" || return 1
   # The moved finding is no longer hidden: the rescan still emits the new uid through the filter.
   "$CSA" suppress_filter "$_CSA_TMP/rescan$_n.jsonl" "$root" > "$_CSA_TMP/filtered$_n.jsonl" || return 1
-  assert_eq "1" "$(jq -r --arg u "$new" 'select(.finding_uid == $u) | .finding_uid' "$_CSA_TMP/filtered$_n.jsonl" | grep -c .)" "new uid passes the filter" || return 1
+  assert_eq "1" "$(jq -r --arg u "$new" 'select(.finding_uid == $u and .state != "SUPPRESSED") | .finding_uid' "$_CSA_TMP/filtered$_n.jsonl" | grep -c .)" "new uid passes the filter unmarked" || return 1
   # Control: before the move the same suppression does hide the old uid.
   "$CSA" suppress_filter "$_CSA_TMP/raw$_n.jsonl" "$root" > "$_CSA_TMP/filtered-old$_n.jsonl" || return 1
-  assert_eq "0" "$(jq -r --arg u "$old" 'select(.finding_uid == $u) | .finding_uid' "$_CSA_TMP/filtered-old$_n.jsonl" | grep -c . || true)" "old uid is hidden by its suppression" || return 1
+  assert_eq "SUPPRESSED" "$(jq -r --arg u "$old" 'select(.finding_uid == $u) | .state' "$_CSA_TMP/filtered-old$_n.jsonl" | sort -u)" "old uid is marked suppressed by its suppression" || return 1
 }
 
 # Every `csa <fn> ...` call SKILL.md documents, bare ones included, runs through the dispatcher
@@ -204,9 +204,10 @@ test_documented_csa_calls_run_through_dispatcher() {
     call="${call//<baseline>/$fx}"
     call="${call//\"<report-name>\"/2026-01-01-01}"
     call="${call//<raw-file>/$_CSA_TMP/empty$_n.jsonl}"
+    call="${call//<hook-commands>/$_CSA_TMP/hooks$_n.jsonl}"
     [[ "$call" != *"<"* ]] || { printf '    unfilled placeholder in: %s\n' "$call" >&2; return 1; }
     local out rc=0
-    out="$(cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" 2>&1)" || rc=$?
+    out="$(cd "$root" && HOME=/nonexistent eval "\"$CSA\" ${call#csa }" 2>&1)" || rc=$?
     # A call that records a run must succeed and write it: the file argument it documents is read.
     if [[ "$call" == "csa state_record_audit "* ]]; then
       [[ "$rc" -eq 0 ]] || { printf '    documented call exits %s: %s -> %s\n' "$rc" "$call" "$out" >&2; return 1; }
@@ -255,12 +256,13 @@ _documented_steps() {
       call="${call//<metadata-json>/\{\}}"
       call="${call//<run-index>/1}"
       for ph in raw-file baseline tagged findings; do call="${call//<$ph>/$d/$ph}"; done
+      call="${call//<hook-commands>/$d/hook-commands}"
       [[ "$call" != *"<"* ]] || { printf '    unfilled placeholder in: %s\n' "$call" >&2; return 1; }
       rc=0
       if [[ -n "$target" ]]; then
-        (cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" > "$d/$target" 2>"$d/err") || rc=$?
+        (cd "$root" && HOME=/nonexistent eval "\"$CSA\" ${call#csa }" > "$d/$target" 2>"$d/err") || rc=$?
       else
-        out="$(cd "$root" && HOME=/nonexistent CSA_PROJECT_ROOT="$root" eval "\"$CSA\" ${call#csa }" 2>"$d/err")" || rc=$?
+        out="$(cd "$root" && HOME=/nonexistent eval "\"$CSA\" ${call#csa }" 2>"$d/err")" || rc=$?
         [[ "$call" != "csa report_render_chat "* ]] || chat="$out"
       fi
       [[ "$rc" -eq 0 ]] || { printf '    step call exits %s: %s -> %s\n' "$rc" "$call" "$(cat "$d/err")" >&2; return 1; }
@@ -297,13 +299,11 @@ _first_audit() {
   assert_eq "$(jq -r '.finding_uid // empty' "$d/raw-file" | sort -u | tr '\n' ' ')" "$(jq -r '.findings | keys[]' "$st" | sort | tr '\n' ' ')" "state.json registers every uid of the scan" || return 1
   assert_eq critical "$(jq -r '.findings[] | select(.rule_id == "PERM-004") | .severity' "$st")" "state.json holds the Critical" || return 1
   assert_eq 1 "$(jq '.audit_history | length' "$st")" "the run is recorded" || return 1
-  # The skill's steps record no value in self_integrity: it holds a new state.json's zeros after the audit.
-  assert_eq '{"state_mtime_at_last_audit":0,"suppressions_mtime_at_last_audit":0,"git_tracked_check":{"state_json_tracked":false,"suppressions_json_tracked":false,"checked_at":null}}' \
-    "$(jq -c '.self_integrity' "$st")" "the audit leaves self_integrity at a new state.json's zeros" || return 1
+  # A new state.json holds no tamper record and no applied-fix list: both features are gone.
+  assert_eq '[false,false]' "$(jq -c '[has("self_integrity"), has("applied_fixes")]' "$st")" "no self_integrity, no applied_fixes" || return 1
   local did uid
   while IFS=$'\t' read -r did uid; do
     assert_contains "$(cat "$rp")" "$did" "the report prints $did" || return 1
-    assert_eq "$uid" "$(cd "$root" && "$CSA" apply_resolve_id "$root" "$did" 2>/dev/null)" "$did resolves to the finding it was printed for" || return 1
   done < <(jq -r 'select(.finding_uid != null) | [.display_id, .finding_uid] | @tsv' "$d/findings")
   assert_eq 5 "$(jq -r 'select(.finding_uid != null) | .display_id' "$d/findings" | grep -cE "^SA-$name-[0-9]{3}\$")" "five display ids SA-<date>-<NN>-<NNN>" || return 1
   assert_contains "$chat" "(run #01)" "chat names the run" || return 1
@@ -394,8 +394,8 @@ test_remove_write_failure_rc5() {
   # Not a failure of the code: a process that ignores directory modes (root) cannot reach this branch.
   if touch "$root/.claude/audits/.probe" 2>/dev/null; then
     rm -f "$root/.claude/audits/.probe"; chmod u+w "$root/.claude/audits"
-    printf '    SKIP: directory modes are not enforced for this user (running as root?)\n'
-    return 0
+    printf '    SKIP: directory modes are not enforced for this user (running as root?)\n' >&2
+    return "$CSA_SKIP"
   fi
   local rc=0 err; err="$("$CSA" suppress_remove "$root" FUID-aaaaaaaa 2>&1)" || rc=$?
   chmod u+w "$root/.claude/audits"
@@ -411,17 +411,6 @@ test_stale_emits_only_the_uid() {
   _write_sup "$root" FUID-aaaaaaaa
   local out; out="$("$CSA" suppress_stale "$_CSA_TMP/empty$_n.jsonl" "$root" all)" || return 1
   assert_eq '{"finding_uid":"FUID-aaaaaaaa"}' "$out" "one object with the uid and nothing else" || return 1
-}
-
-test_stale_tamper_exclusion_is_exact() {
-  _mk_root
-  : > "$_CSA_TMP/empty$_n.jsonl"
-  _write_sup "$root" "FUID-tamper01" $'FUID-tamper01\n' "FUID-tamper04"
-  local out; out="$("$CSA" suppress_stale "$_CSA_TMP/empty$_n.jsonl" "$root" all)" || return 1
-  assert_eq "2" "$(printf '%s\n' "$out" | grep -c .)" "two listed" || return 1
-  # Control: the tamper uid itself is not listed; the one with a trailing newline is.
-  [[ "$(jq -c '.finding_uid' <<<"$out" | paste -sd' ' -)" == '"FUID-tamper01\n" "FUID-tamper04"' ]] \
-    || { printf '    wrong listing: %s\n' "$out" >&2; return 1; }
 }
 
 # ---- suppress_add and suppress_filter through the dispatcher (0.7.0) --------------------------
@@ -498,7 +487,7 @@ csa_test_run test_stale_focused_scan_refuses                || _csa_failed=$((_c
 csa_test_run test_stale_scanner_finding_refuses             || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_stale_clean_scan_lists_all                || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_stale_no_file_lists_nothing               || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_stale_excludes_tamper_uids                || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_stale_lists_the_former_tamper_uids        || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_e2e_uid_move_old_stale_new_is_new         || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_documented_csa_calls_run_through_dispatcher || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_documented_audit_steps_on_a_first_audit || _csa_failed=$((_csa_failed + 1))
@@ -512,7 +501,6 @@ csa_test_run test_stale_missing_findings_file_rc4           || _csa_failed=$((_c
 csa_test_run test_stale_provenance_finding_refuses          || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_remove_write_failure_rc5                  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_stale_emits_only_the_uid                  || _csa_failed=$((_csa_failed + 1))
-csa_test_run test_stale_tamper_exclusion_is_exact           || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_suppress_add_malformed_registry_via_dispatcher || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_empty_or_multi_document_suppressions_file  || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_unreadable_suppressions_file_hides_and_marks_nothing || _csa_failed=$((_csa_failed + 1))

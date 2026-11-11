@@ -4,8 +4,6 @@ RULE_NAME="settings-local-divergence"
 RULE_ASPECT="permissions"
 RULE_SEVERITY="high"
 RULE_DESCRIPTION="settings.local.json grants allow rules not present in sibling settings.json — local overrides may bypass team security policy."
-RULE_AUTO_FIXABLE="true"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Align settings.local.json with team-wide settings.json, or move the allow entry upstream if it is intentional."
 RULE_REFERENCES=""
 

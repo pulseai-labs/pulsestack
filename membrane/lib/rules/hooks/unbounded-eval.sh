@@ -4,8 +4,6 @@ RULE_NAME="unbounded-eval"
 RULE_ASPECT="hooks"
 RULE_SEVERITY="high"
 RULE_DESCRIPTION="eval of a variable or command substitution detected in a hook script, handler or command — potential code injection."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Replace eval with explicit command invocations. If dynamic dispatch is required, use a whitelist of allowed commands rather than evaluating arbitrary strings."
 RULE_REFERENCES=""
 

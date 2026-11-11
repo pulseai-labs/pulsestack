@@ -1,22 +1,11 @@
 #!/usr/bin/env bash
-# lib/state.sh — state persistence, tamper detection, and GC for membrane.
-# Requires: lib/helpers.sh (csa_sha256, csa_realpath, csa_sed_inplace)
+# lib/state.sh — state persistence, GC and the first-audit .gitignore line for membrane.
+# Requires: lib/helpers.sh (csa_root_ok, csa_root_resolve, csa_escape, csa_printable)
 # Bash 3.2+ compatible (macOS portability).
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-# csa_file_mtime <path> — print epoch seconds of file mtime (BSD + GNU portable). A symlink gives its target's mtime
-# (`-L`), the one `touch -r` copies and an edit through the link moves.
-csa_file_mtime() {
-  local f="$1"
-  if stat -L -f %m "$f" >/dev/null 2>&1; then
-    stat -L -f %m "$f"
-  else
-    stat -L -c %Y "$f" 2>/dev/null || echo 0
-  fi
-}
 
 # csa_iso_now — print current UTC ISO-8601 timestamp.
 csa_iso_now() {
@@ -46,23 +35,14 @@ csa_suppressions_path() {
 # csa_state_init <project_root> — create dir + write empty schema_version=2 file.
 csa_state_init() {
   local root="$1"
+  csa_root_ok "$root" || return 2
   local state_file; state_file="$(csa_state_path "$root")"
   mkdir -p "$(dirname "$state_file")"
   jq -n '{
     schema_version: 2,
     last_audit: null,
-    self_integrity: {
-      state_mtime_at_last_audit: 0,
-      suppressions_mtime_at_last_audit: 0,
-      git_tracked_check: {
-        state_json_tracked: false,
-        suppressions_json_tracked: false,
-        checked_at: null
-      }
-    },
     findings: {},
-    audit_history: [],
-    applied_fixes: []
+    audit_history: []
   }' > "$state_file"
 }
 
@@ -172,6 +152,7 @@ _csa_suppressed_uid_set() {
 # (exit 2) before any write.
 csa_state_record_audit() {
   local root="$1"
+  csa_root_ok "$root" || return 2
   local run_index="$2"
   local report_path="$3"
   local findings_jsonl="$4"
@@ -203,18 +184,8 @@ csa_state_record_audit() {
     (if . == {} then {
       schema_version: 2,
       last_audit: null,
-      self_integrity: {
-        state_mtime_at_last_audit: 0,
-        suppressions_mtime_at_last_audit: 0,
-        git_tracked_check: {
-          state_json_tracked: false,
-          suppressions_json_tracked: false,
-          checked_at: null
-        }
-      },
       findings: {},
-      audit_history: [],
-      applied_fixes: []
+      audit_history: []
     } else . end) | .findings = csa_registry
   ')"
 
@@ -406,250 +377,66 @@ csa_state_gc_findings() {
 }
 
 # ---------------------------------------------------------------------------
-# Self-integrity
-# ---------------------------------------------------------------------------
-
-# csa_state_update_self_integrity <project_root>
-# Record mtimes + git-tracked status of state.json + suppressions.json.
-csa_state_update_self_integrity() {
-  local root="$1"
-  local state_file; state_file="$(csa_state_path "$root")"
-  [[ -f "$state_file" ]] || return 0
-
-  local suppressions_file; suppressions_file="$(csa_suppressions_path "$root")"
-  local now; now="$(csa_iso_now)"
-
-  # state.json's mtime (a symlink's target's), recorded inside state.json: the rewrite below gets this same mtime back
-  # (`touch -r` from the file it replaces; `mv` keeps it), so the record matches the file it is written into (#1164).
-  local state_mtime; state_mtime="$(csa_file_mtime "$state_file")"
-
-  # Get suppressions.json mtime (0 if missing).
-  local suppressions_mtime=0
-  if [[ -f "$suppressions_file" ]]; then
-    suppressions_mtime="$(csa_file_mtime "$suppressions_file")"
-  fi
-
-  # Git-tracked check. git runs in the audited project and reads its config. `-c core.fsmonitor=` (empty means no
-  # hook; `false` would name a hook path on git before 2.36) stops the one key that runs a command on this read,
-  # measured on git 2.53, wherever it is set: .git/config, include.path, includeIf, a .git file's gitdir. The
-  # redirects keep a configured pager from running. Skill-first question 3: it only removes a command.
-  local state_tracked=false suppressions_tracked=false
-  if command -v git >/dev/null 2>&1; then
-    if git -c core.fsmonitor= -C "$root" ls-files --error-unmatch "$state_file" >/dev/null 2>&1; then
-      state_tracked=true
-    fi
-    if [[ -f "$suppressions_file" ]] && git -c core.fsmonitor= -C "$root" ls-files --error-unmatch "$suppressions_file" >/dev/null 2>&1; then
-      suppressions_tracked=true
-    fi
-  fi
-
-  local tmp; tmp="$(dirname "$state_file")/state.json.tmp.$$"
-  jq \
-    --argjson state_mtime "$state_mtime" \
-    --argjson suppressions_mtime "$suppressions_mtime" \
-    --argjson state_tracked "$state_tracked" \
-    --argjson suppressions_tracked "$suppressions_tracked" \
-    --arg now "$now" \
-    '.self_integrity.state_mtime_at_last_audit = $state_mtime |
-     .self_integrity.suppressions_mtime_at_last_audit = $suppressions_mtime |
-     .self_integrity.git_tracked_check.state_json_tracked = $state_tracked |
-     .self_integrity.git_tracked_check.suppressions_json_tracked = $suppressions_tracked |
-     .self_integrity.git_tracked_check.checked_at = $now' \
-    "$state_file" > "$tmp" && touch -r "$state_file" "$tmp" && mv "$tmp" "$state_file"
-}
-
-# ---------------------------------------------------------------------------
-# Tamper detection
-# ---------------------------------------------------------------------------
-
-# csa_state_check_tamper <project_root>
-# Emit TAMPER-001/002/003 findings JSONL if drift detected.
-# Silent on first run (no state.json yet, or self_integrity not populated).
-csa_state_check_tamper() {
-  local root="$1"
-  local state_file; state_file="$(csa_state_path "$root")"
-
-  # First run: no state file → skip silently.
-  [[ -f "$state_file" ]] || return 0
-
-  local state; state="$(cat "$state_file")"
-  local recorded_state_mtime; recorded_state_mtime="$(printf '%s' "$state" | jq -r '.self_integrity.state_mtime_at_last_audit // 0')"
-
-  # If recorded mtime is 0, treat as first run — skip silently.
-  [[ "$recorded_state_mtime" == "0" || "$recorded_state_mtime" == "null" ]] && return 0
-
-  local now; now="$(csa_iso_now)"
-
-  # TAMPER-001: state.json mtime drift.
-  local actual_state_mtime; actual_state_mtime="$(csa_file_mtime "$state_file")"
-  if [[ "$actual_state_mtime" != "$recorded_state_mtime" ]]; then
-    jq -nc \
-      --arg now "$now" \
-      --arg file "$state_file" \
-      '{
-        rule_id: "TAMPER-001",
-        severity: "high",
-        file: $file,
-        finding_uid: "FUID-tamper01",
-        display_id: "TAMPER-001",
-        message: "state.json mtime changed since last audit — possible tampering",
-        first_seen: $now,
-        last_seen: $now
-      }'
-  fi
-
-  # TAMPER-002: suppressions.json mtime drift.
-  local suppressions_file; suppressions_file="$(csa_suppressions_path "$root")"
-  local recorded_suppressions_mtime; recorded_suppressions_mtime="$(printf '%s' "$state" | jq -r '.self_integrity.suppressions_mtime_at_last_audit // 0')"
-
-  # Only check if we recorded a non-zero mtime (meaning suppressions.json existed at last audit).
-  if [[ "$recorded_suppressions_mtime" != "0" && "$recorded_suppressions_mtime" != "null" ]]; then
-    local actual_suppressions_mtime=0
-    if [[ -f "$suppressions_file" ]]; then
-      actual_suppressions_mtime="$(csa_file_mtime "$suppressions_file")"
-    fi
-    if [[ "$actual_suppressions_mtime" != "$recorded_suppressions_mtime" ]]; then
-      jq -nc \
-        --arg now "$now" \
-        --arg file "$suppressions_file" \
-        '{
-          rule_id: "TAMPER-002",
-          severity: "high",
-          file: $file,
-          finding_uid: "FUID-tamper02",
-          display_id: "TAMPER-002",
-          message: "suppressions.json mtime changed since last audit — possible tampering",
-          first_seen: $now,
-          last_seen: $now
-        }'
-    fi
-  elif [[ -f "$suppressions_file" ]]; then
-    # suppressions.json was not present at last audit but now exists.
-    jq -nc \
-      --arg now "$now" \
-      --arg file "$suppressions_file" \
-      '{
-        rule_id: "TAMPER-002",
-        severity: "high",
-        file: $file,
-        finding_uid: "FUID-tamper02",
-        display_id: "TAMPER-002",
-        message: "suppressions.json appeared since last audit — possible tampering",
-        first_seen: $now,
-        last_seen: $now
-      }'
-  fi
-
-  # TAMPER-003: git-tracked status drift. `-c core.fsmonitor=` as in csa_state_update_self_integrity.
-  local checked_at; checked_at="$(printf '%s' "$state" | jq -r '.self_integrity.git_tracked_check.checked_at // empty')"
-  if [[ -n "$checked_at" ]] && command -v git >/dev/null 2>&1; then
-    local recorded_state_tracked; recorded_state_tracked="$(printf '%s' "$state" | jq -r '.self_integrity.git_tracked_check.state_json_tracked // false')"
-    local recorded_suppressions_tracked; recorded_suppressions_tracked="$(printf '%s' "$state" | jq -r '.self_integrity.git_tracked_check.suppressions_json_tracked // false')"
-
-    local current_state_tracked=false
-    if git -c core.fsmonitor= -C "$root" ls-files --error-unmatch "$state_file" >/dev/null 2>&1; then
-      current_state_tracked=true
-    fi
-
-    local current_suppressions_tracked=false
-    if [[ -f "$suppressions_file" ]] && git -c core.fsmonitor= -C "$root" ls-files --error-unmatch "$suppressions_file" >/dev/null 2>&1; then
-      current_suppressions_tracked=true
-    fi
-
-    if [[ "$current_state_tracked" != "$recorded_state_tracked" || "$current_suppressions_tracked" != "$recorded_suppressions_tracked" ]]; then
-      jq -nc \
-        --arg now "$now" \
-        --arg file "$state_file" \
-        '{
-          rule_id: "TAMPER-003",
-          severity: "high",
-          file: $file,
-          finding_uid: "FUID-tamper03",
-          display_id: "TAMPER-003",
-          message: "Git-tracked status of audit files changed since last audit — possible tampering",
-          first_seen: $now,
-          last_seen: $now
-        }'
-    fi
-  fi
-}
-
-# ---------------------------------------------------------------------------
-# Applied fixes
-# ---------------------------------------------------------------------------
-
-# csa_state_record_applied_fix <project_root> <finding_uid> <display_id> <rule_id> <applied_by> <summary>
-csa_state_record_applied_fix() {
-  local root="$1"
-  local finding_uid="$2"
-  local display_id="$3"
-  local rule_id="$4"
-  local applied_by="$5"
-  local summary="$6"
-
-  local state_file; state_file="$(csa_state_path "$root")"
-  [[ -f "$state_file" ]] || return 1
-
-  local now; now="$(csa_iso_now)"
-  local tmp; tmp="$(dirname "$state_file")/state.json.tmp.$$"
-  jq \
-    --arg finding_uid "$finding_uid" \
-    --arg display_id "$display_id" \
-    --arg rule_id "$rule_id" \
-    --arg applied_by "$applied_by" \
-    --arg summary "$summary" \
-    --arg now "$now" \
-    '.applied_fixes += [{
-      finding_uid: $finding_uid,
-      display_id_at_apply: $display_id,
-      rule_id: $rule_id,
-      applied_at: $now,
-      applied_by: $applied_by,
-      summary: $summary
-    }]' \
-    "$state_file" > "$tmp" && mv "$tmp" "$state_file"
-}
-
-# ---------------------------------------------------------------------------
-# Gitignore bootstrap (T1-D)
+# Gitignore line (first audit)
 # ---------------------------------------------------------------------------
 
 # csa_state_bootstrap_gitignore <project_root>
-# First-audit gitignore mechanism per auto-fix-policy.md §T1-D.
+# The first audit's .gitignore line, `.claude/audits/`, under the comment `# claude-security-audit`. It writes only
+# <root>/.gitignore, and only by appending those two lines when no line of the file is exactly `.claude/audits/`
+# (a whole-line match; the file is created when absent). It writes nothing, and prints the line to add, when <root>
+# has no .git (a directory, or the file a worktree has) or when <root>/.gitignore is a symlink or not a regular file.
+# Below a repository root (the nearest directory above <root>'s physical path holding a .git, which it only tests),
+# the line it prints is <root>'s path from that root followed by `/.claude/audits/`, for the repository root's
+# .gitignore: a line with an inner `/` matches only from the directory of the .gitignore that holds it. A path that
+# holds a byte outside printable ASCII, a glob character (`*`, `?`, `[`) or `\`, or starts with `#` or `!`, gets no
+# line: written as is, the line would not name that path. A root that is not an absolute directory is refused (rc 2).
+# Skill-first question 2: one fixed line, one fixed file, a path this function resolved.
 csa_state_bootstrap_gitignore() {
-  local root="$1"
-  local gitignore="$root/.gitignore"
-  local entry=".claude/audits/"
-  local comment_block
-  comment_block="$(printf '\n# claude-security-audit\n%s\n' "$entry")"
-
-  if [[ -f "$gitignore" ]]; then
-    # Check if entry already present.
-    if grep -q "$entry" "$gitignore" 2>/dev/null; then
-      # Already present — do nothing silently.
+  local root="$1" gi entry=".claude/audits/" rootp d top="" rel
+  rootp="$(csa_root_resolve "$root")" || return 2
+  while [[ "$root" == ?*/ ]]; do root="${root%/}"; done
+  gi="$root/.gitignore"
+  if [[ ! -e "$root/.git" ]]; then
+    d="$rootp"
+    while [[ "$d" == /?* ]]; do
+      d="${d%/*}"; [[ -n "$d" ]] || d=/
+      if [[ -e "${d%/}/.git" ]]; then top="$d"; break; fi
+    done
+    if [[ -z "$top" ]]; then
+      printf 'Info: %s is not inside a git repository (no .git there or above); nothing written. If it becomes a repository root, this line in its .gitignore keeps audit state out of git: %s\n' \
+        "$(csa_escape "$root")" "$entry"
       return 0
     fi
-    # Append entry.
-    printf '%s' "$comment_block" >> "$gitignore"
+    if [[ "$top" == / ]]; then rel="${rootp#/}"; else rel="${rootp#"$top"/}"; fi
+    if ! csa_printable "$rel" || [[ "$rel" == *[\*?[\\]* || "$rel" == [\#!]* ]]; then
+      printf 'Info: %s is not a git repository root (no .git there); nothing written. Its path from the repository root %s, %s, holds a byte outside printable ASCII, a glob character or a backslash, or starts with # or !, so no .gitignore line is printed for it.\n' \
+        "$(csa_escape "$root")" "$(csa_escape "$top")" "$(csa_escape "$rel")"
+      return 0
+    fi
+    printf 'Info: %s is not a git repository root (no .git there); nothing written. To keep audit state out of git, add this line to %s/.gitignore: %s/%s\n' \
+      "$(csa_escape "$root")" "$(csa_escape "${top%/}")" "$rel" "$entry"
+    return 0
+  fi
+  if [[ -L "$gi" ]] || { [[ -e "$gi" ]] && [[ ! -f "$gi" ]]; }; then
+    printf 'Info: %s is a symlink or not a regular file; nothing written. Add this line to it yourself: %s\n' \
+      "$(csa_escape "$gi")" "$entry"
+    return 0
+  fi
+  if [[ -f "$gi" ]] && LC_ALL=C grep -qxF -- "$entry" "$gi" 2>/dev/null; then
+    return 0
+  fi
+  # The redirection sits inside the group, so a file that cannot be opened prints only the `csa:` line below.
+  if [[ -f "$gi" ]]; then
+    if ! { printf '\n# claude-security-audit\n%s\n' "$entry" >> "$gi"; } 2>/dev/null; then
+      printf 'csa: cannot write %s; add this line yourself: %s\n' "$(csa_escape "$gi")" "$entry" >&2
+      return 1
+    fi
     printf 'Added .claude/audits/ to your .gitignore\n'
   else
-    # No .gitignore — check if a .git directory exists anywhere up the tree.
-    local dir="$root"
-    local git_root=""
-    while [[ "$dir" != "/" ]]; do
-      if [[ -d "$dir/.git" ]]; then
-        git_root="$dir"
-        break
-      fi
-      dir="$(dirname "$dir")"
-    done
-
-    if [[ -n "$git_root" ]]; then
-      # Create .gitignore at git root.
-      printf '# claude-security-audit\n%s\n' "$entry" > "$git_root/.gitignore"
-      printf 'Created .gitignore with .claude/audits/ entry\n'
-    else
-      printf 'Info: No git repository found; .claude/audits/ will not be gitignored\n'
+    if ! { printf '# claude-security-audit\n%s\n' "$entry" >> "$gi"; } 2>/dev/null; then
+      printf 'csa: cannot write %s; add this line yourself: %s\n' "$(csa_escape "$gi")" "$entry" >&2
+      return 1
     fi
+    printf 'Created .gitignore with .claude/audits/ entry\n'
   fi
 }

@@ -4,8 +4,6 @@ RULE_NAME="untrusted-endpoint"
 RULE_ASPECT="mcp"
 RULE_SEVERITY="high"
 RULE_DESCRIPTION="MCP server configured with a non-HTTPS (http://) endpoint — traffic unencrypted and vulnerable to MITM."
-RULE_AUTO_FIXABLE="false"
-RULE_MECHANICALLY_FIXABLE="false"
 RULE_REMEDIATION="Change the MCP server URL to use https://. Contact the server operator if an HTTPS endpoint is unavailable."
 RULE_REFERENCES=""
 
@@ -24,7 +22,7 @@ source "$_RULE_DIR/helpers.sh" 2>/dev/null || true
 detect() {
   local target_file="$1"
   [[ -r "$target_file" ]] || return 0
-  # Only scan .mcp.json or mcp.json under .claude/
+  # Only scan a file named .mcp.json or mcp.json (the project's root .mcp.json, and one among the files read).
   local basename; basename="$(basename "$target_file")"
   if [[ "$basename" != ".mcp.json" && "$basename" != "mcp.json" ]]; then
     return 0

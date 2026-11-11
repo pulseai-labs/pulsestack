@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # lib/hook-entries.sh — structural reader for hook entries declared in JSON (#427).
-# Requires: jq; lib/helpers.sh (csa_sha256, _csa_re_bytes), lib/redact.sh, lib/fingerprint.sh for
-# the finding helpers. Bash 3.2+ compatible (macOS portability).
+# Requires: jq; lib/helpers.sh (csa_sha256, _csa_re_bytes, csa_printable, csa_escape, _csa_enum_linked_part), lib/redact.sh,
+# lib/fingerprint.sh for the finding helpers. Bash 3.2+ compatible (macOS portability).
 #
 # Skill-first (docs/conventions/skill-first.md): this is question 3. Walking a
 # JSON structure is mechanical work on open input (attacker-chosen command
@@ -87,13 +87,25 @@ _csa_hook_wrapped_lines() {
 
 # _csa_hook_walk_ref <manifest> <ref> <base> — a plugin.json hooks path: resolved
 # inside the plugin root (the manifest's grandparent) with a physical containment
-# check, then walked in wrapped mode. Prints inconclusive lines on failure.
+# check, then walked in wrapped mode. The path passes the narrowed input's predicate
+# first (lib/enumerate-targets.sh): every byte of <ref> printable ASCII, no symlink
+# at any component below the plugin root, a regular file, at most 1 MiB. A path
+# that fails is one inconclusive line (a HOOK-005) and is not read; the walk's own
+# stop names the file too when it lies in the plugin's tree.
 _csa_hook_walk_ref() {
   local manifest="$1" ref="$2" base="$3"
   local root rootp dir phys prefix
   root="$(dirname -- "$(dirname -- "$manifest")")"
   if [[ -z "$ref" || "$ref" == /* ]]; then
     _csa_hook_inc "$base" "hooks path is empty or absolute; not read"
+    return 0
+  fi
+  if ! csa_printable "$ref"; then
+    _csa_hook_inc "$base" "hooks path $(csa_escape "$ref") holds a byte outside printable ASCII; not read"
+    return 0
+  fi
+  if _csa_enum_linked_part "$root" "$ref" >/dev/null; then
+    _csa_hook_inc "$base" "hooks path $ref passes through a symlink; not followed"
     return 0
   fi
   rootp="$(cd -P -- "$root" 2>/dev/null && pwd -P)" || { _csa_hook_inc "$base" "plugin root cannot be entered"; return 0; }
@@ -110,6 +122,10 @@ _csa_hook_walk_ref() {
   fi
   if [[ ! -f "$phys" || ! -r "$phys" ]]; then
     _csa_hook_inc "$base" "hooks path $ref is missing or not a readable regular file"
+    return 0
+  fi
+  if [[ -n "$(find "$phys" -prune -type f -size +"${_CSA_SIZE_MAX:-1048576}c" -print 2>/dev/null)" ]]; then
+    _csa_hook_inc "$base" "hooks path $ref is over 1 MiB; not read"
     return 0
   fi
   # hooks/hooks.json is a scan target of its own: reading it here would double it.
@@ -173,7 +189,8 @@ csa_hook_entry_command() {
 
 # csa_hook_entry_emit <rule_id> <severity> <entry-json> <file> — one finding for
 # a command entry. line 0, offset 0, context.json_path. The preview is the
-# redacted command. The uid takes the first 24 hex characters of the sha256 of
+# command as the report's hook-command list prints it (csa_redact_command). The
+# uid takes the first 24 hex characters of the sha256 of
 # json_path plus the FULL decoded command, short enough that csa_redact (which
 # csa_finding_uid applies) neither masks nor truncates it, so path and command
 # length never hide a difference. csa_finding_uid itself keeps 32 bits (8 hex
@@ -183,10 +200,10 @@ csa_hook_entry_emit() {
   local rule_id="$1" sev="$2" entry="$3" file="$4" text jp preview digest fuid sep
   text="$(csa_hook_entry_command "$entry")" || return $?
   jp="$(printf '%s' "$entry" | jq -r '.json_path // ""')"
-  preview="$(csa_redact "$text")"
+  preview="$(csa_redact_command "$text")"
   sep="$(printf '\xe2\x90\x9f')"
   digest="$(csa_sha256 "${jp}${sep}${text}")"
-  # 24 hex characters: under csa_redact's 32-character mask and 200-character cap,
+  # 24 hex characters: under csa_redact's 32-character mask and 200-byte cap under bin/csa's LC_ALL=C,
   # so the whole digest reaches the uid however long the json path is.
   fuid="$(csa_finding_uid "$rule_id" "$file" "${digest:0:24}")"
   jq -nc --arg rule_id "$rule_id" --arg file "$file" --arg preview "$preview" \
