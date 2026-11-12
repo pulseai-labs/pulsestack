@@ -1,3 +1,8 @@
+// Report budget (#1202): `claude plugin test` sends each file's report as one stdout line, and a line much over
+// 64 KB can be cut when the child exits, which reads as "ended without a report (exit code 0)". Keep this file's
+// report under about 64 KB: collapse a table into one test rather than add hundreds of rows. Measured 2026-11-12 at
+// 344 rows: 58,956 bytes on Claude Code 2.1.289 (CI's pin), 63,113 on 2.1.322, so the margin is 2.4 to 6.5 KB.
+
 import { describe, test, expect } from 'claude-code/testing'
 import { killRule } from '../hooks/rules'
 
@@ -1053,25 +1058,54 @@ const LIMITS: ReadonlyArray<readonly [string, string]> = [
   ['pkill --fu /', '--full abbreviated (--fu, --ful) is not read as -f; `pkill --full /` is refused'],
 ]
 
+// One test per table, not one per row: each row used to make its own report entry, and the three table describes
+// made 1,724 of this file's 2,065 report rows. A wrong verdict is collected with its command, so a failure still
+// names every row that went wrong. A throw from killRule is collected too, never left to abort the walk.
+const rule = (command: string): { deny: string | undefined } | { threw: string } => {
+  try { return { deny: killRule(command) } } catch (e) { return { threw: String(e) } }
+}
+
 describe('killRule: refuse, with a near-miss control beside each row', () => {
-  for (const [command, control] of REFUSE) {
-    test(`refuses ${JSON.stringify(command)}`, () => {
-      const deny = killRule(command)
-      expect(deny).toBeDefined()
-      expect(deny).toContain('kill rail')
-    })
-    test(`control: allows ${JSON.stringify(control)}`, () => {
-      expect(killRule(control)).toBeUndefined()
-    })
-  }
+  test('every REFUSE row is refused with the kill rail reason, and its near-miss control is allowed', () => {
+    const wrong: string[] = []
+    expect(REFUSE.length).toBe(659) // a table emptied or cut by mistake would pass a walk over fewer rows
+    for (const [command, control] of REFUSE) {
+      const got = rule(command)
+      if ('threw' in got) wrong.push(`threw on ${JSON.stringify(command)}: ${got.threw}`)
+      else if (got.deny === undefined) wrong.push(`not refused: ${JSON.stringify(command)}`)
+      else if (!got.deny.includes('kill rail')) wrong.push(`refused without the kill rail reason: ${JSON.stringify(command)}`)
+      const ctl = rule(control)
+      if ('threw' in ctl) wrong.push(`control threw on ${JSON.stringify(control)}: ${ctl.threw}`)
+      else if (ctl.deny !== undefined) wrong.push(`control not allowed: ${JSON.stringify(control)}`)
+    }
+    expect(wrong).toEqual([])
+  })
 })
 
 describe('killRule: what a seat does legitimately stays allowed', () => {
-  for (const command of ALLOW) test(`allows ${JSON.stringify(command)}`, () => { expect(killRule(command)).toBeUndefined() })
+  test('every ALLOW row is allowed', () => {
+    const wrong: string[] = []
+    expect(ALLOW.length).toBe(296)
+    for (const command of ALLOW) {
+      const got = rule(command)
+      if ('threw' in got) wrong.push(`threw on ${JSON.stringify(command)}: ${got.threw}`)
+      else if (got.deny !== undefined) wrong.push(`refused: ${JSON.stringify(command)}`)
+    }
+    expect(wrong).toEqual([])
+  })
 })
 
 describe('killRule: known limits are not read (each is in the README)', () => {
-  for (const [command, why] of LIMITS) test(`${why}: ${JSON.stringify(command)} is allowed`, () => { expect(killRule(command)).toBeUndefined() })
+  test('every LIMITS row is allowed', () => {
+    const wrong: string[] = []
+    expect(LIMITS.length).toBe(110)
+    for (const [command, why] of LIMITS) {
+      const got = rule(command)
+      if ('threw' in got) wrong.push(`${why}: threw on ${JSON.stringify(command)}: ${got.threw}`)
+      else if (got.deny !== undefined) wrong.push(`${why}: refused ${JSON.stringify(command)}`)
+    }
+    expect(wrong).toEqual([])
+  })
 })
 
 // 0.14.2 (#1109): every shell name is read twice (bash's grammar and zsh's) into one scan. Where the two
