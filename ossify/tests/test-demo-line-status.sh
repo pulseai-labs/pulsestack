@@ -131,9 +131,10 @@ t_assert_rc 0 "replay clean after deferrals"
 # --- #759: both release gates take r<digits> only. expired_quarantines used to take
 # `${rel#r}`, so a bare `3` passed there and refused on expired_deferrals.
 # Every spelling below is refused alike by all three gates (r1 review C3): a space or newline
-# before or after the digits, a sign, a doubled prefix, a bare number, and a case change. The
-# message pin makes the shape check itself the thing under test: a later jq failure also exits 2.
-for bad in '' r 3 R3 r3x 'r 3' ' r3' 'r3 ' r-3 r+3 rr3 $'r3\n' 03; do
+# before or after the digits, a sign, a doubled prefix, a bare number, a case change, and a decimal
+# or exponent that jq's tonumber would read as 3 (r2 review C6). The message pin makes the shape
+# check itself the thing under test: a later jq failure also exits 2.
+for bad in '' r 3 R3 r3x 'r 3' ' r3' 'r3 ' r-3 r+3 rr3 $'r3\n' 03 r3.0 r3e0 r3E0; do
   t_capture oss_ledger_expired_quarantines "$S" "$bad"
   t_assert_rc 2 "expired_quarantines refuses release '$bad' (could-not-check, rc 2)"
   t_assert_contains "$T_OUT" "expired_quarantines needs a release id of the form r<N>" "...by the shape check, not by a later jq failure (jq-version proof)"
