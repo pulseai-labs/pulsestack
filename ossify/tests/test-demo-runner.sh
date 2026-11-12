@@ -346,4 +346,113 @@ t_assert_rc 0 "topology twin: non-runner output mentioning a zero-tests phrase i
 cd "$HERE"
 rm -rf "$TMPD"
 
+# ===========================================================================
+# #770: the combined form `exit:<n>+contains:<str>`. A line passes only when its rc
+# equals <n> AND its output holds the needle; each failure names the half that failed.
+# One fresh state per case (halt-on-first-fail would mask a second case in one ledger),
+# the line injected straight into state so these pins do not lean on the validator.
+# ===========================================================================
+T5="$(mktemp -d)"; mkdir -p "$T5/canon"; N5=0
+_run_combined() { # $1=command $2=expected -> sets T_OUT/T_RC from oss_demo_run_auto
+  N5=$((N5+1)); local sf="$T5/s$N5.json"
+  oss_state_init "$sf" combined >/dev/null
+  oss_entity_add_release "$sf" "demo" "goal" >/dev/null
+  oss_entity_add_spine "$sf" r0 "demo spine" bone canonical >/dev/null
+  oss_ledger_add_auto "$sf" r0.s1 "combined line" "$1" "exit:0" active >/dev/null
+  jq --arg e "$2" '.demo_ledger[0].expected = $e' "$sf" > "$sf.x" && mv "$sf.x" "$sf"
+  t_capture oss_demo_run_auto "$sf" "$T5/canon"
+}
+# End to end through the validator: add a combined line, run it.
+SC="$T5/e2e.json"; oss_state_init "$SC" e2e >/dev/null
+oss_entity_add_release "$SC" "demo" "goal" >/dev/null
+oss_entity_add_spine "$SC" r0 "demo spine" bone canonical >/dev/null
+t_capture oss_ledger_add_auto "$SC" r0.s1 "prints ok and exits 0" "echo ok" "exit:0+contains:ok" active
+t_assert_rc 0 "a combined line is accepted by the validator"
+t_capture oss_demo_run_auto "$SC" "$T5/canon"
+t_assert_rc 0 "the accepted combined line runs and passes"; t_assert_contains "$T_OUT" "PASS 1" "...counted as passed"
+
+_run_combined 'echo ok; exit 1' 'exit:0+contains:ok'
+t_assert_rc 1 "#747's wrong-green: the needle printed but rc 1 when 0 is expected FAILS"
+t_assert_contains "$T_OUT" "rc=1, wanted 0" "...and the failure names the exit half"
+case "$T_OUT" in *PASS*) T_FAIL=$((T_FAIL+1)); echo "FAIL: a wrong-rc combined line printed PASS";; *) T_PASS=$((T_PASS+1));; esac
+_run_combined 'true' 'exit:0+contains:ok'
+t_assert_rc 1 "rc 0 without the needle FAILS"
+t_assert_contains "$T_OUT" "output missing 'ok'" "...and the failure names the output half"
+_run_combined 'echo ok' 'exit:0+contains:ok'
+t_assert_rc 0 "rc and needle both right PASSES"; t_assert_contains "$T_OUT" "PASS 1" "...counted"
+_run_combined "echo 'collected 0 items' # pytest" 'exit:0+contains:collected'
+t_assert_rc 1 "exit:0+contains: on a recognised runner that ran zero tests FAILS"
+t_assert_contains "$T_OUT" "vacuous-green" "...as vacuous-green"
+_run_combined "bash -c 'echo 0 passing; exit 1' # pytest" 'exit:1+contains:0 passing'
+t_assert_rc 0 "control: the guard is for <n> = 0 only - a runner expecting exit:1 with its needle passes"
+_run_combined 'echo ok; exit 3' 'exit:3+contains:ok'
+t_assert_rc 0 "a non-zero <n> matched with the needle passes"
+_run_combined 'echo ok; exit 3' 'exit:2+contains:ok'
+t_assert_rc 1 "a non-zero <n> that is not the rc FAILS even with the needle"; t_assert_contains "$T_OUT" "rc=3, wanted 2" "...naming the rc"
+_run_combined 'echo a+contains:b' 'exit:0+contains:a+contains:b'
+t_assert_rc 0 "the needle splits at the FIRST +contains: (it may hold +contains: itself)"
+_run_combined 'echo b' 'exit:0+contains:a+contains:b'
+t_assert_rc 1 "control: output holding only the tail of that needle FAILS"
+_run_combined 'echo y' 'exit:99999999999999999999+contains:y'
+t_assert_rc 1 "an exit operand past the integer range fails the line (an erroring test is not a pass)"
+t_assert_contains "$T_OUT" "wanted 99999999999999999999" "...naming the exit half"
+_run_combined 'true' 'exit:99999999999999999999'
+t_assert_rc 1 "a PLAIN exit: operand past the integer range fails the line (was a silent PASS)"
+t_assert_contains "$T_OUT" "wanted 99999999999999999999" "...naming the exit half"
+_run_combined 'exit 3' 'exit:3'
+t_assert_rc 0 "control: a plain exit:3 on a command that exits 3 still passes"
+_run_combined 'echo y' 'exit:0x+contains:y'
+t_assert_rc 1 "a non-digit operand before + fails closed"; t_assert_contains "$T_OUT" "malformed" "...as malformed"
+_run_combined 'echo y' 'exit:0+contains:'
+t_assert_rc 1 "an empty needle fails closed"
+_run_combined 'echo y' 'exit:+contains:y'
+t_assert_rc 1 "an empty exit operand fails closed"
+_run_combined 'true' 'under 40ms'
+t_assert_rc 1 "an unrecognised expected still fails closed"; t_assert_contains "$T_OUT" "exit:<n>+contains:<str>" "...and the grammar list names the combined form"
+
+# ===========================================================================
+# #761 item 5: demo_run and demo_user_lines check the schema before their first ledger
+# read. A newer schema may carry line statuses this build does not know, and the run
+# would report green over lines it never walked.
+# ===========================================================================
+SF0="$T5/future-base.json"; oss_state_init "$SF0" future >/dev/null
+oss_entity_add_release "$SF0" "demo" "goal" >/dev/null
+oss_entity_add_spine "$SF0" r0 "demo spine" bone canonical >/dev/null
+oss_ledger_add_auto "$SF0" r0.s1 "would pass" "true" "exit:0" active >/dev/null
+oss_ledger_add_user "$SF0" r0.s1 "walk the journey and see it" "seen" active >/dev/null
+FUT=$((OSS_STATE_SCHEMA_VERSION + 1))
+SFUT="$T5/future.json"; jq --argjson v "$FUT" '.schema_version = $v' "$SF0" > "$SFUT"
+t_capture oss_demo_run_auto "$SFUT" "$T5/canon"
+t_assert_rc 6 "demo_run on a state one schema above this build fails closed (rc 6, the check's own)"
+t_assert_contains "$T_OUT" "requires a newer ossify" "...with the schema check's own message"
+case "$T_OUT" in *PASS*) T_FAIL=$((T_FAIL+1)); echo "FAIL: demo_run printed PASS over a newer schema";; *) T_PASS=$((T_PASS+1));; esac
+# A newer schema may reshape the ledger itself: the version check must answer BEFORE the
+# first ledger read, or the read's own error ("cannot read state", rc 1) masks it.
+SFUT2="$T5/future-reshaped.json"; jq --argjson v "$FUT" '.schema_version = $v | .demo_ledger = {"future": 1}' "$SF0" > "$SFUT2"
+t_capture oss_demo_run_auto "$SFUT2" "$T5/canon"
+t_assert_rc 6 "a newer schema with a reshaped ledger still answers with the version check, not the read error"
+t_assert_contains "$T_OUT" "requires a newer ossify" "...naming the newer ossify"
+t_capture oss_demo_user_lines "$SFUT"
+t_assert_rc 6 "demo_user_lines on a newer schema fails closed too"
+t_assert_contains "$T_OUT" "requires a newer ossify" "...with the check's message"
+case "$T_OUT" in *journey*) T_FAIL=$((T_FAIL+1)); echo "FAIL: demo_user_lines listed lines from a newer schema";; *) T_PASS=$((T_PASS+1));; esac
+# Adjacent controls: the current schema still runs and lists; the check does not cry wolf.
+t_capture oss_demo_run_auto "$SF0" "$T5/canon"
+t_assert_rc 0 "control: a current-schema state still runs"; t_assert_contains "$T_OUT" "PASS 1" "...and passes"
+t_capture oss_demo_user_lines "$SF0"
+t_assert_rc 0 "control: a current-schema state still lists its user lines"; t_assert_contains "$T_OUT" "journey" "...with the line"
+# An older schema is refused with the same check's migrate message (every mutator already does).
+SOLD="$T5/older.json"; jq --argjson v "$((OSS_STATE_SCHEMA_VERSION - 1))" '.schema_version = $v' "$SF0" > "$SOLD"
+t_capture oss_demo_run_auto "$SOLD" "$T5/canon"
+t_assert_rc 6 "demo_run on an older schema refuses too, naming migrate"; t_assert_contains "$T_OUT" "oss migrate" "...the check's own remedy"
+# Dispatcher path (bin/* runs set -euo pipefail; the libs above are sourced without it).
+OSSX="$HERE/../bin/oss"
+t_capture "$OSSX" demo_run "$SFUT" "$T5/canon"
+t_assert_rc 6 "dispatcher: demo_run on a newer schema is rc 6"; t_assert_contains "$T_OUT" "requires a newer ossify" "dispatcher: the check's message"
+t_capture env "OSS_STATE_FILE=$SFUT" "$OSSX" demo_user_lines
+t_assert_rc 6 "dispatcher: demo_user_lines on a newer schema is rc 6"
+t_capture "$OSSX" demo_run "$SF0" "$T5/canon"
+t_assert_rc 0 "dispatcher control: a current-schema state still runs"
+rm -rf "$T5"
+
 t_summary

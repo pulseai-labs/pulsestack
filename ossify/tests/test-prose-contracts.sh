@@ -2807,4 +2807,49 @@ pin "$_HR" 'checkable fact, and how many of those have a §2 row (no §6: 0 trap
 pin "$_HR" 'with no row is the gap this makes visible; resume does not check it.' \
   "resume.md §2 does not say resume leaves a trap fact with no row unchecked (#473)"
 
+# --- ossify 1.39.0 (#761 items 1-2, #770, #761 item 6): the v3 migrate prose, the combined demo
+# grammar at every site that states it, and the fifth deferral column. Each needle is unique in
+# its file, so a deleted sentence cannot hide behind a copy elsewhere.
+_SK="$HERE/../skills"
+pin "$_SK/doctor/references/state-inspection.md" '`migrate` accepts v1, v2 and v3 (v3 → v4); there is no downgrade' \
+  "state-inspection.md does not say migrate accepts v1, v2 and v3 (#761)"
+pin "$_SK/doctor/references/state-inspection.md" 'against a v1, v2 or v3 state, `oss state_restore` prints' \
+  "state-inspection.md does not say state_restore prints already-clean against a v3 state too (#761)"
+pin "$_SK/close/SKILL.md" '`migrate` accepts v1, v2 and v3 (v3 → v4) |' \
+  "close/SKILL.md's schema row does not say migrate accepts v1, v2 and v3 (#761)"
+pin "$_SK/close/SKILL.md" 'against a v1, v2 or v3 state it prints `restore:' \
+  "close/SKILL.md does not say state_restore prints already-clean against a v3 state too (#761)"
+if grep -rnF 'v1/v2 only' "$_SK" >/dev/null 2>&1; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: a skill still says migrate accepts 'v1/v2 only' (#761)"
+else T_PASS=$((T_PASS+1)); fi
+pin "$_SK/plan-spine/SKILL.md" '(`exit:<n>` | `contains:<str>` | `exit:<n>+contains:<str>`) at authoring time' \
+  "plan-spine SKILL.md §8's floor does not list the combined demo form (#770)"
+pin "$_SK/plan-spine/SKILL.md" 'or `exit:<n>+contains:<str>` (rc **and** output must hold; exit **2** else)' \
+  "plan-spine SKILL.md §8d does not list the combined demo form as validated (#770)"
+pin "$_SK/plan-spine/references/demo-authoring.md" '(`exit:<n>` \| `contains:<str>` \| `exit:<n>+contains:<str>`) at authoring time' \
+  "demo-authoring.md F5 does not list the combined demo form (#770)"
+pin "$_SK/plan-spine/references/demo-authoring.md" '<command> → exit:<n>|contains:<str>|exit:<n>+contains:<str>' \
+  "demo-authoring.md's read-out template does not list the combined demo form (#770)"
+pin "$_SK/plan-spine/references/demo-authoring.md" '`exit:<n>+contains:<str>` only), so **the threshold lives inside the command**' \
+  "demo-authoring.md's no-comparison-form sentence does not list the combined demo form (#770)"
+pin "$_SK/plan-spine/references/demo-authoring.md" '"exit:0|contains:<str>|exit:0+contains:<str>"' \
+  "demo-authoring.md §6's call does not show the combined demo form (#770)"
+pin "$_SK/plan-spine/references/demo-authoring.md" '`<expected>` is validated as `exit:<n>`, `contains:<str>` or `exit:<n>+contains:<str>`' \
+  "demo-authoring.md §6 does not list the combined demo form as validated (#770)"
+pin "$_SK/plan-spine/references/demo-authoring.md" 'recognised test runner, a run of zero tests fails too. An ossify older than 1.39.0' \
+  "demo-authoring.md §6 does not state the zero-tests rule and the older-ossify limit for the combined form (#770)"
+pin "$_SK/plan-spine/references/spec-authoring.md" 'colon grammar: `exit:0+contains:<str>` (#770)' \
+  "spec-authoring.md does not say the ledger has the combined form (#770)"
+if grep -nF 'has no exit half (a follow-up issue tracks it)' "$_SK/plan-spine/references/spec-authoring.md" >/dev/null 2>&1; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: spec-authoring.md still says the ledger's contains: has no exit half pending a follow-up (#770)"
+else T_PASS=$((T_PASS+1)); fi
+pin "$_SK/close/references/cumulative-demo.md" 'and `exit:<n>+contains:<str>` are the whole grammar),' \
+  "cumulative-demo.md's grammar list does not include the combined demo form (#770)"
+pin "$_SK/close/references/cumulative-demo.md" 'A line `exit:<n>+contains:<str>` passes only when its rc equals `<n>` **and** its output' \
+  "cumulative-demo.md does not say the combined form needs both halves (#770)"
+pin "$_SK/close/references/release-close.md" 'line per finding — except that a deferral row carries a fifth column, `source_spine`: the' \
+  "release-close.md's deferral gate prose does not name the fifth column (#761)"
+pin "$_SK/close/references/release-close.md" 'its `<spine>` is the row'"'"'s column 5.' \
+  "release-close.md's re-defer bullet does not point at column 5 for the owning spine (#761)"
+
 t_summary

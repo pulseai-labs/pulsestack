@@ -19,12 +19,20 @@ oss_ledger_add_auto() { # $1=state $2=spine $3=text $4=command $5=expected [$6=p
   # `''|*[!0-9]*` idiom as state.sh's schema-version guard, for the same reason:
   # a value that is not digits makes the later numeric test error rather than
   # compare, and an erroring test reads as "condition not met".
+  # #770: `exit:<n>+contains:<str>`, split at the FIRST `+contains:` (the needle may hold `+`
+  # or `contains:`). This arm precedes `exit:*`, which would refuse it as non-digits. An
+  # empty needle does not match the glob and falls to `exit:*`, which refuses it.
+  local pre
   case "$5" in
+    exit:*+contains:?*)
+      pre="${5#exit:}"; pre="${pre%%+contains:*}"
+      case "$pre" in ''|*[!0-9]*)
+        echo "oss: expected 'exit:<n>+contains:<str>' takes digits only before '+' (got '$5')" >&2; return 2;; esac ;;
     exit:*)
       case "${5#exit:}" in ''|*[!0-9]*)
         echo "oss: expected 'exit:<n>' takes digits only (got '$5')" >&2; return 2;; esac ;;
     contains:?*) ;;
-    *) echo "oss: expected must be 'exit:<n>' or 'contains:<str>'" >&2; return 2 ;;
+    *) echo "oss: expected must be 'exit:<n>', 'contains:<str>' or 'exit:<n>+contains:<str>'" >&2; return 2 ;;
   esac
   # #363: a line authored at plan time tests code that does not exist yet, so
   # it starts `planned` and demo_run reports it as pending until its spine's
@@ -160,6 +168,9 @@ oss_ledger_activate_spine() { # $1=state $2=spine
   # loop ran is in it and no longer `planned`; the op leaves that line alone, and the
   # count must not claim it. A successful write stamps this spine's marker, so a line
   # counts only when it is both active and marked by THIS run.
+  # Known limit (#761): the count is a read-back, so two concurrent activations of one spine can
+  # both count a line, and one changed between the write and the read is missed. State is never
+  # wrong, and nothing reads the number to decide anything.
   for id in $ids; do
     if [ "$(_oss_ledger_field "$1" "$id" status)" = active ] \
        && [ "$(_oss_ledger_field "$1" "$id" status_by)" = "activate_spine:$2" ]; then
@@ -204,11 +215,11 @@ oss_ledger_active_auto() { jq '[.demo_ledger[] | select(.type == "auto" and .sta
 # `${3:-}` through, so an anchorless quarantine is one omitted argument away.
 #
 # Same rc polarity as the fake gate - 0 = CLEAN, 1 = BLOCKING, 2 =
-# could-not-check - and the same shape-only validation of the release argument.
+# could-not-check - and the release argument is validated as r<digits> (#759).
 oss_ledger_expired_quarantines() { # $1=state $2=release ; rc 0 clean, 1 blocking, 2 could-not-check
   local sf="$1" rel="$2" out
-  case "${rel#r}" in ''|*[!0-9]*)
-    echo "oss: expired_quarantines needs a release id of the form r<N> (got '$rel')" >&2; return 2 ;; esac
+  _oss_ledger_release_ok "$rel" \
+    || { echo "oss: expired_quarantines needs a release id of the form r<N> (got '$rel')" >&2; return 2; }
   out="$(jq -r --arg rel "$rel" '
       ($rel | ltrimstr("r") | tonumber) as $cut
       | .demo_ledger[]
@@ -225,10 +236,6 @@ oss_ledger_expired_quarantines() { # $1=state $2=release ; rc 0 clean, 1 blockin
   return 1
 }
 
-# r<digits> only; the shape check the deferral verbs share. `expired_quarantines`
-# above keeps its own inline form, which does NOT require the leading `r`: measured,
-# it accepts a bare `3` at rc 0 where this one refuses it at rc 2 (all other release
-# spellings agree). Do not read the two gates as sharing one grammar.
 _oss_ledger_release_ok() { # $1=release
   case "$1" in r[0-9]*) case "${1#r}" in *[!0-9]*) return 1;; esac; return 0;; esac
   return 1
@@ -266,6 +273,8 @@ oss_ledger_defer() { # $1=state $2=line-id $3=spine $4=operator-reason $5=releas
 # closed or abandoned spine is never applied, so the line still blocks -
 # otherwise it reads clean at every later release (Codex, PR #127).
 # rc 0 clean (or only amendment-pending rows), 1 blocking, 2 could-not-check.
+# Columns: id, due release, verdict, reason, and (#761) the owning source_spine, which
+# `oss ledger_defer` needs for a re-defer; release close has no spine of its own.
 oss_ledger_expired_deferrals() { # $1=state $2=release
   local sf="$1" rel="$2" out
   _oss_ledger_release_ok "$rel" \
@@ -283,7 +292,8 @@ oss_ledger_expired_deferrals() { # $1=state $2=release
       | [ $l.id,
           (if $d == null then "no-release-anchor" else $l.deferred_until_release end),
           (if $am != null then "amendment pending -> " + $am.by else "due" end),
-          ($l.status_reason // "") ] | @tsv' "$sf" 2>/dev/null)" \
+          ($l.status_reason // ""),
+          ($l.source_spine // "") ] | @tsv' "$sf" 2>/dev/null)" \
     || { echo "oss: cannot read the demo ledger from '$sf' - the deferral gate is INCONCLUSIVE, not clean" >&2; return 2; }
   [ -n "$out" ] || return 0
   printf '%s\n' "$out"

@@ -19,7 +19,7 @@ is a floor and not a guideline.
 | **F2** | A user-facing spine contributes **≥1 `user:` journey line** = verb + observable outcome. Inspector phrasing banned | user-facing spines |
 | **F3** | An internal spine contributes **`auto:` lines only**, and is admitted only if it **names the committed consuming user-facing spine**, scheduled in the current or next release | internal spines |
 | **F4** | A pass claiming a **measured quality** (performance, reliability, cost) states **before/after evidence** in its demo contribution | deepening passes |
-| **F5** | Every `auto:` line binds to a **runnable command + declared expected** (`exit:<n>` \| `contains:<str>`) at authoring time | every `auto:` line |
+| **F5** | Every `auto:` line binds to a **runnable command + declared expected** (`exit:<n>` \| `contains:<str>` \| `exit:<n>+contains:<str>`) at authoring time | every `auto:` line |
 | **F6** | Release 0 contributes **≥1 automated golden-journey `auto:` line** — one command driving the release's exit-criterion journey end to end | spines in Release 0 |
 
 An internal spine **cannot claim product value** — not in its own demo lines, not
@@ -124,7 +124,7 @@ Demo contribution — <spine-id> "<name>"   [user-facing | internal]
   F2  user: journey line       pass|fail|n/a   "<the line>"
   F3  enabler names consumer   pass|fail|n/a   <consumer spine-id> in <release-id>
   F4  measured-quality proof   pass|fail|n/a   before <x> → after <y>, via <command>
-  F5  auto: lines bind         pass|fail       <command> → exit:<n>|contains:<str>
+  F5  auto: lines bind         pass|fail       <command> → exit:<n>|contains:<str>|exit:<n>+contains:<str>
   F6  r0 golden-journey auto:  pass|fail|n/a   <command> drives <actor> → <outcome>
   Verdict: ACCEPT | REJECT — <the floor that decided it>
 ```
@@ -344,8 +344,8 @@ A pass claiming a measured quality must state, in its demo contribution:
 Closing green on the pre-existing test suite measures nothing — the suite was
 green before the spine too. That is the failure this floor exists to block.
 
-The `expected` grammar has **no comparison form** (`exit:<n>` | `contains:<str>`
-only), so **the threshold lives inside the command**: the benchmark script does
+The `expected` grammar has **no comparison form** (`exit:<n>` | `contains:<str>` |
+`exit:<n>+contains:<str>` only), so **the threshold lives inside the command**: the benchmark script does
 the comparison and exits non-zero when the bound is missed.
 
 ```bash
@@ -369,14 +369,24 @@ spine that wants to keep its claim owes one.
 ## 6. F5 — `auto:` line binding
 
 ```bash
-oss ledger_add_auto "$spine" "<text>" "<command>" "exit:0|contains:<str>"
+oss ledger_add_auto "$spine" "<text>" "<command>" "exit:0|contains:<str>|exit:0+contains:<str>"
 ```
 
-`<expected>` is validated as `exit:<n>` or `contains:<str>`; anything else exits
+`<expected>` is validated as `exit:<n>`, `contains:<str>` or `exit:<n>+contains:<str>`; anything else exits
 **2** and writes nothing. The command must be runnable from the composition root
 against **composition-root post-merge state** — not from a worktree, not with a
 developer's local env var, not with a manual setup step in someone's head. If
 setup is required, the command performs it.
+
+**Which form.** `contains:<str>` reads no exit status (it refuses only a command that
+could not run, rc 126 or 127), so a command that crashes after printing the needle
+passes it. When both must hold, write `exit:<n>+contains:<str>` (#770, the twin of the
+AC form `exit <n> and output contains <str>`): the line passes only when the rc equals
+`<n>` **and** the output holds the needle, and the needle is everything after the
+**first** `+contains:`, so it may hold `+` or `contains:` itself. With `<n>` = 0 on a
+recognised test runner, a run of zero tests fails too. An ossify older than 1.39.0
+refuses the form, and a line already in the ledger fails closed under it, so author it
+only once every install that closes this project is on 1.39.0.
 
 **A line that can't state its command doesn't enter the ledger.** "We'll figure
 out how to test this later" is a rejected line, not a recorded one.

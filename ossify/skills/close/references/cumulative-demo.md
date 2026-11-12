@@ -63,15 +63,21 @@ failing line verbatim and stop.
 Three failure modes fail **closed**, deliberately, because the ledger is
 append-only and a line written by an older validator is re-run forever:
 
-- an `exit:` expectation whose operand is not digits-only,
-- an `expected` the grammar does not recognize at all (`exit:<n>` and
-  `contains:<str>` are the whole grammar),
+- an `exit:` expectation whose operand is not digits-only (before the `+` too, in the
+  combined form),
+- an `expected` the grammar does not recognize at all (`exit:<n>`, `contains:<str>`
+  and `exit:<n>+contains:<str>` are the whole grammar),
 - a **vacuous green** — a recognized test runner that executed zero tests, on a
   line expecting `exit:0`. It is checked only for a success expectation: a line
   legitimately expecting a non-zero exit from a runner is not vacuous.
 
 On success the runner prints `PASS <n> lines`, where `<n>` counts the lines it
 actually **ran**. Quarantined lines are not in that count.
+
+A line `exit:<n>+contains:<str>` passes only when its rc equals `<n>` **and** its output
+holds the needle (everything after the first `+contains:`); a failure names the half that
+failed (`rc=<rc>, wanted <n>` or `output missing '<str>'`), and with `<n>` = 0 the
+vacuous-green check applies as it does to `exit:0`.
 
 **Never edit a line to make it pass.** You run the ledger; `plan-spine` authors
 it. A criterion that is genuinely wrong goes back there, recorded, with this

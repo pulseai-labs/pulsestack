@@ -189,6 +189,26 @@ done
 t_capture oss_ledger_add_auto "$S" r0.s1 "multi-digit exit code" "true" "exit:127" active
 t_assert_rc 0 "well-formed multi-digit exit: operand still accepted"
 
+# --- #770: the combined form exit:<n>+contains:<str> (the demo twin of #747's AC form).
+# Split at the FIRST `+contains:` after the digits, so a needle may itself hold `+` or
+# `contains:`. The new arm sits BEFORE `exit:*`, which would refuse it as non-digits.
+for good in "exit:0+contains:ok" "exit:1+contains:a+contains:b" "exit:127+contains:x" "exit:0+contains:a+contains:" "exit:0+contains:+x" "exit:0+contains:x "; do
+  t_capture oss_ledger_add_auto "$S" r0.s1 "combined form" "true" "$good" active
+  t_assert_rc 0 "combined exit-and-contains accepted: '$good'"
+done
+t_capture oss_state_read "$S" '.demo_ledger[-1].expected'
+t_assert_eq "exit:0+contains:x " "$T_OUT" "the combined expected is stored verbatim"
+# Adjacent controls: each of these must still refuse - the loosening may not widen past the form.
+for bad in "exit:+contains:x" "exit:0+contains:" "exit:0x+contains:y" "exit:0 +contains:x" "exit:0+contain:x" "exit:0+contains" "exit:0+Contains:x" "exit:+contains:" "exit:0|contains:x"; do
+  t_capture oss_ledger_add_auto "$S" r0.s1 "bad combined form" "true" "$bad" active
+  t_assert_rc 2 "malformed combined form rejected: '$bad'"
+done
+# A contains: needle may itself hold `+exit:0`: that is a plain contains: line, not a malformed combined one.
+t_capture oss_ledger_add_auto "$S" r0.s1 "needle with plus" "true" "contains:x+exit:0" active
+t_assert_rc 0 "control: contains:x+exit:0 is a plain contains: line"
+t_capture oss_ledger_add_auto "$S" r0.s1 "bad" "true" "somehow:fine" active
+t_assert_contains "$T_OUT" "exit:<n>+contains:<str>" "the unrecognized-grammar refusal lists the combined form"
+
 L1=d1   # this file uses literal demo-line ids
 # Quarantine stays IMMEDIATE (it is a close/doctor-time verb applied when a line
 # actually fails, not a planned amendment) and now records WHICH release, so

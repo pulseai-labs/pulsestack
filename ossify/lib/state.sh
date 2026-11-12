@@ -303,7 +303,9 @@ _oss_apply_op() { # $1=op $2=payload-json
     # selects `active` and `quarantined` only, and reports a green demo over the
     # lines it never ran. Nothing about the v3 SHAPE is wrong, so there is
     # nothing to translate; the bump is what makes that older build refuse the
-    # state instead (rc 6, naming `oss migrate`) rather than misread it.
+    # state instead (rc 6, "requires a newer ossify") rather than misread it.
+    # An older `demo_run` is read-only and checks no version, so it still runs; every
+    # older mutation, `demo_record` included, refuses v4, so a close still cannot complete.
     migrate_schema)
       jq --argjson p "$payload" '
         (if has("close_records") then . else . + {close_records:[]} end)

@@ -303,8 +303,8 @@ against the release-close walkthrough. Author accordingly.
 - **A deepening pass claiming a measured quality** (performance, reliability,
   cost) **MUST state before/after evidence** in its demo contribution.
 - **Every `auto:` line binds to a runnable command + a declared expected**
-  (`exit:<n>` | `contains:<str>`) at authoring time — a line that can't state its
-  command doesn't enter the ledger.
+  (`exit:<n>` | `contains:<str>` | `exit:<n>+contains:<str>`) at authoring time — a
+  line that can't state its command doesn't enter the ledger.
 - **Release 0 MUST contribute ≥1 automated golden-journey `auto:` line** — one
   command driving the release's exit-criterion journey end to end, so the journey
   is a standing regression test and not a walkthrough someone performs once
@@ -336,8 +336,8 @@ Each call **prints the minted line id** (`d7`, `d8`, …) — capture it; amendm
 (§8e) key by that id, not the text. Both verbs write the line **`planned`** (its code
 not built yet): this spine's close activates it before the demo, `ledger_activate
 <line-id>` moves it early when a round lands it, and `active` at authoring is
-the adoption seed lines' case only. `ledger_add_auto` validates `<expected>` as `exit:<n>` or
-`contains:<str>` (exit **2** else), no comparison form — a threshold ("p50 under 40ms")
+the adoption seed lines' case only. `ledger_add_auto` validates `<expected>` as `exit:<n>`, `contains:<str>`
+or `exit:<n>+contains:<str>` (rc **and** output must hold; exit **2** else), no comparison form — a threshold ("p50 under 40ms")
 lives inside the command, which exits non-zero when missed; that is how F4's
 after-number becomes machine-checkable.
 
