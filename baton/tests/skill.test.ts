@@ -386,7 +386,7 @@ describe("README, skill and release wording (baton 0.19.0)", () => {
     expect(top).toContain("Closes #931, #1049, #1053 and #1206");
     expect(top).toContain("The engine is unchanged");
     expect(top).not.toContain("loops `spine_review` and `spine_wait` with no park"); // the loop is parked now, not a known limit
-    for (const pin of ["A run armed before 0.19.0 keeps its recipe and briefs", "The cap counts reviews, not wall time", "the fourth parks `spine_wait` (`review-stale-3.md` exists)"]) {
+    for (const pin of ["A run armed before 0.19.0 keeps its recipe and briefs", "The cap counts reviews, not wall time", "`spine_ack` checks the head only on entry", "The ack notice names the reviewed head and says to merge only that head", "the fourth parks `spine_wait` (`review-stale-3.md` exists)"]) {
       expect([pin, top.includes(pin)]).toEqual([pin, true]);
     }
   });
@@ -396,6 +396,10 @@ describe("README, skill and release wording (baton 0.19.0)", () => {
     expect(stop).toContain("--to spine_work");
     expect(stop).toContain("out/spine-pr/operator.md");
     expect(stop).toContain("`main` to bring in");
+    const ack = row('| "passed review … merge it" |');
+    for (const pin of ["merge only the head the notice names (`gh pr merge --match-head-commit <head>`)", "move it aside as the next free `review-stale-<n>.md`", "`--to spine_review`"]) {
+      expect([pin, ack.includes(pin)]).toEqual([pin, true]);
+    }
     expect(stop).toContain("(then a plain unpark)");
     const staleStop = row("| Stale-review stop (`spine_wait` park, `review-stale-3.md` exists) |");
     expect(staleStop).toContain("find out why the reviewer keeps reading an old head");
@@ -404,11 +408,14 @@ describe("README, skill and release wording (baton 0.19.0)", () => {
     expect(row("| PR conflict |")).toContain("copy `review.md` to `review-prev.md` and move it aside as the next free `review-<n>.md`");
     const r = readmeFlat();
     for (const pin of ["**The spine review stop.**", "at most three counted reviews", "once `review-2.md` exists (review 3 has run) parks `spine-pr` in `spine_wait`",
-      "`review-stale-<n>.md`", "A stale review takes no review number", "A fourth stale pass (once `review-stale-3.md` exists) parks `spine-pr` in `spine_wait` with reason `outcome`", "`spine_ack` needs `review.md`'s line 2 to equal `head: <the PR's current head>`",
+      "`review-stale-<n>.md`", "A stale review takes no review number", "A fourth stale pass (once `review-stale-3.md` exists) parks `spine-pr` in `spine_wait` with reason `outcome`",
       "`baton unpark <run> spine-pr --to spine_work`", "a plain `baton unpark <run> spine-pr` reads the merge",
+      "`spine_ack` is entered only when `review.md`'s line 2 equals `head: <the PR's head>` at that moment; baton does not watch the head while `spine_ack` waits, and the merge pin is the merge holder's `--match-head-commit`",
+      "only the head the notice names (`gh pr merge --match-head-commit <head>`); if the PR head has moved, copy `out/spine-pr/review.md` to `review-prev.md`, move it aside as the next free `review-stale-<n>.md` and `baton unpark <run> spine-pr --to spine_review`",
       "copy `out/spine-pr/review.md` to `review-prev.md` and move it aside as the next free `review-<n>.md`"]) {
       expect([pin, r.includes(pin)]).toEqual([pin, true]);
     }
+    expect(r).not.toContain("as `land` does through `expect_head`"); // spine_ack has no merge-time pin, land does
     expect(r.indexOf("**The spine review stop.**")).toBeGreaterThan(r.indexOf("**The item review stop.**"));
   });
 

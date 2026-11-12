@@ -422,7 +422,7 @@
             { "file": "{run.dir}/out/{unit.id}/review.md" },
             { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: pass"] },
             { "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "open" } },
-            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; case \"$2\" in *[!0-9a-f]*|\"\") exit 2;; esac; [ \"$(expr \"$2\" : '.*')\" -eq 40 ] || exit 2; [ \"$(sed -n 2p \"$1\")\" != \"head: $2\" ]", "sh", "{run.dir}/out/{unit.id}/review.md", "{pr.head}"] }
+            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; case \"$2\" in *[!0-9a-f]*|\"\") exit 2;; esac; [ \"$(expr \"$2\" : '.*')\" -eq 40 ] || exit 2; l=$(sed -n 2p \"$1\") || exit 2; [ \"$l\" != \"head: $2\" ]", "sh", "{run.dir}/out/{unit.id}/review.md", "{pr.head}"] }
           ],
           "to": "park"
         },
@@ -431,7 +431,7 @@
             { "file": "{run.dir}/out/{unit.id}/review.md" },
             { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: pass"] },
             { "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "open" } },
-            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; case \"$2\" in *[!0-9a-f]*|\"\") exit 2;; esac; [ \"$(expr \"$2\" : '.*')\" -eq 40 ] || exit 2; [ \"$(sed -n 2p \"$1\")\" != \"head: $2\" ]", "sh", "{run.dir}/out/{unit.id}/review.md", "{pr.head}"] }
+            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; case \"$2\" in *[!0-9a-f]*|\"\") exit 2;; esac; [ \"$(expr \"$2\" : '.*')\" -eq 40 ] || exit 2; l=$(sed -n 2p \"$1\") || exit 2; [ \"$l\" != \"head: $2\" ]", "sh", "{run.dir}/out/{unit.id}/review.md", "{pr.head}"] }
           ],
           "to": "spine_review",
           "run": [["sh", "-c", "[ -e \"$1/review.md\" ] || exit 0; cp -f -- \"$1/review.md\" \"$1/review-prev.md\"; n=1; while [ -e \"$1/review-stale-$n.md\" ]; do n=$((n+1)); done; mv -- \"$1/review.md\" \"$1/review-stale-$n.md\"", "sh", "{run.dir}/out/{unit.id}"]]
@@ -450,10 +450,10 @@
             { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: pass"] },
             { "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "checks_green" } },
             { "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "mergeable" } },
-            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; case \"$2\" in *[!0-9a-f]*|\"\") exit 2;; esac; [ \"$(expr \"$2\" : '.*')\" -eq 40 ] || exit 2; [ \"$(sed -n 2p \"$1\")\" = \"head: $2\" ]", "sh", "{run.dir}/out/{unit.id}/review.md", "{pr.head}"] }
+            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; case \"$2\" in *[!0-9a-f]*|\"\") exit 2;; esac; [ \"$(expr \"$2\" : '.*')\" -eq 40 ] || exit 2; l=$(sed -n 2p \"$1\") || exit 2; [ \"$l\" = \"head: $2\" ]", "sh", "{run.dir}/out/{unit.id}/review.md", "{pr.head}"] }
           ],
           "to": "spine_ack",
-          "notify": "Spine {param.spine} PR {unit.vars.pr_url} passed review and is green and mergeable: read its needs-you list and any CodeRabbit thread newer than the last push, then merge it only where the project's governance grants that, else ask the operator."
+          "notify": "Spine {param.spine} PR {unit.vars.pr_url} passed review at head {pr.head} and is green and mergeable: read its needs-you list and any CodeRabbit thread newer than the last push, then merge it only where the project's governance grants that, else ask the operator. Merge only that head (gh pr merge --match-head-commit {pr.head}). If the PR head has moved, copy {run.dir}/out/{unit.id}/review.md to review-prev.md, move it aside as the next free review-stale-<n>.md, and run baton unpark {run.id} {unit.id} --to spine_review."
         }
       ]
     },

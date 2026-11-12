@@ -594,17 +594,18 @@ describe("ossify-spine recipe", () => {
   const headSignal = (outcome: number) =>
     (loadRecipe().stages.spine_wait as WaitStage).outcomes[outcome].when.find((s) => "exit0" in s && s.exit0.at(-1) === "{pr.head}") as { exit0: string[] };
   /** The exit code of a head comparison for a review text (null: no file) and a PR head. */
-  function headRc(outcome: number, review: string | null, prHead: string): number | null {
+  function headRc(outcome: number, review: string | null | "unreadable", prHead: string): number | null {
     const dir = mkdtempSync(join(tmpdir(), "baton-head-"));
     const file = join(dir, "review.md");
-    if (review !== null) writeFileSync(file, review);
+    if (review === "unreadable") mkdirSync(file); // readable by `[ -r ]`, but `sed` cannot read it: a read error after the readable test
+    else if (review !== null) writeFileSync(file, review);
     try {
       return Bun.spawnSync(headSignal(outcome).exit0.map((a) => a.replaceAll(REVIEW, file).replaceAll("{pr.head}", prHead)), { stdout: "pipe", stderr: "pipe" }).exitCode;
     } finally {
       rmSync(dir, { recursive: true });
     }
   }
-  const PASS_ACK = 9, STALE = 5; // outcome indexes in spine_wait
+  const PASS_ACK = 9, STALE = 5, STALE_PARK = 4; // outcome indexes in spine_wait
 
   test("the pass edge's head comparison, executed: 0 only for line 2 equal to the PR's head, 1 for any other, 2 when either side cannot be read (#1206)", () => {
     const rev = (line2: string) => `verdict: pass\n${line2}\nno findings\n`;
@@ -621,16 +622,19 @@ describe("ossify-spine recipe", () => {
       expect([bad, headRc(PASS_ACK, rev(`head: ${bad}`), bad)]).toEqual([bad, 2]);
     }
     expect(headRc(PASS_ACK, null, HEAD_A)).toBe(2);
+    expect(headRc(PASS_ACK, "unreadable", HEAD_A)).toBe(2); // a failed `sed` is an error, not an empty line 2 that merely differs
   });
 
-  test("the stale edge's head comparison is the pass edge's exact complement: 1 where the pass edge matches, 0 where it differs, 2 where it errors (#1206)", () => {
+  test("the stale edge's and the stale cap's head comparison are the pass edge's exact complement: 1 where the pass edge matches, 0 where it differs, 2 where it errors (#1206)", () => {
     const cases: [string | null, string][] = [
       [`verdict: pass\nhead: ${HEAD_A}\n`, HEAD_A], [`verdict: pass\nhead: ${HEAD_B}\n`, HEAD_A], [`verdict: pass\nhead: ${HEAD_A} \n`, HEAD_A],
       [`head: ${HEAD_A}\nverdict: pass\n`, HEAD_A], [`verdict: pass\nhead: abc123\n`, "abc123"], [`verdict: pass\nhead: ${HEAD_A}\n`, ""], [null, HEAD_A],
+      ["unreadable", HEAD_A],
     ];
     for (const [review, head] of cases) {
-      const pass = headRc(PASS_ACK, review, head), stale = headRc(STALE, review, head);
-      expect([review, head, stale]).toEqual([review, head, pass === 0 ? 1 : pass === 1 ? 0 : 2]);
+      const pass = headRc(PASS_ACK, review, head), want = pass === 0 ? 1 : pass === 1 ? 0 : 2;
+      expect([review, head, headRc(STALE, review, head)]).toEqual([review, head, want]);
+      expect([review, head, "stale-park", headRc(STALE_PARK, review, head)]).toEqual([review, head, "stale-park", want]); // the cap's park reads the head the same way
     }
     // the stale edge fires only for a pass: a block verdict is read by its own edges
     const edge = (loadRecipe().stages.spine_wait as WaitStage).outcomes[STALE];
@@ -645,6 +649,19 @@ describe("ossify-spine recipe", () => {
       expect(names.indexOf("pr")).toBeGreaterThan(-1);
       expect(names.indexOf("pr")).toBeLessThan(names.length - 1);
     }
+  });
+
+  test("the ack notice names the reviewed head, says to merge only that head, and how to send a moved head back to review (#1206, pre-PR B2)", () => {
+    const note = (loadRecipe().stages.spine_wait as WaitStage).outcomes[PASS_ACK].notify ?? "";
+    expect(note).toContain("passed review at head {pr.head}");
+    expect(note).toContain("Merge only that head (gh pr merge --match-head-commit {pr.head})");
+    expect(note).toContain("If the PR head has moved, copy {run.dir}/out/{unit.id}/review.md to review-prev.md, move it aside as the next free review-stale-<n>.md");
+    expect(note).toContain("baton unpark {run.id} {unit.id} --to spine_review");
+    // the pass edge reads the PR first, so {pr.head} renders: the notice is rendered with the scope the edge's signals set
+    const kinds = (loadRecipe().stages.spine_wait as WaitStage).outcomes[PASS_ACK].when.map((s) => ("pr" in s ? "pr" : "other"));
+    expect(kinds).toContain("pr");
+    expect(render(note, { param: PARAMS, unit: { id: "spine-pr", group: "0", order: 0, vars: { pr_url: "https://x/pull/9" } }, run: { id: "r1", dir: "/runs/r1", group: "0" }, attempt: 1, pr: { url: "https://x/pull/9", head: HEAD_A } }))
+      .toContain(`--match-head-commit ${HEAD_A}`);
   });
 
   test("the stale edge's hook, executed: the stale review is copied to review-prev.md and kept as review-stale-<n>.md, never as review-<n>.md; review.md goes last (#1206)", () => {
@@ -703,11 +720,12 @@ describe("ossify-spine recipe", () => {
     for (const c of plain) if (c.script !== canon) drift.push(c.where);
     // the other two classes carry the plain loop with their own file names, derived from the plain copy, not restated
     const core = canon.slice(canon.indexOf("n=1;"));
+    const guard = canon.slice(0, canon.indexOf("n=1;")).replaceAll("$2$3", "review.md"); // `[ -e review.md ] || exit 0;`, which both open with
     const derive = (src: string, dst: string) => core.replaceAll("$2$3", src).replaceAll("$2-$n$3", dst);
     const want = { item: derive("review.md", "$f-$n.md"), stale: derive("review.md", "review-stale-$n.md") };
     for (const c of copies) {
       const k = cls(c.script);
-      if (k !== "plain" && !c.script.includes(want[k])) drift.push(c.where);
+      if (k !== "plain" && !(c.script.startsWith(guard) && c.script.includes(want[k]))) drift.push(c.where);
     }
     // the copies of one class are identical to each other
     for (const k of ["item", "stale"] as const) {
@@ -733,13 +751,16 @@ describe("ossify-spine recipe", () => {
       holder[2] = holder[2].replace(from, to);
       expect([from, snippetDrift(mutated)]).toEqual([from, [target.where]]);
     }
-    // the item-review and stale-review copies are tied to the plain loop too
+    // the item-review and stale-review copies are tied to the plain guard and loop too, the one copy of each class included
     for (const mark of ["$f-$n", "review-stale-$n"]) {
-      const mutated = structuredClone(r);
-      const target = snippetCopies(mutated).find((c) => c.script.includes(mark))!;
-      const holder = target.where.split(/[.[\]]+/).filter(Boolean).slice(1).reduce((o: any, k) => o[k], mutated);
-      holder[2] = holder[2].replace("n=$((n+1))", "n=$((n+2))");
-      expect([mark, snippetDrift(mutated)]).toEqual([mark, [target.where]]);
+      for (const [from, to] of [["n=$((n+1))", "n=$((n+2))"], ['[ -e "$1/review.md" ] || exit 0', '[ -f "$1/review.md" ] || exit 0'], ["|| exit 0;", "|| exit 1;"]]) {
+        const mutated = structuredClone(r);
+        const target = snippetCopies(mutated).find((c) => c.script.includes(mark))!;
+        const holder = target.where.split(/[.[\]]+/).filter(Boolean).slice(1).reduce((o: any, k) => o[k], mutated);
+        expect([mark, from, holder[2].includes(from)]).toEqual([mark, from, true]); // the edit applies
+        holder[2] = holder[2].replace(from, to);
+        expect([mark, from, snippetDrift(mutated)]).toEqual([mark, from, [target.where]]);
+      }
     }
   });
 
@@ -1419,9 +1440,10 @@ describe("ossify-spine briefs", () => {
     const b = flat(brief("spine-finish.md"));
     for (const pin of [
       "merge-bar working-a-pr §5's lines", "`.claude/memory-bank/`", "one `review-ledger.md` line per merged PR of the spine (each item's `pr_url` in the project state, and the spine PR)",
-      "the `tech-debt.md` `[KL]` / `[TD]` lines from each merged PR's final `## Known limits`", "`review-<n>.md`, then `review.md`", "`report:` is the last review file's path",
+      "the `tech-debt.md` `[KL]` lines from each merged PR's final `## Known limits`", "`review-<n>.md`, then `review.md`", "`report:` is the last review file's path",
       "Commit the ledger and those memory-bank lines with the close record",
-      "Run it through §6 and stop there", "`harvest.md` in OUT", "`## Harvest candidates` heading in the close PR body", "Accept none and apply nothing (no §7 append)",
+      "Write §6's numbered, tagged candidate list to `harvest.md` in OUT", "skip §7 and finish the rest of close",
+      "a `[TD]` line for its `outside scope → #N` issue, if any", "Skip a PR whose `PR #N` line is already in `review-ledger.md`, and any tech-debt line already there", "`rulings:` from the archived `operator-<n>.md` files", "`## Harvest candidates` heading in the close PR body", "Accept none and apply nothing (no §7 append)",
     ]) expect([pin, b.includes(pin)]).toEqual([pin, true]);
     // rule 1 still ends the turn before anything is written
     expect(b.indexOf("end the turn without rerunning close and without a commit")).toBeLessThan(b.indexOf("Review ledger."));

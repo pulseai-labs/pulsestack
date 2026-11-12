@@ -885,6 +885,12 @@ test("a pass of the PR's own head reaches spine_ack after one review and the not
   expect(moves(SPINE_UNIT)).toEqual(["spine_review>spine_wait", "spine_wait>spine_ack"]);
   expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(1);
   expect(r.notes.filter((n) => n.includes("passed review"))).toHaveLength(1);
+  // the notice carries the reviewed head, 40 hex, to pin the merge to, and the way back to review if the head moves
+  const note = r.notes.find((n) => n.includes("passed review"))!;
+  expect(note).toContain(`passed review at head ${HEAD0} `);
+  expect(note).toContain(`gh pr merge --match-head-commit ${HEAD0}`);
+  expect(note).toContain(`baton unpark r1 ${SPINE_UNIT} --to spine_review`);
+  expect(note).toContain(`${out(SPINE_UNIT, "review.md")}`);
 });
 
 test("a pass of an older head with green checks goes back to spine_review, never to spine_ack; the review of the current head then does (#1206 defect 2)", async () => {
