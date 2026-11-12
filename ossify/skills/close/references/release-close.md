@@ -258,7 +258,9 @@ orphan="$(oss get '[.spines[] | select(.status=="abandoned") | .id] as $a | [.de
 ```
 
 Same rc contract as §5's gate — 0 = clean, 1 = blocking, 2 = could-not-check, one TSV
-line per finding — with the two deliberate differences: a deferral names the release
+line per finding — except that a deferral row carries a fifth column, `source_spine`: the
+line's owning spine, which `oss ledger_defer` needs for a re-defer (this close has no spine
+of its own to name; columns 1–4 keep their meaning). The other two deliberate differences: a deferral names the release
 it is **due at**, so the cut is `<=` where quarantine's is `<`, and a deferral with no
 anchor blocks as `no-release-anchor`.
 
@@ -267,7 +269,7 @@ anchor blocks as `no-release-anchor`.
 - **Walk it now.** `oss ledger_activate <line-id>`, then walk it with the operator,
   or yourself under a standing order in the project's memory bank or `AGENTS.md` that gives you the demo walk (`cumulative-demo.md` §3), like any §3 line. A failed walk halts. Under that order the release close ends by asking the operator for one nod over the walk read-out; that nod is the release close's only operator ask on the walk.
 - **Defer it again.** New operator words and a later release — the call
-  `cumulative-demo.md` §4a names, with the operator present.
+  `cumulative-demo.md` §4a names, with the operator present; its `<spine>` is the row's column 5.
 - **Retire it.** `oss ledger_retire <line-id> <by-spine> "<why>"` needs a spine that has
   **not** closed — one of the next release — because retire is a planning verb whose
   application is a spine close (`spine-close.md` §4). Until that close runs, this gate

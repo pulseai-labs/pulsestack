@@ -827,6 +827,8 @@ t_assert_eq "0" "$_CL_RC" "an empty blocking set is rc 0 - CLEAN (so every rc 1 
 t_assert_eq "" "$_CL_OUT" "...with nothing on stdout"
 
 # rc 2, both causes, kept distinguishable from rc 1.
+t_capture bash "$OSS" expired_fakes 3
+t_assert_rc 2 "a bare release number is rc 2 on the fakes gate too (#759: one grammar on all three gates)"
 t_capture bash "$OSS" expired_fakes "rX"
 t_assert_rc 2 "a release argument that is not r<N> is rc 2 - could-not-check, never clean"
 t_assert_contains "$T_OUT" "needs a release id of the form r<N>" "...saying why"

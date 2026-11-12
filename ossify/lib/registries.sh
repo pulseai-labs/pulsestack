@@ -403,10 +403,15 @@ oss_reg_touch_check() { # $1=state $2..=paths ; rc 0 any match, 1 clean, 2 could
 # The release argument is validated for SHAPE only, never for existence: this is
 # a read-only selector whose release id reaches it from `oss id_parse`, and an
 # existence check would add an rc-7 arm the ceremony has no branch for.
+# r<digits> only (#759): a copy of ledger.sh's _oss_ledger_release_ok, so this lib needs no other sourced.
+_oss_reg_release_ok() { # $1=release
+  case "$1" in r[0-9]*) case "${1#r}" in *[!0-9]*) return 1;; esac; return 0;; esac
+  return 1
+}
 oss_reg_expired_fakes() { # $1=state $2=release ; rc 0 clean, 1 blocking, 2 could-not-check
   local sf="$1" rel="$2" out
-  case "${rel#r}" in ''|*[!0-9]*)
-    echo "oss: expired_fakes needs a release id of the form r<N> (got '$rel')" >&2; return 2 ;; esac
+  _oss_reg_release_ok "$rel" \
+    || { echo "oss: expired_fakes needs a release id of the form r<N> (got '$rel')" >&2; return 2; }
   out="$(jq -r --arg rel "$rel" '
       ($rel | ltrimstr("r") | tonumber) as $cut
       | .fakes[]

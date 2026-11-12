@@ -85,6 +85,16 @@ jq '.schema_version = "abc"' "$V" > "$V.x" && mv "$V.x" "$V"
 ( set -euo pipefail; oss_state_mutate "$V" set_posture '{"posture":"fully-private"}' ) 2>/dev/null
 t_assert_eq "6" "$?" "mutate against a non-integer schema_version is refused rc 6"
 
+# N2: digits past the integer range make the check's numeric tests ERROR; it must refuse, not pass.
+jq '.schema_version = "99999999999999999999"' "$V" > "$V.x" && mv "$V.x" "$V"
+t_capture oss_state_check_version "$V"
+t_assert_rc 6 "check_version on a schema_version past the integer range refuses rc 6"
+t_assert_contains "$T_OUT" "missing/invalid" "...with the missing/invalid message"
+# Adjacent control: the current version still passes the same check.
+jq --argjson v "$OSS_STATE_SCHEMA_VERSION" '.schema_version = $v' "$V" > "$V.x" && mv "$V.x" "$V"
+t_capture oss_state_check_version "$V"
+t_assert_rc 0 "control: check_version on the current schema_version passes"
+
 # ...and the guard must NOT re-label the corrupt-source path, which R2 above
 # pins at rc 4 (apply-failure, original untouched). Nothing overlaps.
 ( set -euo pipefail; oss_state_mutate "$C" set_posture '{"posture":"x"}' ) 2>/dev/null

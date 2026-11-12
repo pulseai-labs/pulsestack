@@ -303,7 +303,9 @@ _oss_apply_op() { # $1=op $2=payload-json
     # selects `active` and `quarantined` only, and reports a green demo over the
     # lines it never ran. Nothing about the v3 SHAPE is wrong, so there is
     # nothing to translate; the bump is what makes that older build refuse the
-    # state instead (rc 6, naming `oss migrate`) rather than misread it.
+    # state instead (rc 6, "requires a newer ossify") rather than misread it.
+    # An older `demo_run` is read-only and checks no version, so it still runs; every
+    # older mutation, `demo_record` included, refuses v4, so a close still cannot complete.
     migrate_schema)
       jq --argjson p "$payload" '
         (if has("close_records") then . else . + {close_records:[]} end)
@@ -618,8 +620,14 @@ oss_state_check_version() { # $1=state-file ; rc 0 ok, 6 missing/invalid/future
   # operating on a v99 one - §9.2 binds "an explicit migration policy ... never
   # silent" in both directions. The refusal names the command so the operator's
   # next move is `oss migrate`, not deleting the state file.
-  if [ "$v" -lt "$OSS_STATE_SCHEMA_VERSION" ]; then
+  if [ "$v" -lt "$OSS_STATE_SCHEMA_VERSION" ] 2>/dev/null; then
     echo "state schema v$v predates this build (v$OSS_STATE_SCHEMA_VERSION) - run 'oss migrate' to upgrade it" >&2
+    return 6
+  fi
+  # Digits past the integer range make both tests above ERROR, which an `if` reads as
+  # false. Accept only when equality itself holds; an erroring test fails closed.
+  if ! [ "$v" -eq "$OSS_STATE_SCHEMA_VERSION" ] 2>/dev/null; then
+    echo "state schema missing/invalid" >&2
     return 6
   fi
   return 0

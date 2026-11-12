@@ -134,11 +134,11 @@ ai_root="$(oss repo_root ai_workspace)"
    | `fail: replay` | **`oss state_restore`** — rebuilds live state from base + journal |
    | `fail: shape` | **`oss state_restore`** — a required key is missing; same rebuild |
    | `fail: schema`, version **below** this build | **`oss migrate`** — the state predates this build |
-   | `fail: schema`, version **above** this build | **upgrade ossify** — `migrate` accepts v1/v2 only |
+   | `fail: schema`, version **above** this build | **upgrade ossify** — `migrate` accepts v1, v2 and v3 (v3 → v4) |
    | `fail: state` | **`/ossify:start`** (a new project) or **`/ossify:adopt`** (one that already has code) — on Codex the `start`/`adopt` skills — never initialised; each runs `init` itself, and a bare `init` first leaves state both refuse |
 
    Naming `state_restore` for every line wedges the close on a schema failure:
-   against a v1/v2 state it prints `restore: state is already clean - nothing to
+   against a v1, v2 or v3 state it prints `restore: state is already clean - nothing to
    do` at **rc 0**, leaves `schema_version` untouched, and `oss doctor` fails
    identically on the retry. The operator loops. `oss migrate` is the verb that
    moves the version, and doctor already names it in its own output — which is

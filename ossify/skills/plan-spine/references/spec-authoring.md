@@ -140,8 +140,8 @@ different grammars read by different parsers:
 A plain `output contains` row reads no exit status, with two exceptions that fail
 it: a command that cannot run (rc 126 or 127), and a named test runner that exits
 nonzero. When the exit matters, or a runner should fail, name it:
-`exit 0 and output contains <str>`. The combined form is a spec-AC form only —
-the ledger's `contains:` has no exit half (a follow-up issue tracks it).
+`exit 0 and output contains <str>`. The ledger has the same combined form in the
+colon grammar: `exit:0+contains:<str>` (#770); a ledger `contains:` alone has no exit half.
 
 `close/references/impl-check.md` §2 owns the runtime side of this grammar; when
 the two disagree, it is authoritative. The worker's Gate 2 also shape-checks the

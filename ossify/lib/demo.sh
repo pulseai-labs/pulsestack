@@ -53,8 +53,18 @@ oss_demo_workdir() { # $1=state-file [$2=explicit-workdir]
   fi
 }
 
+# #761: refuse a state whose schema this build cannot read, BEFORE the first ledger read: a newer
+# schema may carry line statuses this build does not know, and a run over it would report green
+# for lines it never walked. Gated on the file parsing, as oss_state_mutate is, so an unreadable
+# file keeps its own "cannot read state" refusal. rc 6 and the check's own message.
+_oss_demo_schema_ok() { # $1=state-file
+  jq -e . "$1" >/dev/null 2>&1 || return 0
+  oss_state_check_version "$1"
+}
+
 oss_demo_run_auto() { # $1=state-file [$2=explicit-workdir]
-  local sf="$1" wd n i line id text cmd expected want out rc passed=0 pending=0
+  local sf="$1" wd n i line id text cmd expected want need out rc passed=0 pending=0
+  _oss_demo_schema_ok "$sf" || return $?
   wd="$(oss_demo_workdir "$sf" "${2:-}")" || return 1
   [ -d "$wd" ] || { echo "oss: demo working dir does not exist: $wd" >&2; return 1; }
   n="$(jq '[.demo_ledger[] | select(.type=="auto" and (.status=="active" or .status=="quarantined" or .status=="planned"))] | length' "$sf" 2>/dev/null)" \
@@ -93,17 +103,35 @@ oss_demo_run_auto() { # $1=state-file [$2=explicit-workdir]
     # operand made `[ ... -ne ... ]` exit 2 — which the `if` reads as false, so
     # the FAIL branch never ran. Both now fail the line.
     case "$expected" in
+      exit:*+contains:?*)
+        # #770: rc AND needle, split at the FIRST `+contains:`. Before `exit:*`, which would
+        # read the whole tail as a non-digit operand. Each failure names its half.
+        want="${expected#exit:}"; want="${want%%+contains:*}"; need="${expected#*+contains:}"
+        case "$want" in ''|*[!0-9]*)
+          echo "FAIL $id - $text (malformed expected '$expected': 'exit:' takes digits only)"; return 1;; esac
+        # `! -eq`, not `-ne`: digits past the integer range make a test ERROR (rc 2), which
+        # an `if -ne` reads as false and passes the line. Here an erroring test fails it.
+        if ! [ "$rc" -eq "$want" ] 2>/dev/null; then
+          echo "FAIL $id - $text (rc=$rc, wanted $want)"; printf '%s\n' "$out" | tail -5; return 1
+        fi
+        case "$out" in *"$need"*) ;; *)
+          echo "FAIL $id - $text (output missing '$need')"; printf '%s\n' "$out" | tail -5; return 1;; esac
+        if [ "$want" -eq 0 ] 2>/dev/null && printf '%s' "$out" | oss_verify_zero_tests_guard "$cmd"; then
+          echo "FAIL $id - $text (vacuous-green: recognized runner executed zero tests)"; return 1
+        fi ;;
       exit:*)
         want="${expected#exit:}"
         case "$want" in ''|*[!0-9]*)
           echo "FAIL $id - $text (malformed expected '$expected': 'exit:' takes digits only)"; return 1;; esac
-        if [ "$rc" -ne "$want" ]; then
+        # `! -eq`, not `-ne`: an operand past the integer range makes the test ERROR (rc 2), which
+        # an `if -ne` reads as false and passes the line (found with #770).
+        if ! [ "$rc" -eq "$want" ] 2>/dev/null; then
           echo "FAIL $id - $text (rc=$rc, wanted $want)"; printf '%s\n' "$out" | tail -5; return 1
         fi
         # Vacuous-green is checked ONLY for a success expectation. The previous
         # unscoped placement ran after every arm, so a line legitimately
         # expecting exit:1 from a recognized runner was failed as vacuous.
-        if [ "$want" = "0" ] && printf '%s' "$out" | oss_verify_zero_tests_guard "$cmd"; then
+        if [ "$want" -eq 0 ] 2>/dev/null && printf '%s' "$out" | oss_verify_zero_tests_guard "$cmd"; then
           echo "FAIL $id - $text (vacuous-green: recognized runner executed zero tests)"; return 1
         fi ;;
       contains:?*)
@@ -117,7 +145,7 @@ oss_demo_run_auto() { # $1=state-file [$2=explicit-workdir]
         case "$out" in *"${expected#contains:}"*) ;; *)
           echo "FAIL $id - $text (output missing '${expected#contains:}')"; printf '%s\n' "$out" | tail -5; return 1;; esac ;;
       *)
-        echo "FAIL $id - $text (unrecognized expected '$expected'; the grammar is exit:<n> | contains:<str>)"; return 1 ;;
+        echo "FAIL $id - $text (unrecognized expected '$expected'; the grammar is exit:<n> | contains:<str> | exit:<n>+contains:<str>)"; return 1 ;;
     esac
     passed=$((passed+1)); i=$((i+1))
   done
@@ -138,6 +166,7 @@ oss_demo_run_auto() { # $1=state-file [$2=explicit-workdir]
 # §6.1 spine close walks the CLOSING SPINE'S OWN user lines; §6.2 release close
 # walks EVERY accumulated one. One verb, scoped by an optional spine argument.
 oss_demo_user_lines() { # $1=state-file [$2=spine]
+  _oss_demo_schema_ok "$1" || return $?   # #761: same refusal as demo_run, before the read
   if [ -n "${2:-}" ]; then
     jq --arg s "$2" '[.demo_ledger[] | select(.type=="user" and .status=="active" and .source_spine==$s)]' "$1"
   else

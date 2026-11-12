@@ -192,7 +192,7 @@ The remedy differs by line, and the wrong one loops the operator:
 | `fail: replay` | **`oss state_restore`** — rebuilds live state from base + journal |
 | `fail: shape` | **`oss state_restore`** — a required key is missing; same rebuild |
 | `fail: schema`, version **below** this build | **`oss migrate`** — the state predates this build |
-| `fail: schema`, version **above** this build | **upgrade ossify.** `migrate` accepts v1/v2 only; there is no downgrade |
+| `fail: schema`, version **above** this build | **upgrade ossify.** `migrate` accepts v1, v2 and v3 (v3 → v4); there is no downgrade |
 | `fail: state` | **`/ossify:start`** (a new project) or **`/ossify:adopt`** (one that already has code) — on Codex the `start`/`adopt` skills — never initialised; each runs `init` itself, and a bare `init` first leaves state both refuse |
 | `warn: lock` (stale) | `rmdir '<state>.lock'`, **only** if no ceremony is running |
 
@@ -212,7 +212,7 @@ same four tags cover conditions these verbs cannot repair:
   refuses both by name. Recommending it anyway sends the operator around a loop
   whose every lap looks like progress.
 
-Why this is not pedantry: against a v1/v2 state, `oss state_restore` prints
+Why this is not pedantry: against a v1, v2 or v3 state, `oss state_restore` prints
 `restore: state is already clean - nothing to do` at **rc 0**, leaves
 `schema_version` untouched, and the next `oss doctor` fails identically. A
 remedy that exits 0 while changing nothing is the worst kind of wrong answer,

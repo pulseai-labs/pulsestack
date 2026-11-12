@@ -4,7 +4,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
 . "$HERE/../lib/id.sh"; . "$HERE/../lib/state.sh"; . "$HERE/../lib/manifest.sh"
 . "$HERE/../lib/entities.sh"; . "$HERE/../lib/ledger.sh"; . "$HERE/../lib/verify.sh"
-. "$HERE/../lib/worktree.sh"; . "$HERE/../lib/demo.sh"
+. "$HERE/../lib/worktree.sh"; . "$HERE/../lib/demo.sh"; . "$HERE/../lib/registries.sh"
 TMP="$(mktemp -d)"; S="$TMP/state.json"
 mkdir -p "$TMP/.workspace" "$TMP/canon"
 cat > "$TMP/.workspace/pairing.json" <<EOF
@@ -128,6 +128,73 @@ t_assert_rc 2 "a malformed release is could-not-check"
 t_capture oss_state_replay "$S"
 t_assert_rc 0 "replay clean after deferrals"
 
+# --- #759: both release gates take r<digits> only. expired_quarantines used to take
+# `${rel#r}`, so a bare `3` passed there and refused on expired_deferrals.
+# Every spelling below is refused alike by all three gates (r1 review C3): a space or newline
+# before or after the digits, a sign, a doubled prefix, a bare number, a case change, and a decimal
+# or exponent that jq's tonumber would read as 3 (r2 review C6). The message pin makes the shape
+# check itself the thing under test: a later jq failure also exits 2.
+for bad in '' r 3 R3 r3x 'r 3' ' r3' 'r3 ' r-3 r+3 rr3 $'r3\n' 03 r3.0 r3e0 r3E0; do
+  t_capture oss_ledger_expired_quarantines "$S" "$bad"
+  t_assert_rc 2 "expired_quarantines refuses release '$bad' (could-not-check, rc 2)"
+  t_assert_contains "$T_OUT" "expired_quarantines needs a release id of the form r<N>" "...by the shape check, not by a later jq failure (jq-version proof)"
+  t_capture oss_ledger_expired_deferrals "$S" "$bad"
+  t_assert_rc 2 "expired_deferrals refuses release '$bad' (rc 2)"
+  t_assert_contains "$T_OUT" "expired_deferrals needs a release id of the form r<N>" "...by the shape check, not by a later jq failure (jq-version proof)"
+  t_capture oss_reg_expired_fakes "$S" "$bad"
+  t_assert_rc 2 "expired_fakes refuses release '$bad' (rc 2): the third gate on the same grammar"
+  t_assert_contains "$T_OUT" "expired_fakes needs a release id of the form r<N>" "...by the shape check, not by a later jq failure (jq-version proof)"
+done
+t_capture oss_reg_expired_fakes "$S" 3
+t_assert_contains "$T_OUT" "expired_fakes needs a release id of the form r<N> (got '3')" "the fakes gate's bare-number refusal keeps its own message"
+t_capture oss_ledger_expired_quarantines "$S" 3
+t_assert_contains "$T_OUT" "needs a release id of the form r<N> (got '3')" "the bare-number refusal keeps its message"
+# Adjacent controls: the spellings both gates accept still work, and the gates agree.
+t_capture oss_ledger_expired_quarantines "$S" r3
+t_assert_rc 1 "control: r3 still reads the ledger on the quarantine gate (d2, quarantined at r1, is owed)"
+t_assert_contains "$T_OUT" "d2" "...and names the owed line"
+for ok in r3 r03 r10 r0; do
+  t_capture oss_ledger_expired_quarantines "$S" "$ok"; qrc=$T_RC
+  t_capture oss_ledger_expired_deferrals "$S" "$ok"; drc=$T_RC
+  t_capture oss_reg_expired_fakes "$S" "$ok"; frc=$T_RC
+  [ "$qrc" != 2 ] && [ "$drc" != 2 ] && [ "$frc" != 2 ] && t_assert_eq 1 1 "all three gates accept '$ok'" || t_assert_eq "not 2/not 2/not 2" "$qrc/$drc/$frc" "all three gates accept '$ok'"
+done
+
+# --- #761 item 6: the expired_deferrals TSV carries source_spine as column 5, after the
+# reason, so release close can name the owner `oss ledger_defer` needs for a re-defer.
+# The amendment's `by` (r0.s1) is deliberately NOT the line's owner (r0.s2): a column 5
+# built from the wrong field reads r0.s1 there.
+S4="$TMP/state4.json"; oss_state_init "$S4" owner-col >/dev/null
+oss_entity_add_release "$S4" "r" "g" >/dev/null
+oss_entity_add_spine "$S4" r0 "one" bone canonical >/dev/null; oss_entity_add_spine "$S4" r0 "two" flesh canonical >/dev/null
+oss_ledger_add_user "$S4" r0.s2 "restore a backup and see the data" "data back" active >/dev/null; OA="$(oss_state_read "$S4" '.demo_ledger[-1].id')"
+oss_ledger_add_user "$S4" r0.s2 "export a report and open it" "opens" active >/dev/null; OB="$(oss_state_read "$S4" '.demo_ledger[-1].id')"
+oss_ledger_add_user "$S4" r0.s1 "invite a teammate and see them join" "joined" active >/dev/null; OC="$(oss_state_read "$S4" '.demo_ledger[-1].id')"
+oss_ledger_defer "$S4" "$OA" r0.s2 "operator: no backup host" r1 >/dev/null
+oss_ledger_defer "$S4" "$OB" r0.s2 "operator: report tool down" r1 >/dev/null
+oss_state_mutate "$S4" set_demo_line_status "{\"id\":\"$OC\",\"status\":\"deferred\",\"by\":\"r0.s1\",\"reason\":\"no anchor\"}"
+oss_ledger_retire "$S4" "$OB" r0.s1 "operator: reports are dropped" >/dev/null
+_col() { printf '%s\n' "$T_OUT" | awk -F'\t' -v id="$1" -v c="$2" '$1 == id { print $c }'; }
+t_capture oss_ledger_expired_deferrals "$S4" r1
+t_assert_rc 1 "a due row still blocks (the awk \$3 == due verdict is unchanged)"
+t_assert_eq "5" "$(printf '%s\n' "$T_OUT" | awk -F'\t' '{ print NF }' | sort -u)" "every row has exactly five columns"
+t_assert_eq "r0.s2" "$(_col "$OA" 5)" "a due row's column 5 is the owning spine"
+t_assert_eq "due" "$(_col "$OA" 3)" "...column 3 is still the verdict"
+t_assert_eq "operator: no backup host" "$(_col "$OA" 4)" "...and column 4 is still the reason"
+t_assert_eq "r0.s2" "$(_col "$OB" 5)" "an amendment-pending row's column 5 is the line's owner, not the amendment's spine"
+t_assert_eq "amendment pending -> r0.s1" "$(_col "$OB" 3)" "...column 3 still names the amendment's spine"
+t_assert_eq "operator: report tool down" "$(_col "$OB" 4)" "...and column 4 is still the reason"
+t_assert_eq "r0.s1" "$(_col "$OC" 5)" "an anchorless row's column 5 is the owning spine too"
+S5="$TMP/state5.json"; oss_state_init "$S5" owner-col-nonblocking >/dev/null
+oss_entity_add_release "$S5" "r" "g" >/dev/null
+oss_entity_add_spine "$S5" r0 "one" bone canonical >/dev/null; oss_entity_add_spine "$S5" r0 "two" flesh canonical >/dev/null
+oss_ledger_add_user "$S5" r0.s2 "export a report and open it" "opens" active >/dev/null; OD="$(oss_state_read "$S5" '.demo_ledger[-1].id')"
+oss_ledger_defer "$S5" "$OD" r0.s2 "operator: report tool down" r1 >/dev/null
+oss_ledger_retire "$S5" "$OD" r0.s1 "operator: reports are dropped" >/dev/null
+t_capture oss_ledger_expired_deferrals "$S5" r1
+t_assert_rc 0 "only an amendment-pending row: reported, not blocking"
+t_assert_eq "r0.s2" "$(_col "$OD" 5)" "...and its column 5 is the owner"
+
 # --- Task 5: escape
 oss_ledger_add_user "$S" r0.s2 "certify a strategy and trade it live" "certified" active >/dev/null; E1="$(oss_state_read "$S" '.demo_ledger[-1].id')"
 t_capture oss_ledger_escape "$S" "$E1" r0.s2 "SPINE.md §1: if nothing certifies in 2 weeks, close on a written negative result" "operator: accept the negative result"
@@ -194,6 +261,12 @@ t_capture "$OSS" ledger_escape "$CL" r0.s1 "SPINE.md: escape" "operator: accept"
 t_assert_rc 0 "cli escape"
 t_capture "$OSS" ledger_add_auto r0.s1 "x" "true" "exit:0" active
 t_assert_rc 0 "cli add_auto with explicit active"
+t_capture "$OSS" ledger_add_auto r0.s1 "combined form (#770)" "echo ok" "exit:0+contains:ok" active
+t_assert_rc 0 "cli add_auto takes exit:<n>+contains:<str> under the dispatcher's strict mode"
+t_capture "$OSS" ledger_add_auto r0.s1 "combined form, empty needle" "echo ok" "exit:0+contains:" active
+t_assert_rc 2 "cli add_auto refuses an empty needle in the combined form (rc 2)"
+t_capture "$OSS" expired_quarantines 3
+t_assert_rc 2 "cli expired_quarantines refuses a bare release number (#759)"
 cd "$HERE"; rm -rf "$DTMP"; unset OSS_STATE_FILE
 
 # --- F2 (PR #760): the status guard runs inside the journal op, under the lock
