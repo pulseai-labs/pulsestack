@@ -12,9 +12,9 @@ oss_ledger_add_auto() { # $1=state $2=spine $3=text $4=command $5=expected [$6=p
   # The `exit:` operand must be digits-only END TO END. The old glob
   # `exit:[0-9]*` was "exit:" + ONE digit + anything, so plausible authoring
   # slips ("exit:0 (tests green)", "exit:0abc", "exit:0 # green") were accepted
-  # here — and the runner's `[ "$rc" -ne "${expected#exit:}" ]` then exits 2 on
-  # the non-numeric operand, which the enclosing `if` reads as FALSE: the FAIL
-  # branch is skipped and the line counts as passed. The ledger is append-only,
+  # here — and the runner USED `[ "$rc" -ne "${expected#exit:}" ]` (now the fail-closed
+  # `! [ -eq ]`, 1.39.0), which exits 2 on the non-numeric operand; the enclosing `if`
+  # read that as FALSE: the FAIL branch was skipped and the line counted as passed. The ledger is append-only,
   # so one such line re-reports green at every future close. Same
   # `''|*[!0-9]*` idiom as state.sh's schema-version guard, for the same reason:
   # a value that is not digits makes the later numeric test error rather than

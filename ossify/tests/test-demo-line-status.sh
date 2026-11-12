@@ -130,13 +130,19 @@ t_assert_rc 0 "replay clean after deferrals"
 
 # --- #759: both release gates take r<digits> only. expired_quarantines used to take
 # `${rel#r}`, so a bare `3` passed there and refused on expired_deferrals.
-for bad in '' r r3x 3 R3; do
+# Every spelling below is refused alike by all three gates (r1 review C3): a space or newline
+# before or after the digits, a sign, a doubled prefix, a bare number, and a case change. The
+# message pin makes the shape check itself the thing under test: a later jq failure also exits 2.
+for bad in '' r 3 R3 r3x 'r 3' ' r3' 'r3 ' r-3 r+3 rr3 $'r3\n' 03; do
   t_capture oss_ledger_expired_quarantines "$S" "$bad"
   t_assert_rc 2 "expired_quarantines refuses release '$bad' (could-not-check, rc 2)"
+  t_assert_contains "$T_OUT" "expired_quarantines needs a release id of the form r<N>" "...by the shape check, not by a later jq failure (jq-version proof)"
   t_capture oss_ledger_expired_deferrals "$S" "$bad"
   t_assert_rc 2 "expired_deferrals refuses release '$bad' (rc 2)"
+  t_assert_contains "$T_OUT" "expired_deferrals needs a release id of the form r<N>" "...by the shape check, not by a later jq failure (jq-version proof)"
   t_capture oss_reg_expired_fakes "$S" "$bad"
   t_assert_rc 2 "expired_fakes refuses release '$bad' (rc 2): the third gate on the same grammar"
+  t_assert_contains "$T_OUT" "expired_fakes needs a release id of the form r<N>" "...by the shape check, not by a later jq failure (jq-version proof)"
 done
 t_capture oss_reg_expired_fakes "$S" 3
 t_assert_contains "$T_OUT" "expired_fakes needs a release id of the form r<N> (got '3')" "the fakes gate's bare-number refusal keeps its own message"
@@ -146,7 +152,7 @@ t_assert_contains "$T_OUT" "needs a release id of the form r<N> (got '3')" "the 
 t_capture oss_ledger_expired_quarantines "$S" r3
 t_assert_rc 1 "control: r3 still reads the ledger on the quarantine gate (d2, quarantined at r1, is owed)"
 t_assert_contains "$T_OUT" "d2" "...and names the owed line"
-for ok in r3 r03 r10; do
+for ok in r3 r03 r10 r0; do
   t_capture oss_ledger_expired_quarantines "$S" "$ok"; qrc=$T_RC
   t_capture oss_ledger_expired_deferrals "$S" "$ok"; drc=$T_RC
   t_capture oss_reg_expired_fakes "$S" "$ok"; frc=$T_RC

@@ -176,9 +176,9 @@ t_assert_rc 0 "leading-space legitimate journey line still accepted"
 
 # --- Final review finding 1: the `expected` validator was the glob `exit:[0-9]*`
 # = "exit:" + ONE digit + anything. A well-prefixed but malformed operand was
-# accepted here, and the runner's `[ "$rc" -ne "${expected#exit:}" ]` then exits
-# 2 on the non-numeric operand — which the enclosing `if` reads as FALSE, so the
-# FAIL branch never runs and the line counts as passed at every future close.
+# accepted here, and the runner USED `[ "$rc" -ne "${expected#exit:}" ]` (now the
+# fail-closed `! [ -eq ]`, 1.39.0), which exits 2 on the non-numeric operand — the
+# enclosing `if` read that as FALSE, so the FAIL branch never ran and the line counted as passed.
 # The pre-existing negatives above ("somehow:fine") only probe PREFIX failures;
 # these probe the operand, which is where the silent pass lived.
 for bad in "exit:0 (tests green)" "exit:0abc" "exit:0 # x" "exit:0|contains:x" "exit:" "exit:1 "; do

@@ -403,6 +403,16 @@ _run_combined 'echo abc' 'contains:a*c'
 t_assert_rc 1 "plain contains: needle a*c does not glob-match abc"; t_assert_contains "$T_OUT" "output missing 'a*c'" "...naming the output"
 _run_combined "echo 'a*c'" 'contains:a*c'
 t_assert_rc 0 "control: plain contains: needle a*c passes on output holding a*c"
+# C1 (r1 review): the needle's POSITION. A needle in the middle or at the end of longer
+# output passes; the prefix-anchored (`"$need"*`) and suffix-anchored (`*"$need"`) forms fail these.
+_run_combined 'echo "build ok done"' 'exit:0+contains:ok'
+t_assert_rc 0 "combined: a needle in the MIDDLE of longer output passes"
+_run_combined 'echo "build ok"' 'exit:0+contains:ok'
+t_assert_rc 0 "combined: a needle at the END of the output passes"
+_run_combined 'echo "build ok done"' 'contains:ok'
+t_assert_rc 0 "plain contains: a needle in the MIDDLE of longer output passes"
+_run_combined 'echo "build ok"' 'contains:ok'
+t_assert_rc 0 "plain contains: a needle at the END of the output passes"
 _run_combined "bash -c 'echo 0 passing; exit 1' # pytest" 'exit:1+contains:0 passing'
 t_assert_rc 0 "control: the guard is for <n> = 0 only - a runner expecting exit:1 with its needle passes"
 _run_combined 'echo ok; exit 3' 'exit:3+contains:ok'
