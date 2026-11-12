@@ -116,7 +116,7 @@ oss_demo_run_auto() { # $1=state-file [$2=explicit-workdir]
         fi
         case "$out" in *"$need"*) ;; *)
           echo "FAIL $id - $text (output missing '$need')"; printf '%s\n' "$out" | tail -5; return 1;; esac
-        if [ "$want" = "0" ] && printf '%s' "$out" | oss_verify_zero_tests_guard "$cmd"; then
+        if [ "$want" -eq 0 ] 2>/dev/null && printf '%s' "$out" | oss_verify_zero_tests_guard "$cmd"; then
           echo "FAIL $id - $text (vacuous-green: recognized runner executed zero tests)"; return 1
         fi ;;
       exit:*)
@@ -131,7 +131,7 @@ oss_demo_run_auto() { # $1=state-file [$2=explicit-workdir]
         # Vacuous-green is checked ONLY for a success expectation. The previous
         # unscoped placement ran after every arm, so a line legitimately
         # expecting exit:1 from a recognized runner was failed as vacuous.
-        if [ "$want" = "0" ] && printf '%s' "$out" | oss_verify_zero_tests_guard "$cmd"; then
+        if [ "$want" -eq 0 ] 2>/dev/null && printf '%s' "$out" | oss_verify_zero_tests_guard "$cmd"; then
           echo "FAIL $id - $text (vacuous-green: recognized runner executed zero tests)"; return 1
         fi ;;
       contains:?*)

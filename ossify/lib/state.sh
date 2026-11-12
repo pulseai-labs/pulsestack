@@ -620,8 +620,14 @@ oss_state_check_version() { # $1=state-file ; rc 0 ok, 6 missing/invalid/future
   # operating on a v99 one - §9.2 binds "an explicit migration policy ... never
   # silent" in both directions. The refusal names the command so the operator's
   # next move is `oss migrate`, not deleting the state file.
-  if [ "$v" -lt "$OSS_STATE_SCHEMA_VERSION" ]; then
+  if [ "$v" -lt "$OSS_STATE_SCHEMA_VERSION" ] 2>/dev/null; then
     echo "state schema v$v predates this build (v$OSS_STATE_SCHEMA_VERSION) - run 'oss migrate' to upgrade it" >&2
+    return 6
+  fi
+  # Digits past the integer range make both tests above ERROR, which an `if` reads as
+  # false. Accept only when equality itself holds; an erroring test fails closed.
+  if ! [ "$v" -eq "$OSS_STATE_SCHEMA_VERSION" ] 2>/dev/null; then
+    echo "state schema missing/invalid" >&2
     return 6
   fi
   return 0

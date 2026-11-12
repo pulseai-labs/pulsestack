@@ -383,6 +383,26 @@ t_assert_rc 0 "rc and needle both right PASSES"; t_assert_contains "$T_OUT" "PAS
 _run_combined "echo 'collected 0 items' # pytest" 'exit:0+contains:collected'
 t_assert_rc 1 "exit:0+contains: on a recognised runner that ran zero tests FAILS"
 t_assert_contains "$T_OUT" "vacuous-green" "...as vacuous-green"
+# B1: the guard tests the NUMBER; a leading zero (`exit:00`) is still a zero expectation.
+_run_combined "echo 'collected 0 items' # pytest" 'exit:00+contains:collected'
+t_assert_rc 1 "exit:00+contains: (leading zeros) on a zero-tests runner FAILS"
+t_assert_contains "$T_OUT" "vacuous-green" "...as vacuous-green, as exit:0+ does"
+_run_combined "echo 'collected 0 items' # pytest" 'exit:00'
+t_assert_rc 1 "PLAIN exit:00 on a zero-tests runner FAILS (was a silent PASS)"
+t_assert_contains "$T_OUT" "vacuous-green" "...as vacuous-green"
+_run_combined 'echo ok' 'exit:00+contains:ok'
+t_assert_rc 0 "control: exit:00+contains:ok on echo ok (no runner) still passes"
+_run_combined 'echo ok' 'exit:00'
+t_assert_rc 0 "control: PLAIN exit:00 on echo ok still passes"
+# B2: the needle is matched literally; a glob character in it is not a pattern.
+_run_combined 'echo abc' 'exit:0+contains:a*c'
+t_assert_rc 1 "combined: needle a*c does not glob-match abc"; t_assert_contains "$T_OUT" "output missing 'a*c'" "...naming the output half"
+_run_combined "echo 'a*c'" 'exit:0+contains:a*c'
+t_assert_rc 0 "control: combined needle a*c passes on output holding a*c"
+_run_combined 'echo abc' 'contains:a*c'
+t_assert_rc 1 "plain contains: needle a*c does not glob-match abc"; t_assert_contains "$T_OUT" "output missing 'a*c'" "...naming the output"
+_run_combined "echo 'a*c'" 'contains:a*c'
+t_assert_rc 0 "control: plain contains: needle a*c passes on output holding a*c"
 _run_combined "bash -c 'echo 0 passing; exit 1' # pytest" 'exit:1+contains:0 passing'
 t_assert_rc 0 "control: the guard is for <n> = 0 only - a runner expecting exit:1 with its needle passes"
 _run_combined 'echo ok; exit 3' 'exit:3+contains:ok'
@@ -445,6 +465,20 @@ t_assert_rc 0 "control: a current-schema state still lists its user lines"; t_as
 SOLD="$T5/older.json"; jq --argjson v "$((OSS_STATE_SCHEMA_VERSION - 1))" '.schema_version = $v' "$SF0" > "$SOLD"
 t_capture oss_demo_run_auto "$SOLD" "$T5/canon"
 t_assert_rc 6 "demo_run on an older schema refuses too, naming migrate"; t_assert_contains "$T_OUT" "oss migrate" "...the check's own remedy"
+# N2: a schema_version past the integer range makes the check's numeric tests ERROR; that must
+# refuse (rc 6, missing/invalid), not pass. N3: no schema_version at all refuses the same way.
+SBIG="$T5/bigschema.json"; jq '.schema_version = "99999999999999999999"' "$SF0" > "$SBIG"
+t_capture oss_demo_run_auto "$SBIG" "$T5/canon"
+t_assert_rc 6 "demo_run on a schema_version past the integer range fails closed (rc 6)"
+t_assert_contains "$T_OUT" "missing/invalid" "...with the check's missing/invalid message"
+case "$T_OUT" in *PASS*) T_FAIL=$((T_FAIL+1)); echo "FAIL: demo_run printed PASS over an out-of-range schema";; *) T_PASS=$((T_PASS+1));; esac
+t_capture oss_demo_user_lines "$SBIG"
+t_assert_rc 6 "demo_user_lines on a schema_version past the integer range fails closed too"
+SNOS="$T5/noschema.json"; jq 'del(.schema_version)' "$SF0" > "$SNOS"
+t_capture oss_demo_run_auto "$SNOS" "$T5/canon"
+t_assert_rc 6 "demo_run on a state with no schema_version refuses (rc 6)"; t_assert_contains "$T_OUT" "missing/invalid" "...the check's message"
+t_capture oss_demo_user_lines "$SNOS"
+t_assert_rc 6 "demo_user_lines on a state with no schema_version refuses too"
 # Dispatcher path (bin/* runs set -euo pipefail; the libs above are sourced without it).
 OSSX="$HERE/../bin/oss"
 t_capture "$OSSX" demo_run "$SFUT" "$T5/canon"
