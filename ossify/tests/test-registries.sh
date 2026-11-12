@@ -44,6 +44,34 @@ t_assert_rc 0 "a distinct ADR ref is still added, with an empty surface"
 t_capture jq -c '.bones[] | select(.adr=="ADR-0011") | .touch' "$S"
 t_assert_eq '[]' "$T_OUT" "...and its empty surface is recorded as such"
 
+# --- #705: the rail folds the ADR ref ASCII case-insensitively -------------
+# adopt C3 step 1a folds under LC_ALL=C; a case variant is the same reference.
+t_capture oss_reg_add_bone "$S" ADR-0007 "first of a case pair" "src/a/**" ""
+t_assert_rc 0 "#705 setup: ADR-0007 mints"
+t_capture oss_reg_add_bone "$S" adr-0007 "the case variant" "src/b/**" ""
+t_assert_rc 7 "#705: a case variant of an existing ADR ref refuses (rc 7)"
+t_assert_contains "$T_OUT" "as 'ADR-0007'" "#705: ...naming the existing row's spelling"
+t_capture jq '[.bones[] | select(.adr | ascii_downcase == "adr-0007")] | length' "$S"
+t_assert_eq "1" "$T_OUT" "#705: ...and one row is left"
+t_capture oss_reg_add_bone "$S" ADR-0007 "same spelling" "src/b/**" ""
+t_assert_rc 7 "#705 control: the exact same spelling still refuses"
+case "$T_OUT" in *" as '"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: #705: an identical spelling must not say 'as'" ;; *) T_PASS=$((T_PASS+1)) ;; esac
+t_capture oss_reg_add_bone "$S" adr-0010 "lower-case first" "src/d/**" ""
+t_assert_rc 0 "#705 setup: adr-0010 mints"
+t_capture oss_reg_add_bone "$S" ADR-0010 "the upper-case variant" "src/e/**" ""
+t_assert_rc 7 "#705: the fold is symmetric - ADR-0010 after adr-0010 refuses too"
+t_assert_contains "$T_OUT" "as 'adr-0010'" "#705: ...naming the stored lower-case spelling"
+t_capture oss_reg_add_bone "$S" ADR-0008 "a distinct number" "src/c/**" ""
+t_assert_rc 0 "#705 control: ADR-0007 then ADR-0008 still mints"
+# A stored .adr that is not a string must not let the rail pass: it fails closed.
+S705="$TMP/non-string-adr.json"; oss_state_init "$S705" ns >/dev/null
+oss_state_mutate "$S705" add_bone \
+  "$(jq -n --arg ts "$(_oss_now)" '{adr:7,title:"numeric adr",touch:["src/x/**"],revisit_trigger:null,at:$ts}')" >/dev/null
+t_capture oss_reg_add_bone "$S705" ADR-0009 "behind a numeric row" "src/y/**" ""
+if [ "$T_RC" -ne 0 ]; then T_PASS=$((T_PASS+1)); else T_FAIL=$((T_FAIL+1)); echo "FAIL: #705: a non-string stored .adr let the rail pass (rc 0)"; fi
+t_capture jq '.bones | length' "$S705"
+t_assert_eq "1" "$T_OUT" "#705: ...and nothing was minted behind the unreadable row"
+
 # --- #305 item 1, the atomic half: the rail runs INSIDE the mutation lock ----
 # The refusals above are only half the rail. The count they refuse on was a read
 # in the VERB, before oss_state_mutate acquires its lock - so two ceremonies could

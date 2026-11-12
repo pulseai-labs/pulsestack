@@ -196,9 +196,9 @@ a list of no gaps is not evidence that the pass ran.
    bare seed filename contributes its number with `ADR-` prepended,
    retaining its width. Case-fold these references under `LC_ALL=C` for
    comparison, retaining the source spellings and filenames for the halt.
-   **Any folded reference appearing in two repos halts adoption**, naming the
-   original reference spellings and each repo (include the source filename for
-   a bare seed). Distinct references still proceed. Take repo names from the captured inventory
+   **Any folded reference held by two inventory files halts adoption**, in two
+   repos or in one: name each file and its repo, with the original reference spellings and each repo
+   (the source filename for a bare seed). Distinct references still proceed. Take repo names from the captured inventory
    (`<repo-name><TAB><ADR-filename>`); no second scan is needed. The remedy is the operator's
    and it is one-time: renumber in the source repo so the project's references
    are distinct, then re-run `/adopt`. Do not renumber for them — an ADR

@@ -548,8 +548,71 @@ _oss_worktree_phys() { # $1=dir ; echoes the physical path when resolvable
   printf '%s\n' "$1"
 }
 
+# #706: the read-only half of oss_worktree_remove's conv-absent arm, shared with
+# the inventory's complete-arm verdict so both decide from one list read. Writes
+# nothing. rc 0 ok (registrations to remove in _OSS_WT_KEPT, one per line) ·
+# 1 the list could not be read · 2 a `/.worktrees/<wi>` registration under
+# neither the derived nor the recorded root (path in _OSS_WT_BAD) · 3 a
+# registration cleanup would remove is LOCKED (path in _OSS_WT_BAD).
+_oss_worktree_cleanup_scan() { # $1=root $2=wi $3=recorded worktree_path (may be empty)
+  local root="$1" wi="$2" recpath="$3" list rows row lk holdpath hp_root derived_root rec_root locked=""
+  _OSS_WT_KEPT=""; _OSS_WT_BAD=""
+  list="$(git --no-optional-locks -C "$root" worktree list --porcelain)" || return 1
+  # The registration paths AS GIT PRINTS THEM (symlink-resolved on macOS
+  # /tmp), matched on the `/.worktrees/<wi>` suffix - a whole-string compare
+  # against the conventional path would miss that spelling. Each row is
+  # `<locked 0|1> <path>`.
+  rows="$(printf '%s\n' "$list" | awk -v s="/.worktrees/$wi" '
+    function flush() { if (p != "") print lk " " p; p="" }
+    /^worktree /{flush(); p=substr($0,10); lk=0
+      if (!(length(p)>=length(s) && substr(p, length(p)-length(s)+1)==s)) p=""; next}
+    /^locked/{lk=1; next}
+    END{flush()}')" || return 1
+  # #673 L5: only registrations under THIS item's own root are this verb's
+  # to clear - its RECORDED worktree_path's root or the derived one, compared
+  # physically so a symlinked spelling still matches. The pre-fix suffix-only
+  # match also caught a worktree of a same-named path under a DIFFERENT root
+  # (work-item ids repeat across workspaces) and `git worktree remove` would
+  # have deleted it - live or dead. Validate the WHOLE set first; a match at
+  # any other root refuses with nothing removed.
+  derived_root="$(_oss_worktree_phys "$root")"
+  rec_root=""
+  case "$recpath" in
+    */.worktrees/"$wi") rec_root="$(_oss_worktree_phys "${recpath%/.worktrees/$wi}")" ;;
+  esac
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    lk="${row%% *}"; holdpath="${row#* }"
+    hp_root="${holdpath%/.worktrees/$wi}"
+    hp_root="$(_oss_worktree_phys "$hp_root")"
+    if [ "$hp_root" = "$derived_root" ] || { [ -n "$rec_root" ] && [ "$hp_root" = "$rec_root" ]; }; then
+      _OSS_WT_KEPT="$_OSS_WT_KEPT$holdpath"$'\n'
+      [ "$lk" = 0 ] || [ -n "$locked" ] || locked="$holdpath"
+    else
+      _OSS_WT_BAD="$holdpath"; return 2
+    fi
+  done <<HOLD
+$rows
+HOLD
+  [ -z "$locked" ] || { _OSS_WT_BAD="$locked"; return 3; }
+  return 0
+}
+
+# #706: is the registration for directory $2 locked? rc 0 no · 1 yes · 2 the
+# list could not be read. The conv-present arm's cleanup is a non-forced
+# `git worktree remove`, which refuses a locked worktree.
+_oss_worktree_reg_locked() { # $1=root $2=dir
+  local list p
+  list="$(git --no-optional-locks -C "$1" worktree list --porcelain)" || return 2
+  p="$(_oss_worktree_phys "$2")"
+  printf '%s\n' "$list" | awk -v p="$p" '
+    /^worktree /{cur=(substr($0,10)==p); next}
+    /^locked/{if (cur) hit=1}
+    END{exit hit ? 1 : 0}' || return $?
+}
+
 oss_worktree_remove() { # $1=repo-key $2=work-item-id
-  local key="$1" wi="$2" root path branch dirty sf holdpath holdpaths recpath hp_root derived_root rec_root kept refused
+  local key="$1" wi="$2" root path branch dirty sf holdpath recpath scan_rc
   _oss_worktree_id_check "$wi" || return $?
   root="$(_oss_repo_root "$key")" || return $?
   path="$root/.worktrees/$wi"
@@ -587,46 +650,21 @@ oss_worktree_remove() { # $1=repo-key $2=work-item-id
   else
     recpath="$(jq -r --arg w "$wi" 'first(.work_items[] | select(.id == $w) | .worktree_path // empty) // ""' "$sf" 2>/dev/null)" || {
       echo "oss: cannot read work item $wi's worktree_path from $sf - refusing to clean up $path" >&2; return 8; }
-    # The registration paths AS GIT PRINTS THEM (symlink-resolved on macOS
-    # /tmp), matched on the `/.worktrees/<wi>` suffix - a whole-string compare
-    # against `$path` would miss that spelling.
-    holdpaths="$(git -C "$root" worktree list --porcelain | awk -v s="/.worktrees/$wi" '
-      /^worktree /{p=substr($0,10); if (length(p)>=length(s) && substr(p, length(p)-length(s)+1)==s) print p}')" || {
-      echo "oss: cannot read the worktree list for $root - refusing to clean up $path" >&2; return 8; }
-    # #673 L5: only registrations under THIS item's own root are this verb's
-    # to clear - its RECORDED worktree_path's root or the derived one, compared
-    # physically so a symlinked spelling still matches. The pre-fix suffix-only
-    # match also caught a worktree of a same-named path under a DIFFERENT root
-    # (work-item ids repeat across workspaces) and `git worktree remove` would
-    # have deleted it - live or dead. Validate the WHOLE set first; a match at
-    # any other root refuses with nothing removed.
-    derived_root="$(_oss_worktree_phys "$root")"
-    rec_root=""
-    case "$recpath" in
-      */.worktrees/"$wi") rec_root="$(_oss_worktree_phys "${recpath%/.worktrees/$wi}")" ;;
+    # #706: validate the whole set (list read, roots, locks) before removing any.
+    scan_rc=0; _oss_worktree_cleanup_scan "$root" "$wi" "$recpath" || scan_rc=$?
+    case "$scan_rc" in
+      0) ;;
+      1) echo "oss: cannot read the worktree list for $root - refusing to clean up $path" >&2; return 8 ;;
+      2) echo "oss: work item $wi has a registration at $_OSS_WT_BAD, which is not under this item's root - refusing; nothing was removed (inspect with: git -C $(printf '%q' "$root") worktree list)" >&2
+         return 8 ;;
+      *) echo "oss: work item $wi has a locked registration at $_OSS_WT_BAD - refusing; nothing was removed (inspect with: git -C $(printf '%q' "$root") worktree list)" >&2
+         return 8 ;;
     esac
-    kept=""; refused=""
-    while IFS= read -r holdpath; do
-      [ -n "$holdpath" ] || continue
-      hp_root="${holdpath%/.worktrees/$wi}"
-      hp_root="$(_oss_worktree_phys "$hp_root")"
-      if [ "$hp_root" = "$derived_root" ] || { [ -n "$rec_root" ] && [ "$hp_root" = "$rec_root" ]; }; then
-        kept="$kept$holdpath"$'\n'
-      else
-        refused="$holdpath"; break
-      fi
-    done <<HOLD
-$holdpaths
-HOLD
-    if [ -n "$refused" ]; then
-      echo "oss: work item $wi has a registration at $refused, which is not under this item's root - refusing; nothing was removed (inspect with: git -C $(printf '%q' "$root") worktree list)" >&2
-      return 8
-    fi
     while IFS= read -r holdpath; do
       [ -n "$holdpath" ] || continue
       git -C "$root" worktree remove "$holdpath" || { echo "oss: git worktree remove failed for the stale registration at $holdpath" >&2; return 8; }
     done <<HOLD
-$kept
+$_OSS_WT_KEPT
 HOLD
   fi
   if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
