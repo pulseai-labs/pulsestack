@@ -3,7 +3,7 @@
 // dispatch count and cap, the R7 gap re-entry, the land order, and the build slot.
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { render, validate, type MergeStage, type Outcome, type Recipe, type SessionStage, type WaitStage } from "../src/recipe.ts";
@@ -654,30 +654,30 @@ describe("ossify-spine recipe", () => {
   test("the ack notice names the reviewed head, says to merge only that head, and how to send a moved head back to review (#1206, pre-PR B2)", () => {
     const note = (loadRecipe().stages.spine_wait as WaitStage).outcomes[PASS_ACK].notify ?? "";
     expect(note).toContain("passed review at head {pr.head}");
-    expect(note).toContain("Merge only that head (gh pr merge --match-head-commit {pr.head})");
+    expect(note).toContain("Merge only that head (gh pr merge {unit.vars.pr_url} --match-head-commit {pr.head})");
     expect(note).toContain("If the PR head has moved, copy {run.dir}/out/{unit.id}/review.md to review-prev.md, move it aside as the next free review-stale-<n>.md");
     expect(note).toContain("baton unpark {run.id} {unit.id} --to spine_review");
     // the pass edge reads the PR first, so {pr.head} renders: the notice is rendered with the scope the edge's signals set
     const kinds = (loadRecipe().stages.spine_wait as WaitStage).outcomes[PASS_ACK].when.map((s) => ("pr" in s ? "pr" : "other"));
     expect(kinds).toContain("pr");
     expect(render(note, { param: PARAMS, unit: { id: "spine-pr", group: "0", order: 0, vars: { pr_url: "https://x/pull/9" } }, run: { id: "r1", dir: "/runs/r1", group: "0" }, attempt: 1, pr: { url: "https://x/pull/9", head: HEAD_A } }))
-      .toContain(`--match-head-commit ${HEAD_A}`);
+      .toContain(`gh pr merge https://x/pull/9 --match-head-commit ${HEAD_A}`);
   });
 
-  test("the stale edge's hook, executed: the stale review is copied to review-prev.md and kept as review-stale-<n>.md, never as review-<n>.md; review.md goes last (#1206)", () => {
+  test("the stale edge's hooks, executed: the copy to review-prev.md, then the numbered move; a failed copy fails the hook and the move never runs; review.md goes last (#1206, PR C4)", () => {
     const edge = (loadRecipe().stages.spine_wait as WaitStage).outcomes[STALE];
-    expect(edge.run).toHaveLength(1);
+    expect(edge.run).toHaveLength(2);
+    expect(edge.run![0]).toEqual((loadRecipe().stages.spine_work as SessionStage).outcomes[0].run![0]); // the same copy hook spine_work's round end runs
     const dir = mkdtempSync(join(tmpdir(), "baton-stale-"));
-    const exec = () => {
-      const argv = edge.run![0].map((a) => a.replaceAll(OUT, dir));
-      const p = Bun.spawnSync(argv, { stdout: "pipe", stderr: "pipe" });
-      expect([p.exitCode, p.stderr.toString()]).toEqual([0, ""]);
-    };
+    const one = (k: number) => Bun.spawnSync(edge.run![k].map((a) => a.replaceAll(OUT, dir)), { stdout: "pipe", stderr: "pipe" }).exitCode;
+    const exec = () => expect([one(0), one(1)]).toEqual([0, 0]);
     const ls = () => readdirSync(dir).sort();
     exec(); // no review: succeeds, creates nothing
     expect(ls()).toEqual([]);
     writeFileSync(join(dir, "review.md"), "verdict: pass\nhead: one\n");
-    exec();
+    expect(one(0)).toBe(0); // a partial run: the copy only
+    expect(ls()).toEqual(["review-prev.md", "review.md"]); // the trigger survives
+    exec(); // rerun from the first
     expect(ls()).toEqual(["review-prev.md", "review-stale-1.md"]);
     expect(readFileSync(join(dir, "review-prev.md"), "utf8")).toBe("verdict: pass\nhead: one\n");
     expect(readFileSync(join(dir, "review-stale-1.md"), "utf8")).toBe("verdict: pass\nhead: one\n");
@@ -691,6 +691,13 @@ describe("ossify-spine recipe", () => {
     expect(ls()).toEqual(["review-prev.md", "review-stale-1.md", "review-stale-2.md"]);
     // the cap counts review-<n>.md only: nothing here may take that name
     expect(ls().some((f) => /^review-[0-9]+\.md$/.test(f))).toBe(false);
+    // a failed copy (review-prev.md a dangling symlink) fails hook 1, and hook 2 is not what keeps the review: review.md is still there
+    rmSync(join(dir, "review-prev.md"));
+    symlinkSync(join(dir, "no-such-dir", "x"), join(dir, "review-prev.md"));
+    writeFileSync(join(dir, "review.md"), "verdict: pass\nhead: three\n");
+    expect(one(0)).not.toBe(0);
+    expect(existsSync(join(dir, "review.md"))).toBe(true);
+    expect(existsSync(join(dir, "review-stale-3.md"))).toBe(false);
     rmSync(dir, { recursive: true });
   });
 
@@ -1181,7 +1188,7 @@ describe("outcome hooks remove their own trigger last (#1110)", () => {
     const stale = structuredClone(r);
     const so = (stale.stages.spine_wait as WaitStage).outcomes[5];
     so.run = [...so.run!, ["true"]];
-    expect(earlyConsumers(stale)).toEqual(["spine_wait.outcomes[5].run[0]"]);
+    expect(earlyConsumers(stale)).toEqual(["spine_wait.outcomes[5].run[1]"]);
   });
 
   test("T2: at every file-triggered outcome, a failure at any hook leaves the trigger and a rerun from the first succeeds", () => {
@@ -1442,8 +1449,12 @@ describe("ossify-spine briefs", () => {
       "merge-bar working-a-pr §5's lines", "`.claude/memory-bank/`", "one `review-ledger.md` line per merged PR of the spine (each item's `pr_url` in the project state, and the spine PR)",
       "the `tech-debt.md` `[KL]` lines from each merged PR's final `## Known limits`", "`review-<n>.md`, then `review.md`", "`report:` is the last review file's path",
       "Commit the ledger and those memory-bank lines with the close record",
-      "Write §6's numbered, tagged candidate list to `harvest.md` in OUT", "skip §7 and finish the rest of close",
-      "a `[TD]` line for its `outside scope → #N` issue, if any", "Skip a PR whose `PR #N` line is already in `review-ledger.md`, and any tech-debt line already there", "`rulings:` from the archived `operator-<n>.md` files", "`## Harvest candidates` heading in the close PR body", "Accept none and apply nothing (no §7 append)",
+      "Write the numbered, tagged candidate list of ossify's `references/harvest.md` §6 to `harvest.md` in OUT", "End §6 at that written list (do not wait for its response)", "skip `references/harvest.md` §7 and finish the rest of close",
+      "a `[TD]` line for its `outside scope → #N` issue, if any",
+      // each rerun skip is its own: the ledger line by the exact PR (with the space), each tech-debt line by itself
+      "skip a PR whose `PR #N ` line (with the space) is already in `review-ledger.md` and, separately, each tech-debt line already in `tech-debt.md`; one being present does not skip the other",
+      "The ledger line's date comes from `date -u +%F`",
+      "`rulings:` from the archived `operator-<n>.md` files", "`## Harvest candidates` heading in the close PR body", "Accept none and apply nothing (no §7 append)",
     ]) expect([pin, b.includes(pin)]).toEqual([pin, true]);
     // rule 1 still ends the turn before anything is written
     expect(b.indexOf("end the turn without rerunning close and without a commit")).toBeLessThan(b.indexOf("Review ledger."));
@@ -1452,6 +1463,8 @@ describe("ossify-spine briefs", () => {
     expect(fin.message).toContain("Out root: {run.dir}/out.");
     expect(fin.outcomes.map((o) => o.notify ?? "")).toHaveLength(2);
     for (const o of fin.outcomes) expect(o.notify).toContain("{run.dir}/out/{unit.id}/harvest.md");
+    // the actor split, in both notices: the orchestrator presents the candidates to the operator and applies only the accepted set (PR C3)
+    for (const o of fin.outcomes) expect(o.notify).toContain("present them to the operator, then apply the accepted set (ossify harvest §7)");
     expect(fin.outcomes.map((o) => o.to)).toEqual(["done", "spine_close_wait"]);
   });
 

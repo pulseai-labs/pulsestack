@@ -888,7 +888,7 @@ test("a pass of the PR's own head reaches spine_ack after one review and the not
   // the notice carries the reviewed head, 40 hex, to pin the merge to, and the way back to review if the head moves
   const note = r.notes.find((n) => n.includes("passed review"))!;
   expect(note).toContain(`passed review at head ${HEAD0} `);
-  expect(note).toContain(`gh pr merge --match-head-commit ${HEAD0}`);
+  expect(note).toContain(`gh pr merge ${prUrl(SPINE_UNIT)} --match-head-commit ${HEAD0}`);
   expect(note).toContain(`baton unpark r1 ${SPINE_UNIT} --to spine_review`);
   expect(note).toContain(`${out(SPINE_UNIT, "review.md")}`);
 });

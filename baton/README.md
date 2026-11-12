@@ -501,29 +501,30 @@ Each unit's files live in `<state>/runs/<run>/out/<unit>/`. Operator runbook:
   kept as `out/<wi>/review-<n>.md`; `review.md` is the latest and `review-prev.md` the one before.
   A review file whose line 1 is not a verdict or whose line 2 is not a `head:` is kept as
   `review-bad-<n>.md` and counts for nothing.
-- **The spine review stop.** The spine PR gets at most three counted reviews, as an item PR does.
-  `spine_work`'s round end copies the review to `review-prev.md` and keeps it as
-  `out/spine-pr/review-<n>.md`. A block, or red checks, once `review-2.md` exists (review 3 has run)
-  parks `spine-pr` in `spine_wait` with reason `outcome`, and baton notifies the orchestrator; after
-  review 1 or 2 the PR goes to `spine_work` as before. A pass of a head that is not the PR's current
-  head is stale: `spine_wait` copies it to `review-prev.md`, keeps it as `review-stale-<n>.md`, and
-  sends the PR to `spine_review` again. A stale review takes no review number, so it does not count
-  toward the three. A fourth stale pass (once `review-stale-3.md` exists) parks `spine-pr` in
-  `spine_wait` with reason `outcome`, because the reviewer keeps reading an old head: find out why,
-  copy `review.md` to `review-prev.md`, move it aside as the next free `review-stale-<n>.md`, then
-  `--to spine_review`. `spine_ack` is entered only when `review.md`'s line 2 equals `head: <the PR's
-  head>` at that moment; baton does not watch the head while `spine_ack` waits, and the merge pin is
-  the merge holder's `--match-head-commit` (the ack notice names the head). `spine_review` accepts a
-  review only with a 40-hex `head:` on line 2. With a passing review, a PR head that cannot be read
-  as 40 hex parks `spine-pr` with `exit0 error`, never a match. Rule the stop: to fix more, write
-  the ruling to `out/spine-pr/operator.md` (replacing any file there), then `baton unpark <run>
-  spine-pr --to spine_work` (a later block parks at once, because the review files keep counting).
-  To accept the findings, the merge holder merges the PR, then a plain `baton unpark <run> spine-pr`
-  reads the merge. A round that would push no commit and change no PR body is a `spine_work` stop,
-  not a round: the stop file names what is left and who must act (a red check on newer `main`
-  commits needs `main` brought in, which moves the spine tip, so only the merge holder may). After
-  the merge holder acts, move `review.md` aside as the conflict bullet below says, then `--to
-  spine_review`.
+- **The spine review stop.** The spine PR gets at most three counted reviews, as an item PR does;
+  stale reviews are not counted, so up to three more `spine_review` launches can run before the
+  fourth stale pass parks. `spine_work`'s round end copies the review to `review-prev.md` and keeps
+  it as `out/spine-pr/review-<n>.md`. A block, or red checks, once `review-2.md` exists (review 3
+  has run) parks `spine-pr` in `spine_wait` with reason `outcome`, and baton notifies the
+  orchestrator; after review 1 or 2 the PR goes to `spine_work` as before. A pass of a head that is
+  not the PR's current head is stale: `spine_wait` copies it to `review-prev.md`, keeps it as
+  `review-stale-<n>.md`, and sends the PR to `spine_review` again. A stale review takes no review
+  number, so it does not count toward the three. A fourth stale pass (once `review-stale-3.md`
+  exists) parks `spine-pr` in `spine_wait` with reason `outcome`, because the reviewer keeps reading
+  an old head: find out why, copy `review.md` to `review-prev.md`, move it aside as the next free
+  `review-stale-<n>.md`, then `--to spine_review`. `spine_ack` is entered only when `review.md`'s
+  line 2 equals `head: <the PR's head>` at that moment; baton does not watch the head while
+  `spine_ack` waits, and the merge pin is the merge holder's `--match-head-commit` (the ack notice
+  names the head). `spine_review` accepts a review only with a 40-hex `head:` on line 2. With a
+  passing review, a PR head that cannot be read as 40 hex parks `spine-pr` with `exit0 error`, never
+  a match. Rule the stop: to fix more, write the ruling to `out/spine-pr/operator.md` (replacing any
+  file there), then `baton unpark <run> spine-pr --to spine_work` (a later block parks at once,
+  because the review files keep counting). To accept the findings, the merge holder merges the PR,
+  then a plain `baton unpark <run> spine-pr` reads the merge. A round that would push no commit and
+  change no PR body is a `spine_work` stop, not a round: the stop file names what is left and who
+  must act (a red check on newer `main` commits needs `main` brought in, which moves the spine tip,
+  so only the merge holder may). After the merge holder acts, move `review.md` aside as the conflict
+  bullet below says, then `--to spine_review`.
 - **An `item_ready` park** (the recorded `pr_url` is not a PR URL): fix the work item's `pr_url` in
   the ossify state and in the run's `queue/<wi>.json`, which close copied it to, then
   `baton unpark <run> <wi> --to item_ready`.
@@ -546,7 +547,7 @@ Each unit's files live in `<state>/runs/<run>/out/<unit>/`. Operator runbook:
   `baton unpark <run> spine-pr --to spine_review`.
 - **The spine PR ack.** On the "passed review … merge it" notice, read the PR's needs-you list, then
   merge it as the project's governance grants (otherwise the operator merges), only the head the
-  notice names (`gh pr merge --match-head-commit <head>`); if the PR head has moved, copy
+  notice names (`gh pr merge <PR URL> --match-head-commit <head>`); if the PR head has moved, copy
   `out/spine-pr/review.md` to `review-prev.md`, move it aside as the next free `review-stale-<n>.md`
   and `baton unpark <run> spine-pr --to spine_review`. baton sees the merge and runs the second
   spine close. The `spine_finish` seat commits the review-ledger and tech-debt lines of every merged
