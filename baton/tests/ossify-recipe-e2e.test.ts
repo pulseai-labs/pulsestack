@@ -223,7 +223,8 @@ function seats(): Record<string, Effect> {
     // an item reviewer reviews the head its PR has now
     item_review: (u) => put(out(u, "review.md"), `verdict: pass\nhead: ${theForge.views.get(prUrl(u))!.head}\nno findings\n`),
     item_fix: (u) => put(out(u, "round-done"), "x"),
-    spine_review: (u) => put(out(u, "review.md"), "verdict: pass\nhead: abc123\nno findings\n"),
+    // the spine reviewer, like the item reviewer, reviews the head the PR has now
+    spine_review: (u) => put(out(u, "review.md"), `verdict: pass\nhead: ${theForge.views.get(prUrl(u))!.head}\nno findings\n`),
     spine_work: (u) => put(out(u, "round-done"), "x"),
     // a workspace that pushes to main: the second pass closes the spine and lands the record at origin/main
     spine_finish: () => {
@@ -865,6 +866,235 @@ test("a spine PR conflict parks the spine PR", async () => {
   expect(unit(SPINE_UNIT).parked?.reason).toBe("outcome");
   expect(host.of(SPINE_UNIT, "spine_work")).toHaveLength(0);
   expect(moves(SPINE_UNIT)).toEqual(["spine_review>spine_wait"]);
+});
+
+// ---- #1206: the spine PR loop has a cap, and spine_ack only follows a review of the PR's own head ----
+
+const spineHost = (extra: Record<string, Effect> = {}) => newHost(() => put(join(runDir, "rounds.done"), "x"), extra);
+const setSpine = (r: Rig, patch: Partial<PrView>) => r.forge.views.set(prUrl(SPINE_UNIT), { ...r.forge.views.get(prUrl(SPINE_UNIT))!, ...patch });
+const spineParked = () => unit(SPINE_UNIT)?.parked !== undefined;
+const spineAt = (stage: string) => () => unit(SPINE_UNIT)?.stage === stage;
+const reviewFile = (n: string) => readFileSync(out(SPINE_UNIT, n), "utf8");
+
+test("a pass of the PR's own head reaches spine_ack after one review and the notice goes out (#1206)", async () => {
+  await arm();
+  const host = spineHost();
+  const r = rig(host);
+  await drive(r, 40, spineAt("spine_ack"));
+
+  expect(moves(SPINE_UNIT)).toEqual(["spine_review>spine_wait", "spine_wait>spine_ack"]);
+  expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(1);
+  expect(r.notes.filter((n) => n.includes("passed review"))).toHaveLength(1);
+  // the notice carries the reviewed head, 40 hex, to pin the merge to, and the way back to review if the head moves
+  const note = r.notes.find((n) => n.includes("passed review"))!;
+  expect(note).toContain(`passed review at head ${HEAD0} `);
+  expect(note).toContain(`gh pr merge ${prUrl(SPINE_UNIT)} --match-head-commit ${HEAD0}`);
+  expect(note).toContain(`baton unpark r1 ${SPINE_UNIT} --to spine_review`);
+  expect(note).toContain(`${out(SPINE_UNIT, "review.md")}`);
+});
+
+test("a pass of an older head with green checks goes back to spine_review, never to spine_ack; the review of the current head then does (#1206 defect 2)", async () => {
+  await arm();
+  const host = spineHost({ spine_review: (u, n) => put(out(u, "review.md"), reviewOf("pass", n === 1 ? WRONG : HEAD0)) });
+  const r = rig(host);
+  await drive(r, 60, spineAt("spine_ack"));
+
+  expect(moves(SPINE_UNIT)).toEqual(["spine_review>spine_wait", "spine_wait>spine_review", "spine_review>spine_wait", "spine_wait>spine_ack"]);
+  expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(2);
+  // the stale review is kept as review-stale-1.md and was the next review's `previous:`; it took no review number
+  expect(reviewFile("review-stale-1.md")).toBe(reviewOf("pass", WRONG));
+  expect(reviewFile("review-prev.md")).toBe(reviewOf("pass", WRONG));
+  expect(reviewFile("review.md")).toBe(reviewOf("pass", HEAD0));
+  expect(existsSync(out(SPINE_UNIT, "review-1.md"))).toBe(false);
+  expect(r.notes.filter((n) => n.includes("passed review"))).toHaveLength(1); // one notice, for the head a review saw
+});
+
+test("a head that moves after a passing review goes back to spine_review, and the notice waits for a review of the new head (#1206 defect 2)", async () => {
+  await arm();
+  const host = spineHost({ spine_review: (u) => put(out(u, "review.md"), reviewOf("pass", theForge.views.get(prUrl(u))!.head)) });
+  const r = rig(host);
+  let pushed = false;
+  // the review passes HEAD0; somebody pushes before spine_wait reads the PR again
+  await drive(r, 60, spineAt("spine_ack"), () => {
+    if (!pushed && unit(SPINE_UNIT)?.stage === "spine_wait") { pushed = true; setSpine(r, { head: HEAD1 }); }
+  });
+
+  expect(pushed).toBe(true);
+  expect(moves(SPINE_UNIT)).toEqual(["spine_review>spine_wait", "spine_wait>spine_review", "spine_review>spine_wait", "spine_wait>spine_ack"]);
+  expect(reviewFile("review-stale-1.md")).toBe(reviewOf("pass", HEAD0));
+  expect(reviewFile("review.md")).toBe(reviewOf("pass", HEAD1));
+});
+
+test("a PR head that cannot be read as 40 hex never matches: spine_wait parks, spine_ack is not reached, and no stale review loop starts (#1206 defect 2)", async () => {
+  await arm();
+  const host = spineHost({ spine_review: (u) => put(out(u, "review.md"), reviewOf("pass", HEAD0)) });
+  const r = rig(host);
+  setSpine(r, { head: "abc123" });
+  await drive(r, 40, spineParked);
+
+  expect(unit(SPINE_UNIT).stage).toBe("spine_wait");
+  expect(unit(SPINE_UNIT).parked?.reason).toBe("exit0 error"); // rc 2, not a match and not a mismatch
+  expect(moves(SPINE_UNIT)).toEqual(["spine_review>spine_wait"]);
+  expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(1);
+  expect(existsSync(out(SPINE_UNIT, "review-stale-1.md"))).toBe(false);
+});
+
+test("a PR read that fails never reaches spine_ack; the unit waits, then parks at the third failure (#1206 defect 2)", async () => {
+  await arm();
+  const host = spineHost();
+  const r = rig(host);
+  await drive(r, 40, spineAt("spine_wait"));
+  r.forge.viewFails = 1000;
+  await drive(r, 20, spineParked);
+
+  expect(unit(SPINE_UNIT).parked?.reason).toBe("pr view failed");
+  expect(moves(SPINE_UNIT)).toEqual(["spine_review>spine_wait"]);
+});
+
+for (const [name, text] of [["no head line", "verdict: pass\nno findings\n"], ["a short head", "verdict: pass\nhead: abc123\nno findings\n"], ["a 41-hex head", `verdict: pass\nhead: ${HEAD0}0\n`]] as const) {
+  test(`a spine review with ${name} does not move to spine_wait (#1206 defect 2)`, async () => {
+    await arm();
+    const host = spineHost({ spine_review: (u) => put(out(u, "review.md"), text) });
+    host.script.driver = oneTick();
+    const r = rig(host);
+    await drive(r, 60, spineParked);
+
+    expect(unit(SPINE_UNIT).stage).toBe("spine_review");
+    expect(unit(SPINE_UNIT).parked?.reason).toBe("no result");
+    expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(3);
+    expect(moves(SPINE_UNIT)).toEqual([]);
+  });
+}
+
+const SPINE_CYCLE = ["spine_review>spine_wait", "spine_wait>spine_work", "spine_work>spine_review"];
+
+test("a spine PR that keeps blocking parks after review 3, as the item PR does; reviews 1 and 2 go to spine_work (#1206 defect 1)", async () => {
+  await arm();
+  const host = spineHost({ spine_review: (u) => put(out(u, "review.md"), reviewOf("block", HEAD0)) });
+  const r = rig(host);
+  await drive(r, 80, spineParked);
+
+  expect(unit(SPINE_UNIT).stage).toBe("spine_wait");
+  expect(unit(SPINE_UNIT).parked?.reason).toBe("outcome");
+  expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(3);
+  expect(host.of(SPINE_UNIT, "spine_work")).toHaveLength(2);
+  expect(moves(SPINE_UNIT)).toEqual([...SPINE_CYCLE, ...SPINE_CYCLE, "spine_review>spine_wait"]);
+  // each round kept its review under the next number: review 3 is the latest and has no number yet
+  expect(existsSync(out(SPINE_UNIT, "review-1.md")) && existsSync(out(SPINE_UNIT, "review-2.md"))).toBe(true);
+  expect(existsSync(out(SPINE_UNIT, "review-3.md"))).toBe(false);
+  expect(reviewFile("review.md")).toBe(reviewOf("block", HEAD0));
+  expect(existsSync(out(SPINE_UNIT, "round-done"))).toBe(false);
+  expect(r.forge.merges).toEqual([]);
+
+  // the operator sends it back for one more round: the next review that blocks parks at once, because the review files keep counting
+  expect(await main(["unpark", "r1", SPINE_UNIT, "--to", "spine_work"])).toBe(0);
+  await drive(r, 40, () => host.of(SPINE_UNIT, "spine_review").length === 4 && spineParked());
+  expect(host.of(SPINE_UNIT, "spine_work")).toHaveLength(3);
+  expect(unit(SPINE_UNIT).stage).toBe("spine_wait");
+  expect(existsSync(out(SPINE_UNIT, "review-3.md"))).toBe(true);
+});
+
+test("after the review-3 park, a merge by the merge holder and a plain unpark take the spine to spine_finish (#1206)", async () => {
+  await arm();
+  const host = spineHost({ spine_review: (u) => put(out(u, "review.md"), reviewOf("block", HEAD0)) });
+  const r = rig(host);
+  await drive(r, 80, spineParked);
+  expect(unit(SPINE_UNIT).stage).toBe("spine_wait");
+  setSpine(r, { state: "MERGED" });
+  expect(await main(["unpark", "r1", SPINE_UNIT])).toBe(0);
+  await drive(r, 20, spineAt("spine_finish"));
+  expect(moves(SPINE_UNIT).at(-1)).toBe("spine_wait>spine_finish");
+});
+
+test("red checks that fixing never clears park the spine PR at review 3; a passing review does not stop that (#1206 defect 1)", async () => {
+  await arm();
+  const host = spineHost();
+  const r = rig(host);
+  setSpine(r, { checks: "red" });
+  await drive(r, 80, spineParked);
+
+  expect(unit(SPINE_UNIT).stage).toBe("spine_wait");
+  expect(unit(SPINE_UNIT).parked?.reason).toBe("outcome");
+  expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(3);
+  expect(host.of(SPINE_UNIT, "spine_work")).toHaveLength(2);
+  expect(moves(SPINE_UNIT)).toEqual([...SPINE_CYCLE, ...SPINE_CYCLE, "spine_review>spine_wait"]);
+  expect(moves(SPINE_UNIT)).not.toContain("spine_wait>spine_ack");
+});
+
+test("red checks after review 1 or 2 go to spine_work as before: the cap needs review-2.md (#1206 defect 1)", async () => {
+  await arm();
+  const host = spineHost();
+  const r = rig(host);
+  setSpine(r, { checks: "red" });
+  await drive(r, 40, () => host.of(SPINE_UNIT, "spine_work").length === 1 && unit(SPINE_UNIT)?.stage === "spine_review"); // the round has ended
+  expect(spineParked()).toBe(false);
+  expect(existsSync(out(SPINE_UNIT, "review-1.md"))).toBe(true);
+  expect(existsSync(out(SPINE_UNIT, "review-2.md"))).toBe(false);
+  await drive(r, 40, () => host.of(SPINE_UNIT, "spine_work").length === 2 && unit(SPINE_UNIT)?.stage === "spine_review"); // the round has ended
+  expect(spineParked()).toBe(false);
+  expect(existsSync(out(SPINE_UNIT, "review-2.md"))).toBe(true);
+});
+
+test("a stale pass that arrives with review-2.md present and red checks is reviewed again, not parked on: it is no third review (#1206 defect 1)", async () => {
+  await arm();
+  // reviews 1 and 2 count; review 3 passes an older head, so it is stale; the fourth is review 3 and the cap parks on it
+  const host = spineHost({ spine_review: (u, n) => put(out(u, "review.md"), reviewOf(n === 3 ? "pass" : "block", n === 3 ? WRONG : HEAD0)) });
+  const r = rig(host);
+  setSpine(r, { checks: "red" });
+  await drive(r, 100, spineParked);
+
+  expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(4);
+  expect(host.of(SPINE_UNIT, "spine_work")).toHaveLength(2);
+  expect(reviewFile("review-stale-1.md")).toBe(reviewOf("pass", WRONG));
+  expect(existsSync(out(SPINE_UNIT, "review-3.md"))).toBe(false);
+});
+
+const staleThen = (staleCount: number) => spineHost({ spine_review: (u, n) => put(out(u, "review.md"), reviewOf("pass", n <= staleCount ? WRONG : HEAD0)) });
+
+test("a reviewer that keeps reading an old head parks the spine PR at the fourth stale pass: three are kept, no fifth spine_review runs (#1206 follow-up)", async () => {
+  await arm();
+  const host = staleThen(100);
+  const r = rig(host);
+  await drive(r, 100, spineParked);
+
+  expect(unit(SPINE_UNIT).stage).toBe("spine_wait");
+  expect(unit(SPINE_UNIT).parked?.reason).toBe("outcome");
+  expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(4);
+  expect(host.of(SPINE_UNIT, "spine_work")).toHaveLength(0);
+  expect(moves(SPINE_UNIT)).toEqual(["spine_review>spine_wait", "spine_wait>spine_review", "spine_review>spine_wait", "spine_wait>spine_review", "spine_review>spine_wait", "spine_wait>spine_review", "spine_review>spine_wait"]);
+  expect([1, 2, 3].every((n) => existsSync(out(SPINE_UNIT, `review-stale-${n}.md`)))).toBe(true);
+  expect(existsSync(out(SPINE_UNIT, "review-stale-4.md"))).toBe(false); // the fourth is left in place as review.md
+  expect(reviewFile("review.md")).toBe(reviewOf("pass", WRONG));
+  await settle(r, 5);
+  expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(4); // and it stays parked
+});
+
+for (const stale of [2, 3]) {
+  test(`${stale} stale passes still go back to spine_review and the next review of the current head reaches spine_ack: the cap is the fourth (#1206 follow-up)`, async () => {
+    await arm();
+    const host = staleThen(stale);
+    const r = rig(host);
+    await drive(r, 100, spineAt("spine_ack"));
+
+    expect(unit(SPINE_UNIT).parked).toBeUndefined();
+    expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(stale + 1);
+    expect(existsSync(out(SPINE_UNIT, `review-stale-${stale}.md`))).toBe(true);
+    expect(existsSync(out(SPINE_UNIT, `review-stale-${stale + 1}.md`))).toBe(false);
+  });
+}
+
+test("a stale review is not a review: it spends no number, so the cap parks after the third counted review (#1206 defect 1)", async () => {
+  await arm();
+  const host = spineHost({ spine_review: (u, n) => put(out(u, "review.md"), n === 1 ? reviewOf("pass", WRONG) : reviewOf("block", HEAD0)) });
+  const r = rig(host);
+  await drive(r, 100, spineParked);
+
+  expect(host.of(SPINE_UNIT, "spine_review")).toHaveLength(4); // one stale, then three that count
+  expect(host.of(SPINE_UNIT, "spine_work")).toHaveLength(2);
+  expect(unit(SPINE_UNIT).parked?.reason).toBe("outcome");
+  expect(reviewFile("review-stale-1.md")).toBe(reviewOf("pass", WRONG));
+  expect(existsSync(out(SPINE_UNIT, "review-1.md")) && existsSync(out(SPINE_UNIT, "review-2.md"))).toBe(true);
+  expect(existsSync(out(SPINE_UNIT, "review-3.md"))).toBe(false);
 });
 
 test("a molt successor gets the handoff path and is not a dispatch", async () => {
