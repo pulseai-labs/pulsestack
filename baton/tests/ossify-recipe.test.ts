@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { render, validate, type MergeStage, type Recipe, type SessionStage, type WaitStage } from "../src/recipe.ts";
+import { render, validate, type MergeStage, type Outcome, type Recipe, type SessionStage, type WaitStage } from "../src/recipe.ts";
 import { loadRecipe, raw, RECIPE_PATH, renderStageEnv } from "./ossify-recipe-helpers.ts";
 
 const BIN = join(import.meta.dir, "..", "bin", "baton");
@@ -54,7 +54,8 @@ const stageRoles = (r: Recipe) => ({
 const agentNames = (text: string): string[] => [...text.matchAll(/omp-|claude-|devin/gi)].map((m) => m[0]);
 
 /** A verdict signal's name: the verdict it reads. Any other exit0 signal: its first two arguments after the program. */
-const exit0Name = (argv: string[]): string => (argv[0] === "sh" ? argv.at(-1)! : argv.slice(1, 3).join(" "));
+const exit0Name = (argv: string[]): string =>
+  argv.at(-1) === "{pr.head}" ? `head ${argv[2].includes(" != ") ? "!=" : "="} pr head` : argv[0] === "sh" ? argv.at(-1)! : argv.slice(1, 3).join(" ");
 
 describe("ossify-spine recipe", () => {
   test("ossify recipe validates", async () => {
@@ -276,32 +277,50 @@ describe("ossify-spine recipe", () => {
     expect(c.before.flat()).not.toContain(PACKET);
   });
 
-  test("the spine PR wait parks a conflict and keeps its order", () => {
+  const sigNameOf = (sig: any): string => ("pr" in sig ? sig.pr.test : "file" in sig ? `file ${sig.file.slice(OUT.length + 1)}` : exit0Name(sig.exit0));
+  const SPINE_WAIT_SHAPE = [
+    ["spine_finish", "merged"],
+    ["park", "file review-2.md", "verdict: block"], // review 3 blocks: the cap, as item_wait's (#1206)
+    ["park", "closed"],
+    ["park", "conflict"], // spine_work runs as an implementer: no merge, no force-push, so it cannot resolve one
+    ["park", "file review-stale-3.md", "file review.md", "verdict: pass", "open", "head != pr head"], // the fourth stale pass parks (#1206 follow-up)
+    ["spine_review", "file review.md", "verdict: pass", "open", "head != pr head"], // a pass of an older head: review again, not counted (#1206)
+    ["park", "file review-2.md", "checks_red"],
+    ["spine_work", "checks_red"],
+    ["spine_work", "verdict: block", "checks_green"],
+    ["spine_ack", "verdict: pass", "checks_green", "mergeable", "head = pr head"],
+  ];
+  const spineWaitShape = (w: WaitStage) => w.outcomes.map((o) => [o.to, ...o.when.map(sigNameOf)]);
+
+  test("the spine PR wait: merged, the review-3 block stop, closed, conflict, a stale pass, the review-3 red stop, red, block, and a pass of the PR's own head (#1206)", () => {
     const w = loadRecipe().stages.spine_wait as WaitStage;
-    const shape = w.outcomes.map((o) => [
-      o.to, ...o.when.map((sig) => ("pr" in sig ? sig.pr.test : "exit0" in sig ? exit0Name(sig.exit0) : "?")),
-    ]);
-    expect(shape).toEqual([
-      ["spine_finish", "merged"],
-      ["park", "closed"],
-      ["park", "conflict"], // spine_work runs as an implementer: no merge, no force-push, so it cannot resolve one
-      ["spine_work", "checks_red"],
-      ["spine_work", "verdict: block", "checks_green"],
-      ["spine_ack", "verdict: pass", "checks_green", "mergeable"],
-    ]);
+    expect(spineWaitShape(w)).toEqual(SPINE_WAIT_SHAPE);
+    // the cap signal is the item loop's: review-2.md
+    expect(w.outcomes[1].when[0]).toEqual({ file: `${OUT}/review-2.md` });
+    expect(w.outcomes[6].when[0]).toEqual({ file: `${OUT}/review-2.md` });
+    expect(w.outcomes[4].when[0]).toEqual({ file: `${OUT}/review-stale-3.md` }); // three stale reviews are kept, the fourth parks
+    // controls: the real assertion fails on the cap and the red edge swapped, and on a pass edge without the head comparison
+    const swapped = structuredClone(w);
+    swapped.outcomes.splice(6, 0, ...swapped.outcomes.splice(7, 1));
+    expect(spineWaitShape(swapped)).not.toEqual(SPINE_WAIT_SHAPE);
+    const noHead = structuredClone(w);
+    noHead.outcomes[9].when.pop();
+    expect(spineWaitShape(noHead)).not.toEqual(SPINE_WAIT_SHAPE);
   });
 
-  test("a spine PR round's end saves the review as review-prev.md, archives the Ruling file, then clears the signals (#1045)", () => {
+  test("a spine PR round's end saves the review as review-prev.md, keeps it as review-<n>.md, archives the Ruling file, then clears the done file (#1045, #1206)", () => {
     const run = (loadRecipe().stages.spine_work as SessionStage).outcomes[0].run!;
-    // the signals' absence is state (spine_review and spine_wait read review.md): still removed, last
-    expect(run).toHaveLength(3);
-    expect(run[2]).toEqual(["rm", "-f", `${OUT}/review.md`, `${OUT}/round-done`, `${OUT}/operator.md`]);
+    // round-done is the trigger: removed last, so a failed hook leaves it and a rerun reads the outcome true (#1110)
+    expect(run).toHaveLength(4);
+    expect(run[3]).toEqual(["rm", "-f", `${OUT}/round-done`]);
     expect(run[0].slice(0, 2)).toEqual(["sh", "-c"]);
     expect(run[0].slice(3)).toEqual(["sh", OUT]);
-    expect(run[1].slice(3)).toEqual(["sh", OUT, "operator", ".md"]);
+    // the copy comes before the archive moves review.md away, and both before the ruling's archive
+    expect(run[1].slice(3)).toEqual(["sh", OUT, "review", ".md"]);
+    expect(run[2].slice(3)).toEqual(["sh", OUT, "operator", ".md"]);
   });
 
-  test("the round's run hooks, executed: review-prev.md is the last review, operator.md is archived once per round (#1045)", () => {
+  test("the round's run hooks, executed: review-prev.md is the last review, review-<n>.md keeps each, operator.md is archived once per round (#1045, #1206)", () => {
     const run = (loadRecipe().stages.spine_work as SessionStage).outcomes[0].run!;
     const dir = mkdtempSync(join(tmpdir(), "baton-round-"));
     const exec = () => {
@@ -316,20 +335,23 @@ describe("ossify-spine recipe", () => {
     // round 1: a review and a ruling
     put("review.md", "verdict: block\nhead: a1\n"); put("round-done", ""); put("operator.md", "ruling one");
     exec();
-    expect(ls()).toEqual(["operator-1.md", "review-prev.md"]);
+    expect(ls()).toEqual(["operator-1.md", "review-1.md", "review-prev.md"]);
     expect(readFileSync(join(dir, "review-prev.md"), "utf8")).toBe("verdict: block\nhead: a1\n");
+    expect(readFileSync(join(dir, "review-1.md"), "utf8")).toBe("verdict: block\nhead: a1\n");
     expect(readFileSync(join(dir, "operator-1.md"), "utf8")).toBe("ruling one");
-    // round 2: a newer review replaces the previous one; a second ruling does not overwrite the first
+    // round 2: a newer review replaces the previous one and takes the next number; a second ruling does not overwrite the first
     put("review.md", "verdict: block\nhead: b2\n"); put("round-done", ""); put("operator.md", "ruling two");
     exec();
-    expect(ls()).toEqual(["operator-1.md", "operator-2.md", "review-prev.md"]);
+    expect(ls()).toEqual(["operator-1.md", "operator-2.md", "review-1.md", "review-2.md", "review-prev.md"]);
     expect(readFileSync(join(dir, "review-prev.md"), "utf8")).toBe("verdict: block\nhead: b2\n");
+    expect(readFileSync(join(dir, "review-2.md"), "utf8")).toBe("verdict: block\nhead: b2\n");
+    expect(readFileSync(join(dir, "review-1.md"), "utf8")).toBe("verdict: block\nhead: a1\n"); // never overwritten
     expect(readFileSync(join(dir, "operator-1.md"), "utf8")).toBe("ruling one");
     expect(readFileSync(join(dir, "operator-2.md"), "utf8")).toBe("ruling two");
-    // round 3: no ruling, no review file: the hooks still succeed and the previous review is kept
+    // round 3: no ruling, no review file: the hooks still succeed, the previous review is kept and no number is spent
     put("round-done", "");
     exec();
-    expect(ls()).toEqual(["operator-1.md", "operator-2.md", "review-prev.md"]);
+    expect(ls()).toEqual(["operator-1.md", "operator-2.md", "review-1.md", "review-2.md", "review-prev.md"]);
     expect(readFileSync(join(dir, "review-prev.md"), "utf8")).toBe("verdict: block\nhead: b2\n");
     rmSync(dir, { recursive: true });
   });
@@ -376,7 +398,7 @@ describe("ossify-spine recipe", () => {
     const hooks = archiveHooks(r);
     expect(hooks.map(([w]) => w).sort()).toEqual([
       "close.outcomes[0].run[0]", "close.outcomes[1].run[0]", "correct.outcomes[0].run[0]", "item_fix.outcomes[0].run[0]",
-      "spine_finish.outcomes[0].run[0]", "spine_finish.outcomes[1].run[0]", "spine_open.outcomes[0].run[0]", "spine_work.outcomes[0].run[1]", "verify.before[1]",
+      "spine_finish.outcomes[0].run[0]", "spine_finish.outcomes[1].run[0]", "spine_open.outcomes[0].run[0]", "spine_work.outcomes[0].run[1]", "spine_work.outcomes[0].run[2]", "verify.before[1]",
     ]);
     for (const [where, a] of hooks) expect([where, a[2]]).toEqual([where, script]);
     // control: a copy whose one hook runs another script is caught by the same comparison
@@ -566,6 +588,161 @@ describe("ossify-spine recipe", () => {
     expect(itemWaitShape(noMerged)).not.toEqual(ITEM_WAIT_SHAPE);
   });
 
+  // ---- spine_ack only for the head the review saw (#1206) --------------------------------------
+  const HEAD_A = "0123456789abcdef".repeat(3).slice(0, 40);
+  const HEAD_B = "fedcba9876543210".repeat(3).slice(0, 40);
+  const headSignal = (outcome: number) =>
+    (loadRecipe().stages.spine_wait as WaitStage).outcomes[outcome].when.find((s) => "exit0" in s && s.exit0.at(-1) === "{pr.head}") as { exit0: string[] };
+  /** The exit code of a head comparison for a review text (null: no file) and a PR head. */
+  function headRc(outcome: number, review: string | null, prHead: string): number | null {
+    const dir = mkdtempSync(join(tmpdir(), "baton-head-"));
+    const file = join(dir, "review.md");
+    if (review !== null) writeFileSync(file, review);
+    try {
+      return Bun.spawnSync(headSignal(outcome).exit0.map((a) => a.replaceAll(REVIEW, file).replaceAll("{pr.head}", prHead)), { stdout: "pipe", stderr: "pipe" }).exitCode;
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
+  }
+  const PASS_ACK = 9, STALE = 5; // outcome indexes in spine_wait
+
+  test("the pass edge's head comparison, executed: 0 only for line 2 equal to the PR's head, 1 for any other, 2 when either side cannot be read (#1206)", () => {
+    const rev = (line2: string) => `verdict: pass\n${line2}\nno findings\n`;
+    expect(headRc(PASS_ACK, rev(`head: ${HEAD_A}`), HEAD_A)).toBe(0);
+    // adjacent controls: each of these must still not match
+    expect(headRc(PASS_ACK, rev(`head: ${HEAD_B}`), HEAD_A)).toBe(1); // another head
+    expect(headRc(PASS_ACK, rev(`head: ${HEAD_A} `), HEAD_A)).toBe(1); // trailing space
+    expect(headRc(PASS_ACK, rev(`head:${HEAD_A}`), HEAD_A)).toBe(1); // no space after the colon
+    expect(headRc(PASS_ACK, `head: ${HEAD_A}\nverdict: pass\n`, HEAD_A)).toBe(1); // the head is on line 1, not line 2
+    expect(headRc(PASS_ACK, `verdict: pass\nhead: ${HEAD_B}\nhead: ${HEAD_A}\n`, HEAD_A)).toBe(1); // a matching decoy on line 3
+    expect(headRc(PASS_ACK, rev(`head: ${HEAD_A.slice(0, 39)}`), HEAD_A.slice(0, 39))).toBe(2); // a short head is no match, even equal to the review's
+    // an unreadable PR head or review is an error, never a match
+    for (const bad of ["", "abc123", HEAD_A + "0", HEAD_A.toUpperCase().replace(/[0-9]/g, "A"), HEAD_A.replace("0", "g"), "{pr.head} x"]) {
+      expect([bad, headRc(PASS_ACK, rev(`head: ${bad}`), bad)]).toEqual([bad, 2]);
+    }
+    expect(headRc(PASS_ACK, null, HEAD_A)).toBe(2);
+  });
+
+  test("the stale edge's head comparison is the pass edge's exact complement: 1 where the pass edge matches, 0 where it differs, 2 where it errors (#1206)", () => {
+    const cases: [string | null, string][] = [
+      [`verdict: pass\nhead: ${HEAD_A}\n`, HEAD_A], [`verdict: pass\nhead: ${HEAD_B}\n`, HEAD_A], [`verdict: pass\nhead: ${HEAD_A} \n`, HEAD_A],
+      [`head: ${HEAD_A}\nverdict: pass\n`, HEAD_A], [`verdict: pass\nhead: abc123\n`, "abc123"], [`verdict: pass\nhead: ${HEAD_A}\n`, ""], [null, HEAD_A],
+    ];
+    for (const [review, head] of cases) {
+      const pass = headRc(PASS_ACK, review, head), stale = headRc(STALE, review, head);
+      expect([review, head, stale]).toEqual([review, head, pass === 0 ? 1 : pass === 1 ? 0 : 2]);
+    }
+    // the stale edge fires only for a pass: a block verdict is read by its own edges
+    const edge = (loadRecipe().stages.spine_wait as WaitStage).outcomes[STALE];
+    expect(edge.when.map(sigNameOf).slice(0, 2)).toEqual(["file review.md", "verdict: pass"]);
+    // the stale-cap park carries the stale edge's conditions exactly, behind its own file: no other pass is parked on
+    const wo = (loadRecipe().stages.spine_wait as WaitStage).outcomes;
+    expect(wo[4].when.slice(1)).toEqual(wo[STALE].when);
+    expect(wo[4].run).toBeUndefined();
+    // the pass and stale edges read the PR's head from the same signal-set rule: a pr signal comes before the comparison
+    for (const i of [STALE, PASS_ACK]) {
+      const names = (loadRecipe().stages.spine_wait as WaitStage).outcomes[i].when.map((s) => ("pr" in s ? "pr" : "other"));
+      expect(names.indexOf("pr")).toBeGreaterThan(-1);
+      expect(names.indexOf("pr")).toBeLessThan(names.length - 1);
+    }
+  });
+
+  test("the stale edge's hook, executed: the stale review is copied to review-prev.md and kept as review-stale-<n>.md, never as review-<n>.md; review.md goes last (#1206)", () => {
+    const edge = (loadRecipe().stages.spine_wait as WaitStage).outcomes[STALE];
+    expect(edge.run).toHaveLength(1);
+    const dir = mkdtempSync(join(tmpdir(), "baton-stale-"));
+    const exec = () => {
+      const argv = edge.run![0].map((a) => a.replaceAll(OUT, dir));
+      const p = Bun.spawnSync(argv, { stdout: "pipe", stderr: "pipe" });
+      expect([p.exitCode, p.stderr.toString()]).toEqual([0, ""]);
+    };
+    const ls = () => readdirSync(dir).sort();
+    exec(); // no review: succeeds, creates nothing
+    expect(ls()).toEqual([]);
+    writeFileSync(join(dir, "review.md"), "verdict: pass\nhead: one\n");
+    exec();
+    expect(ls()).toEqual(["review-prev.md", "review-stale-1.md"]);
+    expect(readFileSync(join(dir, "review-prev.md"), "utf8")).toBe("verdict: pass\nhead: one\n");
+    expect(readFileSync(join(dir, "review-stale-1.md"), "utf8")).toBe("verdict: pass\nhead: one\n");
+    writeFileSync(join(dir, "review.md"), "verdict: pass\nhead: two\n");
+    exec();
+    expect(ls()).toEqual(["review-prev.md", "review-stale-1.md", "review-stale-2.md"]);
+    expect(readFileSync(join(dir, "review-prev.md"), "utf8")).toBe("verdict: pass\nhead: two\n");
+    expect(readFileSync(join(dir, "review-stale-1.md"), "utf8")).toBe("verdict: pass\nhead: one\n"); // never overwritten
+    // a rerun with no review.md left changes nothing
+    exec();
+    expect(ls()).toEqual(["review-prev.md", "review-stale-1.md", "review-stale-2.md"]);
+    // the cap counts review-<n>.md only: nothing here may take that name
+    expect(ls().some((f) => /^review-[0-9]+\.md$/.test(f))).toBe(false);
+    rmSync(dir, { recursive: true });
+  });
+
+  // ---- C7 of #1053: the archive-and-number snippet has many copies and the recipe format cannot share one ----
+  /** Every `sh -c` script in the recipe that holds two or more of the snippet's four marks: a copy, or a copy with one change. */
+  function snippetCopies(r: Record<string, any>): { where: string; script: string }[] {
+    const MARKS = ['n=$((n+1))', "while [ -e", "mv -- ", '[ -e "$1/'];
+    const found: { where: string; script: string }[] = [];
+    const walk = (v: unknown, path: string) => {
+      if (Array.isArray(v)) {
+        if (v[0] === "sh" && v[1] === "-c" && typeof v[2] === "string" && MARKS.filter((m) => v[2].includes(m)).length >= 2) found.push({ where: path, script: v[2] });
+        v.forEach((x, i) => walk(x, `${path}[${i}]`));
+      } else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) walk(x, `${path}.${k}`);
+    };
+    walk(r, "recipe");
+    return found;
+  }
+  /** The copies that differ from the one most copies agree on, per class: the plain one, the item review's `$f` one and the stale-review one. */
+  function snippetDrift(r: Record<string, any>): string[] {
+    const copies = snippetCopies(r);
+    const cls = (s: string) => (s.includes("$f-$n") ? "item" : s.includes("review-stale-$n") ? "stale" : "plain");
+    const drift: string[] = [];
+    const plain = copies.filter((c) => cls(c.script) === "plain");
+    const tally = new Map<string, number>();
+    for (const c of plain) tally.set(c.script, (tally.get(c.script) ?? 0) + 1);
+    const canon = [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+    for (const c of plain) if (c.script !== canon) drift.push(c.where);
+    // the other two classes carry the plain loop with their own file names, derived from the plain copy, not restated
+    const core = canon.slice(canon.indexOf("n=1;"));
+    const derive = (src: string, dst: string) => core.replaceAll("$2$3", src).replaceAll("$2-$n$3", dst);
+    const want = { item: derive("review.md", "$f-$n.md"), stale: derive("review.md", "review-stale-$n.md") };
+    for (const c of copies) {
+      const k = cls(c.script);
+      if (k !== "plain" && !c.script.includes(want[k])) drift.push(c.where);
+    }
+    // the copies of one class are identical to each other
+    for (const k of ["item", "stale"] as const) {
+      const same = copies.filter((c) => cls(c.script) === k);
+      for (const c of same) if (c.script !== same[0].script) drift.push(c.where);
+    }
+    return drift;
+  }
+
+  test("every copy of the archive-and-number snippet is byte-identical to the others of its class; one changed character in one copy is caught (#1053 C7)", () => {
+    const r = raw();
+    const copies = snippetCopies(r);
+    expect(copies.filter((c) => !c.script.includes("$f-$n") && !c.script.includes("review-stale-$n")).length).toBeGreaterThanOrEqual(10); // the finder finds the copies, not nothing
+    expect(copies.some((c) => c.script.includes("$f-$n"))).toBe(true);
+    expect(copies.some((c) => c.script.includes("review-stale-$n"))).toBe(true);
+    expect(snippetDrift(r)).toEqual([]);
+    // controls: one character changed in one copy, in each place the snippet has one, is caught at that copy
+    const edits: [string, string][] = [["n=1;", "n=0;"], ["-e \"$1/$2-$n$3\"", "-f \"$1/$2-$n$3\""], ["mv -- ", "mv "], ["n=$((n+1))", "n=$((n+2))"], ["|| exit 0", "|| exit 1"]];
+    for (const [from, to] of edits) {
+      const mutated = structuredClone(r);
+      const target = snippetCopies(mutated).filter((c) => c.script.includes("$2-$n$3"))[3];
+      const holder = target.where.split(/[.[\]]+/).filter(Boolean).slice(1).reduce((o: any, k) => o[k], mutated); // the argv holding it
+      holder[2] = holder[2].replace(from, to);
+      expect([from, snippetDrift(mutated)]).toEqual([from, [target.where]]);
+    }
+    // the item-review and stale-review copies are tied to the plain loop too
+    for (const mark of ["$f-$n", "review-stale-$n"]) {
+      const mutated = structuredClone(r);
+      const target = snippetCopies(mutated).find((c) => c.script.includes(mark))!;
+      const holder = target.where.split(/[.[\]]+/).filter(Boolean).slice(1).reduce((o: any, k) => o[k], mutated);
+      holder[2] = holder[2].replace("n=$((n+1))", "n=$((n+2))");
+      expect([mark, snippetDrift(mutated)]).toEqual([mark, [target.where]]);
+    }
+  });
+
   test("item_moved: the review-3 stop first, then an unconditional edge back to item_review (#1079 C2)", () => {
     const st = loadRecipe().stages.item_moved as WaitStage;
     expect(st.kind).toBe("wait");
@@ -678,8 +855,9 @@ describe("ossify-spine recipe", () => {
     rmSync(dir, { recursive: true });
   });
 
-  test("item_review's outcome needs the verdict line and a 40-hex head on line 2, each tried on an input that separates it", () => {
-    const o = (loadRecipe().stages.item_review as SessionStage).outcomes[0];
+  test("item_review's and spine_review's outcomes need the verdict line and a 40-hex head on line 2, each tried on an input that separates it (#1206)", () => {
+   for (const stage of ["item_review", "spine_review"]) {
+    const o = (loadRecipe().stages[stage] as SessionStage).outcomes[0];
     const dir = mkdtempSync(join(tmpdir(), "baton-verdict-"));
     const file = join(dir, "review.md");
     const holds = (text: string | null): boolean => {
@@ -705,7 +883,10 @@ describe("ossify-spine recipe", () => {
     expect(holds(`verdict: pass\nreviewed it\nhead: ${sha}\n`)).toBe(false); // not on line 2: land reads line 2
     expect(holds(`verdict: pass\nhead: abc123\n- head: ${sha}\n`)).toBe(false); // a quoted line is no head
     expect(holds(`head: ${sha}\nverdict: pass\n`)).toBe(false); // head on line 1 is not the contract's line 2
+    expect(holds(`verdict: pass\nno findings\n`)).toBe(false); // no head line at all
+    expect(holds(`verdict: pass\nhead: abc123\nno findings\n`)).toBe(false); // an abbreviated head
     rmSync(dir, { recursive: true });
+   }
   });
 
   /** Whether item_review's outcome (the file, the line-1 verdict, the line-2 head) holds for a review text. */
@@ -942,11 +1123,16 @@ describe("outcome hooks remove their own trigger last (#1110)", () => {
   const consumes = (argv: string[], path: string): boolean => {
     if (argv[0] === "rm") return argv.slice(1).includes(path);
     if (argv[0] === "sh" && argv[1] === "-c" && argv.length === 7) return `${argv[4]}/${argv[5]}${argv[6]}` === path;
+    // spine_wait's stale-review hook: one script that copies review.md, then moves it
+    if (argv[0] === "sh" && argv[1] === "-c" && argv.length === 5 && argv[2].includes('mv -- "$1/review.md"')) return `${argv[4]}/review.md` === path;
     return false;
   };
+  /** Every stage with a list of outcomes: the session stages and the wait stages. */
+  const listed = (r: Recipe): [string, { outcomes: Outcome[] }][] =>
+    Object.entries(r.stages).filter(([, s]) => Array.isArray((s as { outcomes?: unknown }).outcomes)) as [string, { outcomes: Outcome[] }][];
   const earlyConsumers = (r: Recipe): string[] => {
     const bad: string[] = [];
-    for (const [n, st] of sessions(r)) {
+    for (const [n, st] of listed(r)) {
       st.outcomes.forEach((o, i) => {
         const files = o.when.flatMap((sig) => ("file" in sig ? [sig.file] : []));
         const run = o.run ?? [];
@@ -970,13 +1156,18 @@ describe("outcome hooks remove their own trigger last (#1110)", () => {
     const fo = (swapped.stages.item_fix as SessionStage).outcomes[0];
     fo.run = [fo.run![1], fo.run![0]];
     expect(earlyConsumers(swapped)).toEqual(["item_fix.outcomes[0].run[0]"]);
+    // control: the stale-review edge of spine_wait, with a hook after the one that moves review.md, is caught
+    const stale = structuredClone(r);
+    const so = (stale.stages.spine_wait as WaitStage).outcomes[5];
+    so.run = [...so.run!, ["true"]];
+    expect(earlyConsumers(stale)).toEqual(["spine_wait.outcomes[5].run[0]"]);
   });
 
   test("T2: at every file-triggered outcome, a failure at any hook leaves the trigger and a rerun from the first succeeds", () => {
     const r = loadRecipe();
     const lost: string[] = [];
     let sites = 0;
-    for (const [n, st] of sessions(r)) {
+    for (const [n, st] of listed(r)) {
       st.outcomes.forEach((o, i) => {
         const run = o.run ?? [];
         const files = o.when.flatMap((sig) => ("file" in sig ? [sig.file] : []));
@@ -997,7 +1188,7 @@ describe("outcome hooks remove their own trigger last (#1110)", () => {
         }
       });
     }
-    expect(sites).toBe(9);
+    expect(sites).toBe(10); // nine session outcomes and spine_wait's stale-review edge
     expect(lost).toEqual([]);
   });
 
@@ -1201,6 +1392,45 @@ describe("ossify-spine briefs", () => {
     expect(r).toContain("verdict: pass");
     expect(r).toContain("verdict: block");
     expect(r).toContain("head: ");
+  });
+
+  test("a seat takes the ledger's UTC time from date -u and never writes it by hand (#931)", () => {
+    const c = flat(brief("common.md"));
+    expect(c).toContain("Take `<UTC time>` from `date -u +%FT%TZ`");
+    expect(c).toContain("never write it by hand");
+  });
+
+  test("spine-work: a round that would push nothing and change no PR body is a stop, and writes no round done file (#1206)", () => {
+    const w = flat(brief("spine-work.md"));
+    for (const pin of ["a round that would neither push a commit nor change the PR body", "write the stop file naming what is left", "who must act",
+      "only the merge holder may do it", "end without writing the round done file"]) {
+      expect([pin, w.includes(pin)]).toEqual([pin, true]);
+    }
+    // the done file is still the round's only success signal
+    expect(w).toContain("This file is the round's only success signal.");
+  });
+
+  test("spine-review asks for the full 40-hex head, as item-review does (#1206)", () => {
+    expect(flat(brief("spine-review.md"))).toContain("Its second line is `head: <sha>`, the full 40-hex head you reviewed");
+    expect(flat((loadRecipe().stages.spine_review as SessionStage).message)).toContain("second line is head: followed by the reviewed head SHA (40 hex)");
+  });
+
+  test("spine-finish writes the review-ledger and tech-debt lines with the close record, runs the harvest through §6 and accepts none (#1049)", () => {
+    const b = flat(brief("spine-finish.md"));
+    for (const pin of [
+      "merge-bar working-a-pr §5's lines", "`.claude/memory-bank/`", "one `review-ledger.md` line per merged PR of the spine (each item's `pr_url` in the project state, and the spine PR)",
+      "the `tech-debt.md` `[KL]` / `[TD]` lines from each merged PR's final `## Known limits`", "`review-<n>.md`, then `review.md`", "`report:` is the last review file's path",
+      "Commit the ledger and those memory-bank lines with the close record",
+      "Run it through §6 and stop there", "`harvest.md` in OUT", "`## Harvest candidates` heading in the close PR body", "Accept none and apply nothing (no §7 append)",
+    ]) expect([pin, b.includes(pin)]).toEqual([pin, true]);
+    // rule 1 still ends the turn before anything is written
+    expect(b.indexOf("end the turn without rerunning close and without a commit")).toBeLessThan(b.indexOf("Review ledger."));
+    // the seat is given the run's out root, and both notices name the candidates file
+    const fin = loadRecipe().stages.spine_finish as SessionStage;
+    expect(fin.message).toContain("Out root: {run.dir}/out.");
+    expect(fin.outcomes.map((o) => o.notify ?? "")).toHaveLength(2);
+    for (const o of fin.outcomes) expect(o.notify).toContain("{run.dir}/out/{unit.id}/harvest.md");
+    expect(fin.outcomes.map((o) => o.to)).toEqual(["done", "spine_close_wait"]);
   });
 
   test("item-review carries the review contract and judges a body with no bar by the template's four conditions (#1046)", () => {

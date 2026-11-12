@@ -1,6 +1,6 @@
 {
   "name": "baton",
-  "version": "0.18.1",
+  "version": "0.19.0",
   "description": "A recipe-driven engine that launches model sessions on a host when a unit is due, waits on closed signals at no token cost, and merges pull requests only by the recipe's rule. Ships an example recipe that runs an ossify spine. Ships one skill, running-a-spine-on-baton, for the orchestrator that arms a run.",
   "author": {
     "name": "Pras"

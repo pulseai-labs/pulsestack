@@ -142,7 +142,9 @@ operator.
 | `land` red check | send the item back with the fix; rerun a flaky check once | none |
 | Spine PR round stop | rule it under the project's Round stop order, write the ruling to `operator.md`, replacing any (the work-PR seat puts it in the PR body) | split the PR or change the design; a finding the order sends to the operator |
 | "passed review … merge it" | check the pass against the rulings; send a finding the order sends to a fix back to `spine_work` | the merge, unless the project's governance grants this session merge authority |
-| PR conflict | merge the base into the spine branch, move `review.md` to `review-prev.md`, unpark `--to spine_review` | a closed PR |
+| PR conflict | merge the base into the spine branch, copy `review.md` to `review-prev.md` and move it aside as the next free `review-<n>.md`, unpark `--to spine_review` | a closed PR |
+| Spine review stop (`spine_wait` park, review 3) | `--to spine_work` after writing `out/spine-pr/operator.md`, replacing any | a red check no seat may fix, such as `main` to bring in (the merge holder acts, then the PR conflict row's file step and `--to spine_review`); merging the PR to accept the findings (then a plain unpark); a finding the order sends to the operator |
+| Stale-review stop (`spine_wait` park, `review-stale-3.md` exists) | find out why the reviewer keeps reading an old head (it must read the PR's `headRefOid`), copy `review.md` to `review-prev.md` and move it aside as the next free `review-stale-<n>.md`, then unpark `--to spine_review` | a reviewer that cannot read the PR head |
 | `spine_finish` stop | a `user:` line: prepare the walk and evidence; any other stop: rule it as a close stop | a `user:` line's pass or fail: write it to `out/spine-pr/operator.md`, replacing any, unpark; move it aside as the next free `operator-<n>.md` before an unpark `--to` any other stage |
 | AI close PR recorded (`spine_finish` notice) | merge it if governance grants this session merge authority | otherwise the merge |
 | `spine_close_wait` park | the close PR merged but `origin/main` is not closed, it closed unmerged or conflicts, or `close-pr.txt` holds no PR URL: fix it, unpark | merging the close PR unless governance grants it; a seat must never merge it |
@@ -151,7 +153,7 @@ operator.
 | PR URL stop (`item_ready` park) | fix the item's `pr_url` in the ossify state and in `queue/<wi>.json`, then `--to item_ready` | none |
 | Item moved stop (`item_moved` park, nothing merged) | `--to item_review` runs one more review | merging the PR by hand, then `--to land` ends the unit; `--to land` alone parks again |
 | Close or spine-open stop | rule it; write `out/<wi>/operator.md` (`out/lane/` for spine-open), replacing any, unpark; move it aside as the next free `operator-<n>.md` before an unpark `--to` any stage other than the one the ruling is for | a stop that names a spec or ADR change |
-| Close harvest | present the candidates | accept |
+| Close harvest | present the candidates (`out/spine-pr/harvest.md`, and `## Harvest candidates` in the close PR body); apply the operator's accepted set (ossify harvest §7) on the close PR's branch before the merge, or as a follow-up commit where the workspace pushes direct | accept |
 
 A notice with no run (`auth`, `down`) is the host's: report it, touch nothing. End each notice
 turn with the status block; `Waiting on` names baton's seat, or the operator.

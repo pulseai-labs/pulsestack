@@ -182,7 +182,7 @@ describe("a ruling file holds one ruling (#1075)", () => {
   });
   test("every skill row that writes operator.md says replace, and the close row says move it aside", () => {
     const rows = skill().split("\n").filter((l) => l.startsWith("|") && l.includes("operator.md"));
-    expect(rows.length).toBe(4);
+    expect(rows.length).toBe(5);
     for (const row of rows) expect(row).toContain("replacing any");
     const close = rows.find((l) => l.startsWith("| Close or spine-open stop |")) ?? "";
     expect(close).toContain("move it aside as the next free `operator-<n>.md` before an unpark `--to` any stage other than the one the ruling is for");
@@ -347,28 +347,81 @@ describe("README, skill and release wording (baton 0.18.1)", () => {
     expect(r).toContain("`<iso> <key> notify-orchestrator <where>: <reason>`");
   });
 
-  test("the version is 0.18.1 in plugin.json and the changelog; the upgrade note is recipe-only and by hand (#1110)", () => {
-    expect(JSON.parse(readFileSync(join(import.meta.dir, "..", ".claude-plugin", "plugin.json"), "utf8")).version).toBe("0.18.1");
+  test("the version is 0.19.0 in plugin.json and the changelog; 0.18.1, 0.18.0 and 0.17.4 keep their upgrade notes as history (#1110)", () => {
+    expect(JSON.parse(readFileSync(join(import.meta.dir, "..", ".claude-plugin", "plugin.json"), "utf8")).version).toBe("0.19.0");
     const top = changelog().split("\n## ")[1].replace(/\s+/g, " ");
-    expect(top.startsWith("0.18.1 - ")).toBe(true);
-    expect(top).toContain("`correct` archives `correction.txt` before it removes `corrected`");
-    expect(top).toContain("#1110");
-    expect(top).toContain("Armed runs keep the order they were armed with");
-    expect(top).toContain("takes effect at that project's next `baton arm`");
-    expect(top).toContain("Never `cp -r` over a customised copy");
-    expect(top).toContain("`rm -f review.md round-done operator.md`");
+    expect(top.startsWith("0.19.0 - ")).toBe(true);
+    const v181 = changelog().split("\n## ")[2].replace(/\s+/g, " ");
+    expect(v181.startsWith("0.18.1 - ")).toBe(true);
+    expect(v181).toContain("`correct` archives `correction.txt` before it removes `corrected`");
+    expect(v181).toContain("#1110");
+    expect(v181).toContain("Armed runs keep the order they were armed with");
+    expect(v181).toContain("takes effect at that project's next `baton arm`");
+    expect(v181).toContain("Never `cp -r` over a customised copy");
+    expect(v181).toContain("`rm -f review.md round-done operator.md`");
     // 0.18.0 keeps its own upgrade note and its #1110 known limit as history
-    const v18 = changelog().split("\n## ")[2].replace(/\s+/g, " ");
+    const v18 = changelog().split("\n## ")[3].replace(/\s+/g, " ");
     expect(v18.startsWith("0.18.0 - ")).toBe(true);
     expect(v18).toContain("It reaches every armed run at its next tick");
     expect(v18).toContain("no recipe copy is needed");
     expect(v18).toContain("`relaunch skipped`");
     expect(v18).toContain("Reordering its hooks is #1110");
     // 0.17.4 keeps its own upgrade note
-    const prev = changelog().split("\n## ")[3];
+    const prev = changelog().split("\n## ")[4];
     expect(prev.startsWith("0.17.4 - ")).toBe(true);
     expect(prev).toContain("only when no run is armed or parked there");
     expect(prev).toContain("the archive snippet's ten copies");
     expect(prev).not.toContain("nine copies");
+  });
+});
+
+// 0.19.0 (#931, #1049, #1053 C7, #1206): the runbook lines an orchestrator acts on after the spine PR loop and the close.
+describe("README, skill and release wording (baton 0.19.0)", () => {
+  const readmeFlat = () => readFileSync(join(import.meta.dir, "..", "README.md"), "utf8").replace(/\s+/g, " ");
+  const changelog = () => readFileSync(join(import.meta.dir, "..", "CHANGELOG.md"), "utf8");
+  const row = (start: string) => skill().split("\n").find((l) => l.startsWith(start)) ?? "";
+
+  test("the changelog closes the four issues, names the engine as unchanged, and carries the known limits (#1053 moved its last item to merge-bar #1211)", () => {
+    const top = changelog().split("\n## ")[1].replace(/\s+/g, " ");
+    expect(top).toContain("Closes #931, #1049, #1053 and #1206");
+    expect(top).toContain("The engine is unchanged");
+    expect(top).not.toContain("loops `spine_review` and `spine_wait` with no park"); // the loop is parked now, not a known limit
+    for (const pin of ["A run armed before 0.19.0 keeps its recipe and briefs", "The cap counts reviews, not wall time", "the fourth parks `spine_wait` (`review-stale-3.md` exists)"]) {
+      expect([pin, top.includes(pin)]).toEqual([pin, true]);
+    }
+  });
+
+  test("the spine review stop is in the notices and the README runbook, beside the item one; the PR conflict row keeps the review under a number (#1206)", () => {
+    const stop = row("| Spine review stop (`spine_wait` park, review 3) |");
+    expect(stop).toContain("--to spine_work");
+    expect(stop).toContain("out/spine-pr/operator.md");
+    expect(stop).toContain("`main` to bring in");
+    expect(stop).toContain("(then a plain unpark)");
+    const staleStop = row("| Stale-review stop (`spine_wait` park, `review-stale-3.md` exists) |");
+    expect(staleStop).toContain("find out why the reviewer keeps reading an old head");
+    expect(staleStop).toContain("move it aside as the next free `review-stale-<n>.md`");
+    expect(staleStop).toContain("unpark `--to spine_review`");
+    expect(row("| PR conflict |")).toContain("copy `review.md` to `review-prev.md` and move it aside as the next free `review-<n>.md`");
+    const r = readmeFlat();
+    for (const pin of ["**The spine review stop.**", "at most three counted reviews", "once `review-2.md` exists (review 3 has run) parks `spine-pr` in `spine_wait`",
+      "`review-stale-<n>.md`", "A stale review takes no review number", "A fourth stale pass (once `review-stale-3.md` exists) parks `spine-pr` in `spine_wait` with reason `outcome`", "`spine_ack` needs `review.md`'s line 2 to equal `head: <the PR's current head>`",
+      "`baton unpark <run> spine-pr --to spine_work`", "a plain `baton unpark <run> spine-pr` reads the merge",
+      "copy `out/spine-pr/review.md` to `review-prev.md` and move it aside as the next free `review-<n>.md`"]) {
+      expect([pin, r.includes(pin)]).toEqual([pin, true]);
+    }
+    expect(r.indexOf("**The spine review stop.**")).toBeGreaterThan(r.indexOf("**The item review stop.**"));
+  });
+
+  test("the Close harvest row says where the candidates are and that the orchestrator applies the accepted set, and the README says the seat accepts none (#1049)", () => {
+    const h = row("| Close harvest |");
+    for (const pin of ["`out/spine-pr/harvest.md`", "`## Harvest candidates` in the close PR body", "apply the operator's accepted set (ossify harvest §7)",
+      "on the close PR's branch before the merge", "as a follow-up commit where the workspace pushes direct"]) {
+      expect([pin, h.includes(pin)]).toEqual([pin, true]);
+    }
+    expect(h.endsWith("| accept |")).toBe(true);
+    const r = readmeFlat();
+    for (const pin of ["writes the harvest candidates to `out/spine-pr/harvest.md`", "accepts and applies none", "commits the review-ledger and tech-debt lines"]) {
+      expect([pin, r.includes(pin)]).toEqual([pin, true]);
+    }
   });
 });

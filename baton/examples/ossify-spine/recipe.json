@@ -385,7 +385,7 @@
       "cwd": "{param.repo}",
       "launch_dir": "worktree",
       "title": "spine review {param.spine}",
-      "message": "{agent.review} {unit.vars.pr_url} previous: {run.dir}/out/{unit.id}/review-prev.md Then read {param.briefs}/common.md and {param.briefs}/spine-review.md, and write {run.dir}/out/{unit.id}/review.md whose first line is exactly verdict: pass or verdict: block, whose second line is head: followed by the reviewed head SHA, then the findings. OUT: {run.dir}/out/{unit.id}. Stop file: {run.dir}/out/{unit.id}/stop. Ledger: {param.spine_dir}/autopilot-ledger.md.",
+      "message": "{agent.review} {unit.vars.pr_url} previous: {run.dir}/out/{unit.id}/review-prev.md Then read {param.briefs}/common.md and {param.briefs}/spine-review.md, and write {run.dir}/out/{unit.id}/review.md whose first line is exactly verdict: pass or verdict: block, whose second line is head: followed by the reviewed head SHA (40 hex), then the findings. OUT: {run.dir}/out/{unit.id}. Stop file: {run.dir}/out/{unit.id}/stop. Ledger: {param.spine_dir}/autopilot-ledger.md.",
       "env": {
         "SEAT_MODS_ROLE": "reviewer",
         "SEAT_MODS_ALLOW": "{run.dir}/out/{unit.id}",
@@ -402,7 +402,8 @@
         {
           "when": [
             { "file": "{run.dir}/out/{unit.id}/review.md" },
-            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: (pass|block)"] }
+            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: (pass|block)"] },
+            { "exit0": ["sh", "-c", "sed -n 2p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "head: [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]"] }
           ],
           "to": "spine_wait"
         }
@@ -412,8 +413,30 @@
       "kind": "wait",
       "outcomes": [
         { "when": [{ "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "merged" } }], "to": "spine_finish" },
+        { "when": [{ "file": "{run.dir}/out/{unit.id}/review-2.md" }, { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: block"] }], "to": "park" },
         { "when": [{ "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "closed" } }], "to": "park" },
         { "when": [{ "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "conflict" } }], "to": "park" },
+        {
+          "when": [
+            { "file": "{run.dir}/out/{unit.id}/review-stale-3.md" },
+            { "file": "{run.dir}/out/{unit.id}/review.md" },
+            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: pass"] },
+            { "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "open" } },
+            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; case \"$2\" in *[!0-9a-f]*|\"\") exit 2;; esac; [ \"$(expr \"$2\" : '.*')\" -eq 40 ] || exit 2; [ \"$(sed -n 2p \"$1\")\" != \"head: $2\" ]", "sh", "{run.dir}/out/{unit.id}/review.md", "{pr.head}"] }
+          ],
+          "to": "park"
+        },
+        {
+          "when": [
+            { "file": "{run.dir}/out/{unit.id}/review.md" },
+            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: pass"] },
+            { "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "open" } },
+            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; case \"$2\" in *[!0-9a-f]*|\"\") exit 2;; esac; [ \"$(expr \"$2\" : '.*')\" -eq 40 ] || exit 2; [ \"$(sed -n 2p \"$1\")\" != \"head: $2\" ]", "sh", "{run.dir}/out/{unit.id}/review.md", "{pr.head}"] }
+          ],
+          "to": "spine_review",
+          "run": [["sh", "-c", "[ -e \"$1/review.md\" ] || exit 0; cp -f -- \"$1/review.md\" \"$1/review-prev.md\"; n=1; while [ -e \"$1/review-stale-$n.md\" ]; do n=$((n+1)); done; mv -- \"$1/review.md\" \"$1/review-stale-$n.md\"", "sh", "{run.dir}/out/{unit.id}"]]
+        },
+        { "when": [{ "file": "{run.dir}/out/{unit.id}/review-2.md" }, { "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "checks_red" } }], "to": "park" },
         { "when": [{ "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "checks_red" } }], "to": "spine_work" },
         {
           "when": [
@@ -426,7 +449,8 @@
           "when": [
             { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: pass"] },
             { "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "checks_green" } },
-            { "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "mergeable" } }
+            { "pr": { "url": ["printf", "%s", "{unit.vars.pr_url}"], "test": "mergeable" } },
+            { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; case \"$2\" in *[!0-9a-f]*|\"\") exit 2;; esac; [ \"$(expr \"$2\" : '.*')\" -eq 40 ] || exit 2; [ \"$(sed -n 2p \"$1\")\" = \"head: $2\" ]", "sh", "{run.dir}/out/{unit.id}/review.md", "{pr.head}"] }
           ],
           "to": "spine_ack",
           "notify": "Spine {param.spine} PR {unit.vars.pr_url} passed review and is green and mergeable: read its needs-you list and any CodeRabbit thread newer than the last push, then merge it only where the project's governance grants that, else ask the operator."
@@ -457,7 +481,7 @@
         {
           "when": [{ "file": "{run.dir}/out/{unit.id}/round-done" }],
           "to": "spine_review",
-          "run": [["sh", "-c", "[ -e \"$1/review.md\" ] || exit 0; cp -f -- \"$1/review.md\" \"$1/review-prev.md\"", "sh", "{run.dir}/out/{unit.id}"], ["sh", "-c", "[ -e \"$1/$2$3\" ] || exit 0; n=1; while [ -e \"$1/$2-$n$3\" ]; do n=$((n+1)); done; mv -- \"$1/$2$3\" \"$1/$2-$n$3\"", "sh", "{run.dir}/out/{unit.id}", "operator", ".md"], ["rm", "-f", "{run.dir}/out/{unit.id}/review.md", "{run.dir}/out/{unit.id}/round-done", "{run.dir}/out/{unit.id}/operator.md"]]
+          "run": [["sh", "-c", "[ -e \"$1/review.md\" ] || exit 0; cp -f -- \"$1/review.md\" \"$1/review-prev.md\"", "sh", "{run.dir}/out/{unit.id}"], ["sh", "-c", "[ -e \"$1/$2$3\" ] || exit 0; n=1; while [ -e \"$1/$2-$n$3\" ]; do n=$((n+1)); done; mv -- \"$1/$2$3\" \"$1/$2-$n$3\"", "sh", "{run.dir}/out/{unit.id}", "review", ".md"], ["sh", "-c", "[ -e \"$1/$2$3\" ] || exit 0; n=1; while [ -e \"$1/$2-$n$3\" ]; do n=$((n+1)); done; mv -- \"$1/$2$3\" \"$1/$2-$n$3\"", "sh", "{run.dir}/out/{unit.id}", "operator", ".md"], ["rm", "-f", "{run.dir}/out/{unit.id}/round-done"]]
         }
       ]
     },
@@ -491,7 +515,7 @@
       "cwd": "{param.ai_root}",
       "launch_dir": "root",
       "title": "spine finish {param.spine}",
-      "message": "Read {param.briefs}/common.md, then {param.briefs}/spine-finish.md, and follow them. Spine: {param.spine}. Spine PR: {unit.vars.pr_url}. Ruling file: {run.dir}/out/{unit.id}/operator.md. OUT: {run.dir}/out/{unit.id}. Stop file: {run.dir}/out/{unit.id}/stop. Ledger: {param.spine_dir}/autopilot-ledger.md.",
+      "message": "Read {param.briefs}/common.md, then {param.briefs}/spine-finish.md, and follow them. Spine: {param.spine}. Spine PR: {unit.vars.pr_url}. Ruling file: {run.dir}/out/{unit.id}/operator.md. OUT: {run.dir}/out/{unit.id}. Out root: {run.dir}/out. Stop file: {run.dir}/out/{unit.id}/stop. Ledger: {param.spine_dir}/autopilot-ledger.md.",
       "env": {
         "SEAT_MODS_ROLE": "coordinator",
         "SEAT_MODS_ALLOW": "{run.dir}/out/{unit.id}",
@@ -508,13 +532,14 @@
         {
           "when": [{ "exit0": ["sh", "-c", "d=$(dirname -- \"$1\"); b=$(basename -- \"$1\"); GIT_TERMINAL_PROMPT=0 git -C \"$d\" fetch -q origin main || exit 2; s=$(git -C \"$d\" show \"origin/main:./$b\") || exit 2; printf '%s\\n' \"$s\" | jq -e --arg s \"$2\" '.spines[] | select(.id == $s) | .status == \"closed\"' >/dev/null; r=$?; [ \"$r\" -le 1 ] || exit 2; exit \"$r\"", "sh", "{param.state_file}", "{param.spine}"] }],
           "to": "done",
-          "run": [["sh", "-c", "[ -e \"$1/$2$3\" ] || exit 0; n=1; while [ -e \"$1/$2-$n$3\" ]; do n=$((n+1)); done; mv -- \"$1/$2$3\" \"$1/$2-$n$3\"", "sh", "{run.dir}/out/{unit.id}", "operator", ".md"]]
+          "run": [["sh", "-c", "[ -e \"$1/$2$3\" ] || exit 0; n=1; while [ -e \"$1/$2-$n$3\" ]; do n=$((n+1)); done; mv -- \"$1/$2$3\" \"$1/$2-$n$3\"", "sh", "{run.dir}/out/{unit.id}", "operator", ".md"]],
+          "notify": "The AI close for {param.spine} is on origin/main. Harvest candidates, if the seat wrote any, are in {run.dir}/out/{unit.id}/harvest.md: present them to the operator, then apply the accepted set (ossify harvest §7) as a follow-up commit."
         },
         {
           "when": [{ "file": "{run.dir}/out/{unit.id}/close-pr.txt" }],
           "to": "spine_close_wait",
           "run": [["sh", "-c", "[ -e \"$1/$2$3\" ] || exit 0; n=1; while [ -e \"$1/$2-$n$3\" ]; do n=$((n+1)); done; mv -- \"$1/$2$3\" \"$1/$2-$n$3\"", "sh", "{run.dir}/out/{unit.id}", "operator", ".md"]],
-          "notify": "The AI close PR for {param.spine} is recorded in {run.dir}/out/{unit.id}/close-pr.txt: review and merge it as the project's governance grants, else ask the operator. baton then reads origin/main for the closed spine."
+          "notify": "The AI close PR for {param.spine} is recorded in {run.dir}/out/{unit.id}/close-pr.txt: review and merge it as the project's governance grants, else ask the operator. baton then reads origin/main for the closed spine. Harvest candidates are in {run.dir}/out/{unit.id}/harvest.md and under ## Harvest candidates in its body: present them to the operator, then apply the accepted set (ossify harvest §7) on its branch before the merge."
         }
       ]
     }
