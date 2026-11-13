@@ -2,6 +2,16 @@
 
 All notable changes to the `crew` plugin.
 
+## 0.11.4
+
+**The ceiling accepts the manifest's numbers; wait and resume prose agrees with its contracts.** Closes #616, #587, #856 and #515.
+
+- **Numeric ceiling (#616):** jq decides the min-1 setting and compares it without flooring; 100000.5 fires at 100001 and exponent forms are compared, not dropped. Failed setting or comparison jq yields an unavailable notice, never a default comparison or a below-ceiling verdict. Normal notices quote the number in force; an unavailable notice instead reports an unchecked setting when jq is missing or normalization yielded no value.
+- **Doorbell follow-ons (#587):** dialog answers re-arm the coordinator's pair, acknowledged reports are cleared or moved before dispatch, false wakes forbid a second settled-state wait rather than the dialog companion, and file identity is inode with mtime. The already-shipped hash-or-identity wake and silent companion timeout stay unchanged; the inaccurate test-count comment is removed.
+- **Resume and descriptions (#856):** an answered transcript question is applied, not re-asked; ping headers cover skipped and failed sends and hold workers at their gates; step references and the direct work-PR merge actor are explicit. Public descriptions name the run's merge word (`standing` by default) and the two cases that go to the operator: an operator gate and an operator merge executor; the reviewer command includes its level, and the retired-command pin's label names only what it checks. The PING counter is already an anchored line count, not a copy of the literal-occurrence loop.
+- **Context probe (#515):** after a plain send each layer reads the rendered screen at most five times, with `sleep 1` between reads; herdr first waits up to 5000 ms. Only a figure different from the pre-send screen is accepted; an unavailable figure sends the next item to a fresh seat. Shared files route to the layer's probe rather than restating its reads.
+- **Known limits:** the existing `standing` merge default is unchanged and requires no proof of a project standing order. An unchanged figure is not freshness proof; if no changed figure is established by the bounded probe, it is unavailable. No jq means no setting validation or context comparison. The figure regex matches Claude Code's `/context` render; a `can: slash-commands` seat on another CLI with a different render fails the probe and rotates at every boundary.
+
 ## 0.11.3
 
 **Text only (#1099).** `completion.md` (the doorbell paragraph, the stall rule, the handoff rule) and `lifecycle.md`'s stand-down name how a seat stops its own wait, companion or heartbeat: OMP `write proc://<job id>/kill`, Claude Code `TaskStop`, a shell process this session started by its exact PID or job id; never a process listing (`ps`, `pgrep`, `pidof`, `/proc`) fed to `kill`. `SKILL.md` and every coordinator brief's NEVER line carry the same refusal. No code.

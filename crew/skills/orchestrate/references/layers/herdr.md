@@ -125,11 +125,11 @@ PING_SEND=herdr agent prompt <that pane>
 This is the one statement of how the orchestrator sends a seat anything; other files say "send" and mean this. The slot `PING_SEND` a brief's `PING:` and `MOLT:` lines carry is this
 file's send, filled by the dispatcher.
 
-- **Detected:** `herdr agent prompt <pane> '<line>'`. herdr prepends nothing: it submits
-  the text and Enter as one submission, and what it adds to a seat is environment such as
-  `HERDR_PANE_ID`, never prompt text. A message that starts work takes the turn-start
-  check below. A local slash command (`/context`, `/clear`) settles without a turn, so it
-  is sent plain, without that `--wait`, and its one reply read with `herdr pane read`.
+- **Detected:** `herdr agent prompt <pane> '<line>'` submits text and Enter as one submission. herdr adds environment such as `HERDR_PANE_ID`, never prompt text. Work takes the turn-start check below. A local slash command (`/context`, `/clear`) settles without a turn and is sent plain, without that `--wait`.
+  For `/context`, note the pre-send screen; after the plain send, `herdr pane wait-output <pane>
+  --regex '[0-9.]+[kKmM]? */ *[0-9.]+[kKmM]? tokens' --source visible --timeout 5000`. Then read with `herdr pane read <pane> --source visible`
+  at most 5 times, with `sleep 1` between reads; accept only a figure that differs from the pre-send screen.
+  No changed figure or a wait timeout means figure unavailable, treated as past half: the next item goes to a fresh seat.
 - **Undetected:** no `agent` command reaches the pane; they accept only a pane hosting a detected
   agent. Send the by-file line with `herdr pane run <pane> '<line>'` (the line and Enter; only `agent
   prompt` is documented to honour bracketed paste); a seat set to `brief_delivery: inject` is reported to the operator. No turn-start check.
@@ -160,7 +160,7 @@ timeout counts from before submission, a few seconds above the five-second gate.
 
 The layer's read forms: `herdr pane read <pane>` (the rendered screen, `--source visible` when
 the profile says `model_shows: screen`), `herdr pane wait-output <pane> --match '<pattern>'
---timeout <ms>` (output), and the detection asks `Readiness` states. Each use states its flags
+--timeout <ms>` (output), or `--regex '<pattern>' --source visible --timeout <ms>` for `/context`, and the detection asks `Readiness` states. Each use states its flags
 where it is used — `Readiness` for both wait paths, `Seat launch` for the model read,
 `Completion signal` for the health check. No read is licensed
 by the layer: the shared files say which reads a turn may spend.

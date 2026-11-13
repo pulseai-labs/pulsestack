@@ -81,8 +81,8 @@ top's own wait and read on the remote seat (`Machines`). Turn-start proof:
 `--wait-submit <s>` → `turn_started` in `prompt.stages`; a timeout returns the queued
 receipt and never resends, and an ambiguous transport failure is reissued with
 `--retry-request <id>`, never the text resent. A stalled or timed-out send is never sent
-again (`roles.md`) — read the state it left. A local slash command settles without a turn:
-sent without the turn-start proof, its reply read with the screen read.
+again (`roles.md`) — read the state it left. A local slash command settles without a turn and is sent without the turn-start proof.
+For `/context`, note the pre-send screen; after the plain send, read the rendered screen below at most 5 times, with `sleep 1` between reads; accept only a figure that differs from the pre-send screen. No changed figure means figure unavailable, treated as past half: the next item goes to a fresh seat.
 
 **By file.** A brief, a correction request or any message past one line is written to
 `<run dir>/scratch/<role>-<n>.brief-<k>` — absolute, on this host (a terminal of this host reads

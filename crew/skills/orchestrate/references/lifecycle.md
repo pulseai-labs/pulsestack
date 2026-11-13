@@ -113,8 +113,8 @@ Every command's syntax comes from the layer's guide.
    What a wake means — the file the doorbell reads, the generation check, the two dead ends,
    the ping and the heartbeat are `completion.md`'s, stated there once; this step only names
    the wait. A `blocked` wake is a dialog: read it (the layer's Read), put it to the operator,
-   answer it as the layer's `Wait` states, then one fresh bounded wait. A loop of waits, and
-   restarting a wait after an empty timeout, both stay forbidden.
+   answer it as the layer's `Wait` states, then one fresh bounded wait; a detected coordinator re-arms the pair (`completion.md`).
+   A loop of waits, and restarting a wait after an empty timeout, both stay forbidden.
    Before any question to the operator the top writes `run.question` before it asks and removes it on
    the answer — `{text, asked_at, task, message_id?}` (`message_id` only when the question answers or
    relays a dagr operator message) — so a question survives the top.
@@ -132,8 +132,8 @@ Every command's syntax comes from the layer's guide.
    operator's word to wait on that pane again — never by the orchestrator's own re-entry.
    At each task
    boundary for a retained implementer whose profile can run a local slash command and
-   whose send route carries one, send `/context` and read the one reply before attaching
-   the next task; the threshold, and the seat this probe does not reach, are in `roles.md`.
+   whose send route carries one, use the layer's bounded `/context` reads and unavailable result
+   before attaching the next task; the threshold and ineligible-seat rule are in `roles.md`.
 6. **Implementer finishes.** Its report file carries the completion body its
    brief defined — the commit SHAs and file count, each test command's pass and
    fail counts with the full output, the PR it opened with
@@ -225,8 +225,8 @@ Every command's syntax comes from the layer's guide.
     disposition comment (step 10).
     Act only when every one is clean: a non-mergeable state is surfaced to the operator
     as the blocker, and a new actionable finding returns to step 10.
-    The run's `run.merge_word` decides where the merge word comes from. With `standing`, the operator's
-    standing word is it: a clean gate set on that SHA is the agreed condition, so merge with no ask (#837).
+    The run's `run.merge_word` decides where the merge word comes from. With `standing` (the default),
+    a clean gate set on that SHA is the agreed condition, so merge with no ask (#837).
     A one-way door — a `handed off: one-way <OID>` return, or where merge-bar's `working-a-pr` runs a
     body with `Door: one-way` or no `Door:` line — follows merge-bar's
     `skills/working-a-pr/references/one-way-door.md` under either word, `standing` included: its
@@ -343,16 +343,16 @@ when the effect is absent.
 **The resume.** The new top resumes by naming the parent's `run.json` path — there is no CLI call:
 1. It reads the file and the fresh handoff.
 2. A session that binds an existing `run.json` rewrites `run.orchestrator` to its own address from the layer's Identity — dagr's stable-agent fallback otherwise — in the same producer loop every other write takes.
-   It writes `run.orchestrator.machine` and `.session` beside the pane (step 1).
+   It writes `run.orchestrator.machine` and `.session` beside the pane (lifecycle step 1).
    From here every worker's next ping comes to this pane.
-3. If `run.question` is present, it asks it once again.
+3. If `run.question` is present, ask again only if the hard-stop transcript has no answer; otherwise apply the recorded answer and remove `run.question`.
 4. Per working attempt, first run the generation check against `locator.seen`, for both `phase: recorded` and
    `phase: delivered`. A new report generation proves delivery: set a recorded attempt `delivered`, then read the
    generation once, record it and act on it by kind. With no new generation and `phase: recorded`, treat the attempt
    as `delivered` and re-arm it like any delivered attempt. Never relaunch it automatically. The re-armed wait’s timeout
-   checkpoint (step 5) reports a worker that never started to the operator, who decides on a relaunch; never run two
+   checkpoint (lifecycle step 5) reports a worker that never started to the operator, who decides on a relaunch; never run two
    workers on one attempt.
-   Re-arm step 5’s waits only for an attempt still live after its generation check; a final report consumed on resume
+   Re-arm lifecycle step 5’s waits only for an attempt still live after its generation check; a final report consumed on resume
    settles that dispatch, so it gets no wait. The waits are on the pane (a detected coordinator's companion included)
    through `locator.machine`; every later operation on that pane carries `locator.machine` (the layer file, Machines).
 5. It arms one fresh heartbeat only if at least one dispatch is still live.
@@ -381,7 +381,7 @@ Identity, its seat marking (the layer's `Seat marking`, "A molt is not a launch"
 Code, every armed wait survive the clear, and every worker's ping still reaches this pane, which
 `run.orchestrator` still names. The resumed top
 reads the handoff and confirms `run.orchestrator` names its own address from the layer's Identity, rewriting it
-only where it does not; it always rewrites `run.orchestrator.session` (step 1), since molt's `/clear` starts a new session in this pane. On Claude Code it arms no wait and no heartbeat the handoff lists: they keep running,
+only where it does not; it always rewrites `run.orchestrator.session` (lifecycle step 1), since molt's `/clear` starts a new session in this pane. On Claude Code it arms no wait and no heartbeat the handoff lists: they keep running,
 and their notifications are its own. A heartbeat tick the handoff carries means that heartbeat
 has ended: the resumed top arms a fresh one. It runs the generation check once per live
 dispatch against the attempt's `locator.seen`, a carried wake included, so a report

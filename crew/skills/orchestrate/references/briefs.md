@@ -40,7 +40,7 @@ naming the file it actually renamed over. Reading the file at ping time makes ev
 redirect every ping: a successor top needs no message to a live worker. The message is one
 single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal).
 The ping only wakes the parent — a parent undetected or on another server keeps the report-file wait
-and the run's heartbeat, no push promised — and a failed send is left as it is: it is never an answer, so after a plan or a question the worker waits at that gate (#810). An operator's own `brief:`
+and the run's heartbeat, no push promised — and a skipped or failed send is left as it is: it is never an answer, so after a plan or a question the worker waits at that gate (#810). An operator's own `brief:`
 is dispatched as a copy carrying the same envelope, the leaf templates' `MOLT:` line included; the stored file is
 never edited, and a stored brief whose fixed run file or fixed machine differs from the run's is surfaced, not overridden; equal values are no conflict, kept as they are.
 

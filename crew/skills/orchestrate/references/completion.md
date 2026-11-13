@@ -10,9 +10,9 @@ typed: "the layer's Wait", "the layer's Read", "the layer's Send", "the layer's 
 A seat's result is its report file, at the `REPORT_PATH=` its brief names; a typed terminal
 state carries no body, so the file is the contract and the state is only the doorbell. Every
 file the run keeps is placed outside every seat's worktree, so removing a worktree never takes
-one; before every message that sends a seat to work, note what the doorbell compares — the
-file's hash (`git hash-object <path>`), empty if absent, and the file's identity (inode or
-mtime) — writing an existing `REPORT_PATH` file's current generation `{hash, identity}` as the
+one. Before dispatch, clear or move an acknowledged report; then note what the doorbell compares — the
+file's hash (`git hash-object <path>`), empty if absent, and the file's identity (inode with mtime)
+— writing an existing `REPORT_PATH` file's current generation `{hash, identity}` as the
 new attempt's `locator.seen` and leaving `seen` absent only when the file is absent. The worker
 writes everything it says to the orchestrator there (a plan, a question, an
 escalation, a late finding, its report) and replaces the file whole (`briefs.md`).
@@ -35,8 +35,8 @@ wakes too soon. The doorbell is one bounded background wait that returns when `R
 hash **or** the identity noted beside it differs from the one last noted, or at its timeout —
 not the loop of waits `lifecycle.md` forbids. Both are compared, not merely recorded, so a
 byte-identical replacement (a retained verifier repeating the same failure) — same hash, new
-inode — still wakes it: the identity noted at dispatch above, or a cleared or moved
-acknowledged report before a dispatch. A changed file is read as above; a timeout with no new
+inode — still wakes it: the identity noted at dispatch above.
+A changed file is read as above; a timeout with no new
 file is the checkpoint below, one read (the layer's Read), and a dialog it finds is reported
 with the rest of the state.
 
@@ -49,16 +49,15 @@ at most one armed wait. Stop a wait, companion or heartbeat by its job id: OMP `
 `TaskStop`, a shell process this session started by its exact PID or job id; never a process listing (`ps`, `pgrep`,
 `pidof`, `/proc`) fed to `kill`. The companion's own timeout, while the doorbell is still armed, is no
 checkpoint: it lapses silently, with no read and no report, and the doorbell (and the
-heartbeat, where armed) covers the rest of the dispatch. An answered dialog re-arms the pair:
-the fresh bounded wait after the answer is the doorbell and its companion again, not one wait.
+heartbeat, where armed) covers the rest of the dispatch. An answered dialog re-arms the pair: the doorbell and its companion again, not one wait.
 
 **The two dead ends.** *A timeout is a checkpoint* (but a doorbell companion's, which lapses;
 above): one read (the layer's Read) — the seat's observed state, stopped, at a dialog or still
 at work, reported to the operator (a coordinator: to the top, in its report file), and a
 further wait is the operator's decision, never the orchestrator's own re-entry. *A false wake*
 — its own read showing the seat still at work (the backgrounded-shell case) — is not a
-timeout: the doorbell becomes the report file for the rest of that dispatch, never a second
-typed wait.
+timeout: the doorbell becomes the report file for the rest of that dispatch,
+never a second settled-state wait (the coordinator's `blocked` companion still applies).
 
 **Every wait runs in the background:** one shell call the host wakes the session on when it
 exits (Claude Code: the Bash tool's `run_in_background`), so it spends no tokens and its
@@ -92,7 +91,7 @@ that file at that moment and sends through the layer's Send only when `run.orche
 equals `NOTIFY_MACHINE`: pane ids are server-scoped. One single-quoted literal argument (a
 single quote in it is written `'\''`), `<path>` the file actually renamed over. Every other
 dispatch keeps the report-file wait and this session's heartbeat as the whole of its push
-bound. A failed read or send changes nothing. A brief older than 0.3.1 still sends the
+bound. A skipped or failed read or send is never an answer: after a plan or a question the worker waits at that gate. A brief older than 0.3.1 still sends the
 legacy `REPORT READY: <task id> <kind> <path>` form; read either it or the tagged
 `[crew report <role>] <task id> <kind> <path>` as this ping.
 

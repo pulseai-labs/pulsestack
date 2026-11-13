@@ -90,7 +90,7 @@ run() {
     esac
   done
   OUT="$(printf '%s' "$stdin" | env -u CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING \
-    HERDR_PANE_ID="$pane" ORCA_TERMINAL_HANDLE="$orca" "$@" "$BASH_BIN" "$HOOK" 2>/dev/null)"
+    HERDR_PANE_ID="$pane" ORCA_TERMINAL_HANDLE="$orca" "$@" "$BASH_BIN" "$HOOK" 2>"$TMP/stderr")"
   RC=$?
 }
 
@@ -99,7 +99,7 @@ expect_silent() { # <label>
   else fail "$1" "rc=$RC out=$OUT"; fi
 }
 
-expect_notice() { # <label> <event> <literal the line must contain>...
+expect_notice() { # <label> <event> [-i] <literal the line must contain>...
   label="$1"; want="$2"; shift 2
   if [ "$RC" -ne 0 ]; then fail "$label" "rc=$RC — the handler must always exit 0"; return 0; fi
   if [ "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" -ne 1 ]; then
@@ -110,7 +110,13 @@ expect_notice() { # <label> <event> <literal the line must contain>...
        and (.hookSpecificOutput.additionalContext | type == "string")' >/dev/null 2>&1; then
     fail "$label" "not a $want additionalContext object without a decision: $OUT"; return 0; fi
   line="$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.additionalContext')"
+  ignore_case=0
+  if [ "${1:-}" = -i ]; then
+    ignore_case=1; shift
+    line="$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]')"
+  fi
   for lit in "$@"; do
+    if [ "$ignore_case" -eq 1 ]; then lit="$(printf '%s' "$lit" | tr '[:upper:]' '[:lower:]')"; fi
     case "$line" in *"$lit"*) ;; *) fail "$label" "line lacks '$lit': $line"; return 0 ;; esac
   done
   pass "$label"
@@ -503,6 +509,62 @@ printf '#!/bin/sh\nexit 1\n' > "$BROKENJQ/jq"; chmod +x "$BROKENJQ/jq"
 run "$(input UserPromptSubmit "$T_PAST")" PATH="$BROKENJQ:$PATH"
 expect_notice "a jq on PATH that fails on a well-formed input: unavailable notice" \
   UserPromptSubmit "figure unavailable (jq could not read the hook input)"
+for event in UserPromptSubmit PreToolUse; do
+  run "$(input "$event" "$T_PAST" 'herdr agent prompt w7:p2 next')" PATH="$BROKENJQ:$PATH" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000
+  expect_notice "B1: broken jq leaves a non-empty setting unchecked ($event)" "$event" "setting was not checked"
+  case "$OUT" in
+    *500000*) fail "B1: broken jq never claims the default ($event)" "$OUT" ;;
+    *) pass "B1: broken jq never claims the default ($event)" ;;
+  esac
+done
+# Adjacent control: no setting makes the default known even when jq is broken.
+run "$(input UserPromptSubmit "$T_PAST")" PATH="$BROKENJQ:$PATH"
+expect_notice "control B1: an unset setting has a known default" UserPromptSubmit "ceiling of 500000 tokens"
+
+# C1: only the numbered jq invocation fails; every other invocation is real jq.
+ONCEJQ="$TMP/oncejq-bin"; mkdir -p "$ONCEJQ"
+REAL_JQ="$(command -v jq)"
+cat > "$ONCEJQ/jq" <<'C1_JQ'
+#!/bin/sh
+n=0
+[ ! -f "$C1_COUNT" ] || read -r n < "$C1_COUNT"
+n=$((n+1))
+printf '%s\n' "$n" > "$C1_COUNT"
+if [ "$n" -eq "$C1_FAIL_ON" ]; then
+  case "$C1_FAULT" in
+    error) exit 1 ;;
+    empty) exit 0 ;;
+    number-error) printf '100000\n'; exit 1 ;;
+    other) printf 'not-a-verdict\n'; exit 0 ;;
+    true-error) printf 'true\n'; exit 1 ;;
+    false-error) printf 'false\n'; exit 1 ;;
+  esac
+fi
+exec "$C1_REAL_JQ" "$@"
+C1_JQ
+chmod +x "$ONCEJQ/jq"
+T_SELECTIVE="$(transcript selective 150001)"
+for event in UserPromptSubmit PreToolUse; do
+  for trial in 2:error 2:empty 2:number-error 5:error 5:empty 5:other 5:true-error 5:false-error; do
+    nth="${trial%%:*}"; fault="${trial#*:}"
+    printf '0\n' > "$TMP/jq-count"
+    run "$(input "$event" "$T_SELECTIVE" 'herdr agent prompt w7:p2 next')" \
+      PATH="$ONCEJQ:$PATH" C1_COUNT="$TMP/jq-count" C1_REAL_JQ="$REAL_JQ" \
+      C1_FAIL_ON="$nth" C1_FAULT="$fault" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000
+    if [ "$nth" -eq 2 ]; then
+      expect_notice "C1a: normalization failure is unavailable ($event $fault)" "$event" "figure unavailable" "setting was not checked"
+    else
+      expect_notice "C1b: comparison failure is unavailable ($event $fault)" "$event" "figure unavailable"
+    fi
+    if [ ! -s "$TMP/stderr" ]; then pass "control C1: selective jq failure has empty stderr ($event $trial)"
+    else fail "control C1: selective jq failure has empty stderr ($event $trial)" "$(cat "$TMP/stderr")"; fi
+  done
+  printf '0\n' > "$TMP/jq-count"
+  run "$(input "$event" "$T_SELECTIVE" 'herdr agent prompt w7:p2 next')" \
+    PATH="$ONCEJQ:$PATH" C1_COUNT="$TMP/jq-count" C1_REAL_JQ="$REAL_JQ" \
+    C1_FAIL_ON=0 C1_FAULT=error CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000
+  expect_notice "control C1: stable jq reaches the configured ceiling ($event)" "$event" "context 150001" "ceiling 100000"
+done
 # Fix round 1, Finding 1: the tail could not be read at all. With `tail` off PATH
 # its status was invisible (the pipeline reported jq's), the empty tail fell
 # through to "none", the size check passed, and the handler exited having said
@@ -545,6 +607,42 @@ run "$(input UserPromptSubmit "$T_BELOW")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=
 expect_silent "an empty setting falls back to 500000"
 run "$(input UserPromptSubmit "$T_BELOW")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=0
 expect_silent "a zero setting falls back to 500000"
+
+# #616: exact fractions, String(number) spellings, and adjacent rejection controls.
+T_FRACTION="$(transcript s-fraction 100001)"
+T_ONE_BELOW="$(transcript s-one-below 100000)"
+for event in UserPromptSubmit PreToolUse; do
+  run "$(input "$event" "$T_FRACTION" 'herdr agent prompt w7:p2 next')" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000.5
+  expect_notice "#616: fraction fires at 100001 ($event)" "$event" "context 100001" "ceiling 100000.5"
+  run "$(input "$event" "$T_ONE_BELOW" 'herdr agent prompt w7:p2 next')" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000.5
+  expect_silent "control #616: fraction is not floored ($event)"
+  run "$(input "$event" "$T_ONE_BELOW" 'herdr agent prompt w7:p2 next')" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000
+  expect_notice "control #616: whole ceiling fires at equality ($event)" "$event" "context 100000" "ceiling 100000"
+done
+for setting in '100000.5' '1e+21' 'Infinity'; do
+  run "$(input UserPromptSubmit "$T_PAST")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING="$setting"
+  case "$setting" in
+    100000.5) expect_notice "#616: String fraction is honoured" UserPromptSubmit "ceiling 100000.5" ;;
+    *) expect_silent "#616: String large number stays above the figure ($setting)" ;;
+  esac
+  if [ ! -s "$TMP/stderr" ]; then pass "control #616: String number has empty stderr ($setting)"
+  else fail "control #616: String number has empty stderr ($setting)" "$(cat "$TMP/stderr")"; fi
+done
+run "$(jq -cn '{hook_event_name: "UserPromptSubmit"}')" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=1e+21
+expect_notice "#616: exponent is the ceiling in force" UserPromptSubmit -i "ceiling of 1e+21 tokens"
+for setting in 'abc' '' '-5' '0' '0.5' '1e+' '1.2.3' 'bad"\\setting'; do
+  run "$(input UserPromptSubmit "$T600")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING="$setting"
+  expect_notice "control #616: rejected setting uses default ($setting)" UserPromptSubmit "ceiling 500000"
+  run "$(input UserPromptSubmit "$T_BELOW")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING="$setting"
+  expect_silent "control #616: rejected setting does not fire below default ($setting)"
+done
+# B4: baseline-green boundary control; rejects a min guard tightened to > 1.
+run "$(input UserPromptSubmit "$T_PAST")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=1
+expect_notice "control B4: the minimum ceiling 1 is accepted" UserPromptSubmit "ceiling 1 tokens"
+for event in UserPromptSubmit PreToolUse; do
+  run "$(input "$event" "$T_PAST" 'herdr agent prompt w7:p2 next')" PATH="$NOJQ" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000.5
+  expect_notice "#616: no jq names unchecked setting ($event)" "$event" "figure unavailable (jq not found)" "setting was not checked"
+done
 
 section "registration"
 HJ="$PLUGIN_ROOT/hooks/hooks.json"
