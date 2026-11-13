@@ -118,7 +118,7 @@ takes the next tick's one check as a read (the layer's Read), and a read showing
 errors and retries (API errors, request timeouts, rate-limit waits), nothing else advancing, is
 a seat failure, not a failed task — named in the tick's line and the handoff. Settle its
 dispatch first (stop its report-file wait and companion by job id: OMP `write proc://<id>/kill`, Claude Code `TaskStop`), then launch the fallback the project
-file's `## Conditions` names for that seat as a fresh seat is launched (below), from the
+file's `## Conditions` names for that seat — in a spine session its SEATS fallback row (`ossify-briefs.md`), never a re-read of the file — as a fresh seat is launched (below), from the
 fallback's row, its brief re-sent whole, with `RESUME FROM:` the seat's last report when it
 wrote one. A seat a fresh session cannot resume (the cuts the molt paragraph below lists) gets
 no fallback; it, and a stall with no fallback named, is reported to the operator once.
@@ -156,7 +156,8 @@ for it; and an implementer's opens as a new tab of its predecessor's worktree wo
 a new `worktree create`, so it can write the tree its predecessor left. Its brief is re-sent
 whole, plus one line, `RESUME FROM: <handoff path>` — the predecessor's handoff, or for a
 warned seat that handed off nothing, its last report. Close the predecessor's pane only after
-the new tab exists; a worktree is released only as the layer's Teardown says, once its
+the new tab exists, but start the new seat's command only after that pane is confirmed gone (a layer
+whose create call carries the command closes first): two writers never share a checkout (`roles.md`); a worktree is released only as the layer's Teardown says, once its
 branch's work is safe. A spine session that hands off with no `rotate:` was cut mid-round
 (ossify issue 133); ossify 1.14.0's run-spine re-enters a started spine, mid-round included,
 so respawn it as a `rotate:` is (`ossify-nested-run.md` §4), its `HANDOFF_PATH` that handoff.

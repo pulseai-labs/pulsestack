@@ -11,15 +11,13 @@ whole contract its reader will ever see — fill every slot, delete nothing else
 ## Close session (one fresh seat per dispatch, created by the top)
 
 The top marks it `coordinator` before its command (the layer's `Seat marking`).
-It creates nothing but one demo-walk seat per `user:` entry `DEMO_WALK` names, and returns a
+It creates no seat but one demo-walk seat per `user:` entry `DEMO_WALK` names, and returns a
 list; only the successful record pass is single and conditional.
 
 ```text
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
-ROLE: ossify spine close for SPINE_ID. State the model you are running in
-your first reply, then continue. A first reply whose model is not
-CLOSE_EXPECTED_MODEL is a failed launch to report, not to work around.
+ROLE: ossify spine close for SPINE_ID.
 
 PLACEMENT: <abs path of the worktree the spine's lane ran from>.
 
@@ -29,7 +27,6 @@ PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pa
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report coordinator] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
 SPINE_ID=<spine id>
 CLOSE_COMMAND=<the command this seat was launched with, from its machine entry> — a record of your own launch: you are already that seat, never run it
-CLOSE_EXPECTED_MODEL=<the model the banner or screen must show>
 CLOSE_EFFORT=<the effort this seat was launched at>
 CLOSE_REVIEW_LEDGER=<every close review's ledger for this spine, oldest first,
 verbatim — or "none">
@@ -50,10 +47,13 @@ carrying each finding, its `target_repo`, its decision and the reason; the top
 dispatches the writer — per `ossify-close-writer.md`, one per affected hosting
 repo — and a fresh close.
 
-**A `user:` entry DEMO_WALK names runs on the machine its row's `host:` names**: launch the
+**A `user:` entry DEMO_WALK names runs on the machine its row's `host:` names** — the close
+session's own or another. Build the entry's fixture there first (clone, worktree, whatever the
+`user:` line needs): the close session builds it, never the walker, which only reads and walks
+it. Then launch the
 demo-walk seat from that row — the seat's profile, verbatim — marked `verifier` before its
 command (the layer's `Seat marking`), every call for it carrying the layer's Machines step for
-that host; send it `briefs.md`'s `demo walk` body, carried in this dispatch, with that entry
+that host, and confirm its model as the row's `model_shows` says (the layer's model read; a mismatch is a failed launch, reported upward, never worked around); send it `briefs.md`'s `demo walk` body, carried in this dispatch, with that entry
 verbatim; wait on it through the layer's Wait, read its report where it was written
 (`Machines`), release the seat, and take its result as the entry's — a failing walk halts this
 dispatch as the ceremony's walk does. One seat per entry, from that row only; every other
@@ -101,9 +101,7 @@ seat (`completion.md`, Completion).
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 ROLE: work-PR session for PR PR_NUMBER in PR_REPO, and coordinator of its two
-seats. State the model you are running in your first reply, then continue.
-A first reply whose model is not WORKPR_EXPECTED_MODEL is a failed launch to
-report, not to work around.
+seats.
 
 PLACEMENT: REPO_ROOT — the worktree holding this PR's branch.
 
@@ -117,7 +115,6 @@ PR_REPO=<owner/repo>, which the dispatcher fills by `gh repo view "$(git -C "<th
 PR_NUMBER=<number>
 REPO_ROOT=<abs path of this seat's worktree>
 WORKPR_COMMAND=<the command this seat was launched with, from its machine entry> — a record of your own launch: you are already that seat, never run it
-WORKPR_EXPECTED_MODEL=<the model the banner or screen must show>
 WORKPR_EFFORT=<the effort this seat was launched at>
 REVIEWER=<agent name> | <command> | model: <expected model> | effort: <effort> | model_shows: <banner|screen> | brief_delivery: <inject|file> | host: <machine>[ | rail: <rail>]
 REVIEW_INVOCATION=<the reviewer's agent's `review:`, else `/code-review <PR> <LEVEL>`, with PR_NUMBER, the PR URL and the level the top decided filled in>
@@ -157,7 +154,7 @@ TASK: drive PR_NUMBER to a merge on the top's word, or a one-way door to step 6'
      ask the top and create nothing. You did not open this PR.
   3. Initial runs only: create the reviewer FIRST from its REVIEWER row — every launch or
      re-creation of it carries the guard before its command (role `reviewer`, `MECHANICS`
-     Seat launch) — confirm the model as its row's `model_shows` says and from the first reply,
+     Seat launch) — confirm the model as its row's `model_shows` says,
      and brief it to run REVIEW_INVOCATION. Read the findings from its
      report file — it posts nothing; that file is the only copy. Validate it against the reviewer
      brief's schema — `Findings: none` with `Reviewed head:` and `Summary:`, or finding lines plus both;
@@ -184,8 +181,7 @@ TASK: drive PR_NUMBER to a merge on the top's word, or a one-way door to step 6'
      pushes, and returns `fixed in <sha>` per finding, never running work-pr or
      asking a merge — created from its PRFIX row —
      every launch of it carries the guard before its command (role `implementer`,
-     `MECHANICS` Seat launch); confirm its model as the row's `model_shows` says and by the worker's own check before the
-     first fix task; a mismatch is a failed launch to ask about, never to work
+     `MECHANICS` Seat launch); confirm its model as the row's `model_shows` says before the first fix task; a mismatch is a failed launch to ask about, never to work
      around. The delegated review ran once, on the head it was briefed with, and that seat is
      released after its report file validates. Each push moves the head under that verdict:
      before the next disposition round, re-fetch the GitHub review signals and the thread state
@@ -205,7 +201,8 @@ TASK: drive PR_NUMBER to a merge on the top's word, or a one-way door to step 6'
      `skills/working-a-pr/references/one-way-door.md`, then release your seats as below. Otherwise,
      when the gate is clean, ask the top for the merge word. MERGE_EXECUTOR is the top's explicit
      assignment, not something you infer — never parse permission settings, never probe by
-     attempting a merge. On `session`: on the reply, re-fetch the whole gate set once more and
+     attempting a merge. On either reply, record the word and any granting order the reply names in the ledger.
+     On `session`: on the reply, re-fetch the whole gate set once more and
      merge bound to the named SHA, as a merge commit. On `operator`: your ask
      names the operator as executor, the approved SHA and the merge-commit
      convention; on the reply you re-fetch the gates, the operator's landing

@@ -42,7 +42,7 @@ Each field exists because a measured case needs it:
 
 - `command:` — the exact command run in the seat's pane.
 - `expected_model:` — the model id the seat must show where `model_shows` reads
-  it, and the only source for a brief's `SEAT_EXPECTED_MODEL` — never parsed out
+  it — never parsed out
   of `command:`. A `--model` flag in the command must agree; a disagreement is a
   config defect named at approval, never reconciled at launch.
 - `effort:` — the effort the seat runs at, and the only source for a brief's
@@ -90,7 +90,7 @@ carrying a profile conforms rather than restating a field list.
 | field | set by | consumed at | travels |
 |---|---|---|---|
 | `command:` | the machine entry | the layer's Seat launch | every resolved profile |
-| `expected_model:` | the machine entry | the model read, and the worker's own check | every resolved profile |
+| `expected_model:` | the machine entry | the model read | every resolved profile |
 | `effort:` | the machine entry | the launch | every resolved profile |
 | `model_shows:` | the machine entry | the model read | every resolved profile — the launching session never opens this file |
 | `brief_delivery:` | the machine entry | the brief's delivery | every resolved profile |
@@ -109,10 +109,10 @@ entry names no `host:`, the row names the resolver's own machine under the layer
 step's name for it — never the words `this machine`, which would mean a different host in
 every session that read them.
 
-A brief's record of its own seat's launch is the row's command, model and effort only —
+A brief's record of its own seat's launch is the row's command and effort only —
 a session launches nothing with its own profile.
 
-`can:` is checked where a seat is approved — the project-file approval, the spine-seat approval, the PR-transition ask, the close-review halt ask — never at dispatch. The requirement is per role: a role whose shipped or declared brief invokes a slash command needs `can: slash-commands` on the agent that fills it.
+`can:` is checked where a seat is approved — the project-file approval, the spine-seat approval (its fallback rows included), the PR-transition ask, the close-review halt ask — never at dispatch. The requirement is per role: a role whose shipped or declared brief invokes a slash command needs `can: slash-commands` on the agent that fills it.
 
 | role | its brief invokes | needs |
 |---|---|---|
@@ -124,8 +124,8 @@ a session launches nothing with its own profile.
 | spine session, default lane | `/ossify:run-spine`; spawns `ossify:implementer-agent` subagents through the `Agent` tool | `slash-commands, subagents` |
 | OMP seat (omp-roles spine-driver), default lane | the role file carries the procedure by `skill://`; the brief's `/ossify:run-spine` reaches it as text | `subagents` |
 | spine session, external-executor lane | `/ossify:run-spine` | `slash-commands` |
-| close session | `/ossify:close` | `slash-commands` |
-| OMP seat (omp-roles close), close session | the role file carries the procedure by `skill://close`; the brief's `/ossify:close` reaches it as text | — |
+| close session | `/ossify:close`; for a work-item id, work-item close dispatches `ossify:verifier-agent` (inline where none can be dispatched) | `slash-commands` |
+| OMP seat (omp-roles close), close session | the role file carries `skill://close` (the brief's `/ossify:close` reaches it as text); for a work-item id, work-item close dispatches `verifier` through `task` (inline where `task` lists none) | — |
 | work-PR session | `/ossify:work-pr` | `slash-commands` |
 | doctor session | `/ossify:doctor` | `slash-commands` |
 | OMP seat: doctor session or ossify item implementer (omp-seat worker), activated spine session (omp-roles crew-spine), work-PR session (crew-work-pr) | the brief's `/ossify:<skill>` reaches it as text; the seat follows `skill://<skill>` | — |

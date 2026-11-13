@@ -85,9 +85,7 @@ Every command's syntax comes from the layer's guide.
    go before the run does — a first seat's release may take it — so a later launch
    whose workspace the layer's Run workspace no longer shows
    creates it again first and binds the id that call returns, the clause the spine
-   session's brief already carries. The "state your model" line is the worker's own second check: a
-   model that is not `SEAT_EXPECTED_MODEL` is a failed launch it writes to its report file
-   and stops on. Wrong model at the banner read: release the seat and report it.
+   session's brief already carries. Wrong model at the launch read: release the seat and report it.
    Every brief this session dispatches names this run's `run.json` in its `NOTIFY_RUN` slot and the
    seat's machine in `NOTIFY_MACHINE` — `NOTIFY_RUN` is the sentinel `none` when the layer does not detect
    this pane or the seat is on another machine — so an eligible worker's ping comes to whichever pane
@@ -229,7 +227,8 @@ Every command's syntax comes from the layer's guide.
     read the project's standing orders on the base branch (merge-bar's working-a-pr, "Standing orders"
     paragraph, says where it is read and whom it binds). Only an order that names the orchestrator role
     and grants it merge authority counts: with one, a clean gate set on that SHA is the word, so merge
-    with no ask, naming that order in the disposition comment; with none, ask the operator for the
+    with no ask, naming that order in the disposition comment, or in its reply on a nested spine;
+    with none, ask the operator for the
     merge word naming that SHA and say no standing order grants this role merge authority.
     A one-way door — a `handed off: one-way <OID>` return, or where merge-bar's `working-a-pr` runs a
     body with `Door: one-way` or no `Door:` line — follows merge-bar's

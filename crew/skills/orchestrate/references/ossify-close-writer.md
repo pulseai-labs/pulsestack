@@ -22,9 +22,7 @@ the top dispatch the fresh close.
 ```text
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
-ROLE: close-review writer for SPINE_ID in REPO. State the model you are
-running in your first reply, then continue. A first reply whose model is not
-WRITER_EXPECTED_MODEL is a failed launch to report, not to work around.
+ROLE: close-review writer for SPINE_ID in REPO.
 
 PLACEMENT: REPO_ROOT — the worktree holding this repo's spine branch.
 
@@ -37,7 +35,6 @@ REPO=<the declared `target_repo` identifier for this writer's repo — it exists
 for remote and remote-less repos alike>
 REPO_ROOT=<abs path of this repo's spine worktree>
 WRITER_COMMAND=<the command this seat was launched with, as the operator named it> — a record of your own launch: you are already that seat, never run it
-WRITER_EXPECTED_MODEL=<the model the banner or screen must show>
 WRITER_EFFORT=<the effort this seat was launched at>
 ACCEPTED_LEDGER=<the accepted fix-now findings whose `target_repo` is this
 repo, verbatim from the close review's ledger>

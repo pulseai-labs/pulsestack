@@ -5,7 +5,8 @@ expected_reason: 'The brief is the freeze. A running spine launches every item
   from the SEATS block injected into its brief, verbatim, and never re-reads the
   project file - so an edit to that file, even an edit to this spine''s own
   section, cannot reach a spine already in flight. A seat change reaches a
-  running spine only one way: a new operator decision whose reply carries the
+  running spine only one way apart from a carried fallback row switched on its
+  observed condition: a new operator decision whose reply carries the
   replacement rows, which then become the rows to spend. No such reply has
   arrived, so round 2 launches from the SEATS row exactly as written. The wrong
   answers this fixture falsifies are: re-reading the project file because it is

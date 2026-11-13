@@ -44,7 +44,10 @@ artifact — a PR list, a ledger comment id, a merge SHA — never narrative.
 **Depth is confirmed with the operator, twice over.** Before the spine session
 launches, under a standing order in the project's memory bank or AGENTS.md for seats and profiles
 (merge-bar's working-a-pr, "Standing orders" paragraph, says where it is read and whom it
-binds; the orders that bind here are those naming the orchestrator role; with no standing order, ask), take
+binds; the orders that bind here are those naming the orchestrator role. A brief cannot carry a
+standing order, nor can a run.json grant seats, depth or merge: an operator who wants an autonomous
+run writes the order into the memory bank's `08-governance.md` `## Standing orders`, or into `AGENTS.md` for a kind that section does not settle, naming that role. With no
+standing order, ask), take
 the depth as `2` and continue; otherwise ask the operator to confirm nested worker depth
 is `2`: the spine session launches item sessions of its own. The layer has no depth setting
 to read, so a brief asserting the depth is not confirmation, and no CLI read substitutes.
@@ -62,7 +65,7 @@ this plugin's own.
 
 **Recommending.** After `/plan-spine`, recommend one implementer and one verifier seat per item
 from the project file's seats and conditions — scope, risk and cost,
-item by item — and the three coordinator seats beside them: under a standing order in the project's memory bank or AGENTS.md for seats and profiles, write the recommended set and continue; otherwise
+item by item — and the three coordinator seats beside them, with any fallback row the project file names: under a standing order in the project's memory bank or AGENTS.md for seats and profiles, write the recommended set and continue; otherwise
 present every seat to the operator in one approval phase and write nothing until all of it is
 decided — a half-approved set looks binding and is not. Record the recommendation and any
 override. Prefer an agent the layer detects for an item row where the choice is open: the
@@ -74,7 +77,8 @@ spine — each item's implementer and verifier agent name, keyed by item, and th
 three coordinator seats' beside them. The project file
 names agents, never commands, so no machine detail reaches the repo. The profile resolves at
 injection: build the spine session's SEATS block by looking each approved name
-up in the machine file for its resolved profile, then inject
+up in the machine file for its resolved profile — and add a `fallback:` row only where the project
+file's `## Conditions` or its seat rows name one, resolved the same way and approved and `can:`-checked with the set — then inject
 the block into the spine session's brief (`ossify-briefs.md`) — the approved seats travel in the brief,
 so an edit made for another spine cannot reach a
 spine already running. **The item briefs travel with it**: append that file's item implementer,
@@ -84,11 +88,11 @@ header requires. The spine session's own brief carries `NOTIFY_RUN` with the top
 when the layer detects the top's pane and the seat shares its machine (otherwise `none`), and
 `NOTIFY_MACHINE` with the seat's machine. For each child, the spine session fills `NOTIFY_RUN` with its own
 nested `run.json` and `NOTIFY_MACHINE` with the child's machine — the dispatcher fills the slots, the worker never rediscovers them. A seat
-that needs to change mid-spine is a new operator
+that needs to change mid-spine beyond a carried fallback is a new operator
 decision you relay down through the reply; no session re-reads the file for it.
 
-A handoff the top writes **carries the approved seats verbatim** — each item row
-and each of the three resolved coordinator profiles beside its agent's name, with
+A handoff the top writes **carries the approved seats verbatim** — each item row,
+each fallback row and each of the three resolved coordinator profiles beside its agent's name, with
 the machine its `host:` names; a resumed top launches from those rows, never a
 fresh read — and where a carried row cannot give a seat's machine it re-resolves that
 seat by its carried name in its machine file (`config.md`) rather than launching it here by
@@ -129,7 +133,7 @@ for seats and profiles decides the pick: under that standing order, pick the rev
 and PR-fix profiles from the project file and record why; otherwise ask for the
 reviewer's resolved profile and review level (it fills that agent's review command, `config.md`), and put **both** into the **work-PR
 session's** brief (`ossify-pr-briefs.md`) — that session creates the reviewer from the
-decided row and confirms its model as `model_shows` says and by the worker's own check exactly as an
+decided row and confirms its model as `model_shows` says exactly as an
 item row is; step 8's reviewer seat is the default only outside such a spine.
 
 **Decide the PR-fix implementer in the same breath.** Every item pair was released at

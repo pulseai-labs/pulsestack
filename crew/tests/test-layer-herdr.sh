@@ -117,6 +117,18 @@ present "$REF" 'herdr pane wait-output' "the undetected path names pane wait-out
 present "$REF" '--until done --until idle --until blocked' "the typed wait names all three settled states"
 present "$REF" "--match '<expected_model:>'" "the undetected path waits on the seat's own expected_model:"
 pin "$REF" 'herdr agent list' "the discriminator is named once"
+pin "$REF" 'a match on the echoed command line does not count' "#751-herdr-echo: a wait-output match on the echoed launch command is not the model read" flat
+c="$(count_of "$REF" 'Caveat: it searches existing output' flat)"
+if [ "$c" -eq 0 ]; then pass "#751-herdr-caveat: the echoed-command warning is a rule, not a caveat"
+else fail "#751-herdr-caveat: the echoed-command warning is a rule, not a caveat" "the caveat is back ($c)"; fi
+pin "$REF" 'must show `expected_model:` on a line the command cannot produce' "#751-herdr-read: the model read confirms expected_model: off the command line" flat
+pin "$REF" 'reported upward and never worked around' "#751-herdr-mismatch: a model mismatch is reported upward, never worked around" flat
+pin "$REF" 'Only `The model` read decides' "B2: the model read, never the wait's match, decides the launch" flat
+pin "$REF" 'wait with `--regex` on it, its regex metacharacters escaped, plus banner text the command lacks' "B2/C6: the undetected wait keeps a remedy for the echoed command, the id's regex metacharacters escaped" flat
+pin "$REF" "shows the TUI is up only on a line the command cannot produce" "B2: the match shows the TUI is up only off the command line" flat
+pin "$REF" "A screen showing \`command not found\`, another model, or neither once the readiness wait's bound ends is a failed launch" "B2/C2: command not found, another model or neither at the bound is a failed launch" flat
+pin "$COMP" "but start the new seat's command only after that pane is confirmed gone (a layer whose create call carries the command closes first): two writers never share a checkout" "C7: a successor's command starts only after the predecessor's pane is gone" flat
+pin "$COMP" "never a re-read of the file — as a fresh seat is launched (below), from the fallback's row" "C7 r2: the stall fallback launches through the fresh-seat paragraph and its handover order" flat
 
 pin "$REF" '`agent get`/`agent wait` answer `agent_not_found`: ask again for up to five seconds, then take the not-detected path' "a detection ask before the record is retried, then bounded (#845)" flat
 

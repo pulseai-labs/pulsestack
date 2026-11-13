@@ -58,6 +58,8 @@ present "$REF" 'MOLT_STATUS_PATH=' "the export's status path is named"
 present "$REF" 'MOLT_STATUS_PATH=<REPORT_PATH>.molt-status; <lane>' "the export ends at the molt marking, then the lane"
 present "$REF" 'exec <lane>' "the never-exec-a-lane trap is stated"
 present "$REF" 'expected_model:' "the model read checks the expected model"
+pin "$REF" 'on a line the command cannot produce' "#751-orca-echo: the launch command cannot satisfy the model read" flat
+pin "$REF" 'another model is a failed launch, reported upward and never worked around' "#751-orca-mismatch: a model mismatch is reported upward, never worked around" flat
 
 section "the one wait (probes §3, §4)"
 pin "$REF" '--for tui-idle' "the typed wait is named exactly once"
