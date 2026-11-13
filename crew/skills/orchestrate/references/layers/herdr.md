@@ -114,9 +114,9 @@ which `--dangerously-skip-permissions` does not skip, and it is handled as a `bl
 **Not detected** (`mcode-*`, which herdr has no detection manifest for):
 `herdr pane wait-output <pane> --match '<expected_model:>' --timeout <ms>`, with
 `--source visible` when `model_shows: screen`. The match shows the TUI is up only on a line the
-command cannot produce: a match on the echoed command line does not count, because the wait
-searches existing output first. Where the command holds the string, wait with `--regex` on it plus
-banner text the command lacks. Only `The model` read decides. Without `--timeout` the wait has no bound.
+command cannot produce: a match on the echoed command line does not count (the wait searches
+existing output first). Where the command holds the string, wait with `--regex` on it, its regex
+metacharacters escaped, plus banner text the command lacks. Only `The model` read decides. Without `--timeout` the wait has no bound.
 
 ## Send
 

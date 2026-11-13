@@ -508,7 +508,7 @@ section "a seat's machine and name travel with its row (Task 13)"
 # seats, and the close brief's demo-walk row. The consumer is where the value matters:
 # the launcher that did not resolve the seat starts it on the machine the row names,
 # and the name is what a resumed top re-resolves a carried seat by.
-pin "$EXEC_MD" 'each item row and each of the three resolved coordinator profiles beside its agent'"'"'s name' \
+pin "$EXEC_MD" 'each item row, each fallback row and each of the three resolved coordinator profiles beside its agent'"'"'s name' \
   "the handoff carries each seat beside its agent's name" flat
 pin "$EXEC_MD" 'with the machine its `host:` names' \
   "the handoff carries each seat's machine" flat
@@ -2794,13 +2794,19 @@ pin "$EXEC_MD" 'A brief cannot carry a standing order, nor can a run.json grant 
   "#982-order: a brief or run.json grants no seats, depth or merge" flat
 pin "$EXEC_MD" "writes the order into the memory bank's \`08-governance.md\` \`## Standing orders\`, or into \`AGENTS.md\` for a kind that section does not settle, naming that role" \
   "#982-remedy: an autonomous run's order goes in governance Standing orders first, then AGENTS.md, naming the orchestrator role (N1)" flat
-pin "$BRIEFS_MD" '<item> <role> fallback: <row> when <condition>, or `none`' "#982-fallback-form: the conditional SEATS row form is fixed, with a none sentinel (N2)" flat
+pin "$BRIEFS_MD" '<item> <implementer|verifier> fallback: <row> when <condition>, or `none`' "#982-fallback-form: the conditional SEATS row form is fixed, role bounded, with a none sentinel (N2, C5)" flat
+pin "$BRIEFS_MD" 'A row with no `fallback:` is primary.' "C5: primary is defined where the SEATS template is" flat
 pin "$BRIEFS_MD" "The condition is observed of a seat's run (a provider stall, a quota stop), never at the launch read: another model there stays a failed launch" \
   "B3a: a fallback's condition is never observed at the launch read" flat
 pin "$BRIEFS_MD" "The row is spent as a fresh seat, its brief re-sent whole with \`RESUME FROM:\` the seat's last report when it wrote one" \
   "B3b: the fallback switch re-sends the brief with RESUME FROM" flat
 pin "$BRIEFS_MD" "A fallback's own failed launch is a failed launch too, reported upward, with no second fallback" "N2: a fallback's own failed launch is reported upward" flat
-pin "$BRIEFS_MD" "so is a seat a fresh session cannot resume (\`completion.md\`'s molt cuts) with no fallback row" "B3b: an unresumable seat with no fallback row still goes upward" flat
+pin "$BRIEFS_MD" "a fallback row replaces only a seat a fresh session can resume, so one it cannot (\`completion.md\`'s molt cuts) is reported upward even where a row exists" "C1: an unresumable seat is reported upward even where a fallback row exists" flat
+pin "$COMPLETION_MD" 'A seat a fresh session cannot resume (the cuts the molt paragraph below lists) gets no fallback; it, and a stall with no fallback named, is reported to the operator once' "C1: completion.md reports an unresumable seat unconditionally" flat
+pin "$ROLES_MD" "model is confirmed as the row's \`model_shows\` says, exactly as *The launch* requires" "C2: the spine exception's seats confirm the model as the row says" flat
+pin "$ROLES_MD" "\`model_shows\` says, as an item row's is — and a close-review writer" "C2: the coordinator seats confirm the model as an item row's is" flat
+pin "$EXEC_MD" "confirms its model as \`model_shows\` says exactly as an item row is" "C2: the work-PR session confirms the reviewer's model as an item row is" flat
+pin "$EXEC_MD" '**carries the approved seats verbatim** — each item row, each fallback row and each of the three resolved coordinator profiles' "C4: the handoff carries fallback rows" flat
 pin "$COMPLETION_MD" 'in a spine session its SEATS fallback row (`ossify-briefs.md`), never a re-read of the file' "B3b: completion.md's stall fallback is the SEATS fallback row in a spine session" flat
 pin "$BRIEFS_MD" 'SEATS — the operator-approved seats for this spine, fallback rows included' "B4: the SEATS header counts fallback rows as approved" flat
 pin "$EXEC_MD" 'with any fallback row the project file names: under a standing order' "B4: the recommendation carries the fallback rows" flat

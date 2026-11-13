@@ -156,7 +156,8 @@ for it; and an implementer's opens as a new tab of its predecessor's worktree wo
 a new `worktree create`, so it can write the tree its predecessor left. Its brief is re-sent
 whole, plus one line, `RESUME FROM: <handoff path>` — the predecessor's handoff, or for a
 warned seat that handed off nothing, its last report. Close the predecessor's pane only after
-the new tab exists; a worktree is released only as the layer's Teardown says, once its
+the new tab exists, but start the new seat's command only after that pane is confirmed gone (a layer
+whose create call carries the command closes first): two writers never share a checkout (`roles.md`); a worktree is released only as the layer's Teardown says, once its
 branch's work is safe. A spine session that hands off with no `rotate:` was cut mid-round
 (ossify issue 133); ossify 1.14.0's run-spine re-enters a started spine, mid-round included,
 so respawn it as a `rotate:` is (`ossify-nested-run.md` §4), its `HANDOFF_PATH` that handoff.

@@ -91,8 +91,8 @@ nested `run.json` and `NOTIFY_MACHINE` with the child's machine — the dispatch
 that needs to change mid-spine beyond a carried fallback is a new operator
 decision you relay down through the reply; no session re-reads the file for it.
 
-A handoff the top writes **carries the approved seats verbatim** — each item row
-and each of the three resolved coordinator profiles beside its agent's name, with
+A handoff the top writes **carries the approved seats verbatim** — each item row,
+each fallback row and each of the three resolved coordinator profiles beside its agent's name, with
 the machine its `host:` names; a resumed top launches from those rows, never a
 fresh read — and where a carried row cannot give a seat's machine it re-resolves that
 seat by its carried name in its machine file (`config.md`) rather than launching it here by
