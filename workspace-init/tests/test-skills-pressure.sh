@@ -638,8 +638,12 @@ test_claude_code_fallback_is_version_gated() {
 }
 
 test_release_record_matches_the_shipped_files() {
-  local chg
+  # D23/D24: the release record and header claims drifted in round 1;
+  # their mutations survived until this test existed. Keep the header
+  # unnumbered and reject the obsolete AGENTS.md task reference.
+  local chg hdr
   chg="$(cat "$WI_PLUGIN_ROOT/CHANGELOG.md")"
+  hdr="$(sed -n '1,10p' "$WI_PLUGIN_ROOT/tests/test-stubs.sh")"
   # The "grown organically" pointer lives in `pairing-canonical-repo` §1, not in
   # `pairing-existing-dual` — verify the fact before pinning the claim.
   local dual_s
@@ -651,6 +655,8 @@ test_release_record_matches_the_shipped_files() {
   esac
   assert_contains 'pointer paragraph in `pairing-canonical-repo` §1 names' "$chg" || return 1
   assert_contains 'section plus the canonical-and-ossify continuation sections from the old `CLAUDE.md` stub' "$chg" || return 1
+  assert_not_contains 'Covers (' "$hdr" || return 1
+  assert_not_contains 'SPEC §8.5' "$hdr" || return 1
 }
 
 test_root_readme_has_no_version_labels() {
@@ -669,6 +675,24 @@ test_existing_dual_scans_both_instruction_files() {
   grep -Fq '/ossify:doctor' "$s" || { echo "    next steps must route a CLAUDE.md to the doctor repair"; return 1; }
 }
 
+# #835: expected journal entries must name the ops the helpers actually write.
+test_skill_init_log_op_names_match_runtime() {
+  local skill entries
+  for skill in "$INIT_SKILL" "$PAIR_SKILL"; do
+    entries="$(awk '/^Expected init-log entr(y|ies):/{f=1}
+      f && /^$/{f=0} f{print}' "$skill")"
+    assert_contains '`MKDIR ' "$entries" || return 1
+    assert_contains '`WRITE_FILE ' "$entries" || return 1
+    assert_contains '`GIT_INIT ' "$entries" || return 1
+    assert_contains '`HOOK_INSTALL <ai_root>`' "$entries" || return 1
+    assert_contains '`GIT_STAGE <ai_root>`' "$entries" || return 1
+    assert_not_contains 'pairing.json' "$entries" || return 1
+    if grep -Eq '`(mkdir|file|git-init|hook|git-stage) ' <<< "$entries"; then
+      echo "    obsolete op name in $skill: $entries"; return 1
+    fi
+  done
+}
+
 # #835: the example must show rollback's tally, not invented per-op output.
 test_failure_rollback_example_output() {
   local example="$WI_PLUGIN_ROOT/skills/initializing-dual-repo-workspace/examples/failure-rollback.md"
@@ -685,6 +709,7 @@ test_failure_rollback_example_output() {
 
 # --- run all ---
 wi_test_run test_failure_rollback_example_output
+wi_test_run test_skill_init_log_op_names_match_runtime
 wi_test_run test_init_skill_file_exists
 wi_test_run test_pair_skill_file_exists
 wi_test_run test_init_triggers_on_create_workspace

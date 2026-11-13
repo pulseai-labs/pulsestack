@@ -151,6 +151,7 @@ jobs:
         run: bash tests/test-merge-bar-template-parity.sh
 
       - name: AGENTS.md stub marker parity (repo-root)
+        # Cross-plugin seam: workspace-init's first-line marker and ossify's §1a contract.
         run: bash tests/test-agents-stub-marker-parity.sh
 
       - name: Mutation harness contract

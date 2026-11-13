@@ -113,3 +113,16 @@ Neither target remains; the pre-existing project parent is untouched. The skill
 reports the failed task and stops rather than continuing to git initialization.
 Rollback is best-effort: inspect any warnings before assuming another failed
 run reached this clean state.
+
+## Message to the user
+
+The skill reports the observed result to the user; this is its message, not
+dispatcher output:
+
+```text
+Task 8.7 (write README.md) failed because README.md was a directory.
+All 16 logged operations were rolled back. Both /Users/example/projects/foo-ai
+and /Users/example/projects/foo are gone; the existing parent directory remains.
+Check what created README.md as a directory, then re-run /init-workspace foo
+from /Users/example/projects/.
+```

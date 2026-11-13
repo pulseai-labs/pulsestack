@@ -5,8 +5,8 @@
 Closes #834, #835 and #841.
 
 ### Fixed
-- **Init-log dedupe compares exact fields at both sites.** The stub and skeleton log-once helpers compare OP and path as literal TSV fields, preserving backslashes and ignoring an optional detail field. Paths containing ERE metacharacters no longer produce duplicate entries or suppress a different path's entry.
-- **The failure-and-rollback example shows a real run.** It uses a directory at README.md to force a write failure, shows the actual WRITE_FILE entries and summary tally, and no longer promises per-entry output. An existing regular README.md is overwritten, not refused; rollback output is unchanged.
+- **Init-log dedupe compares exact fields at both sites.** The stub and skeleton log-once helpers compare OP and path as whole strings in literal TSV fields, preserving spaces and backslashes and ignoring an optional detail field. Explicit string coercion keeps numeric-looking fields such as `1e3` and `1000` distinct. Paths containing ERE metacharacters no longer produce duplicate entries or suppress a different path's entry.
+- **The failure-and-rollback example shows a real run.** It uses a directory at README.md to force a write failure, shows the actual WRITE_FILE entries and summary tally, and no longer promises per-entry output. Its user-facing message is labeled as the skill's, not dispatcher output. An existing regular README.md is overwritten, not refused; rollback output is unchanged. The fresh-bootstrap and canonical-pairing skills now name the actual log ops and root-directory inverses, and no longer promise a separate manifest-write entry.
 - **A repo-level parity gate spans the AGENTS.md stub marker.** CI compares the template's first line with ossify's exact-first-line contract in §1a.
 
 ### Known limits

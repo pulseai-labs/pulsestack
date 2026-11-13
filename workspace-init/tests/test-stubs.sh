@@ -299,7 +299,10 @@ test_L2_log_once_distinct_fields() {
   assert_eq "$(printf 'OP\t/x/ai\nOP\t/x/aXb\nOP\t/x/ai-2\nOP\t/x/a.b\nOTHER\t/x/ai\nOP\t/x/ai|other')" "$(cat "$log")" || return 1
   printf 'OP\t/x/ai-2\n' > "$log"
   _wi_stubs_log_once "$log" OP /x/ai || return 1
-  assert_eq "$(printf 'OP\t/x/ai-2\nOP\t/x/ai')" "$(cat "$log")"
+  assert_eq "$(printf 'OP\t/x/ai-2\nOP\t/x/ai')" "$(cat "$log")" || return 1
+  printf 'OP\t/x/ai b\n' > "$log"
+  _wi_stubs_log_once "$log" OP /x/ai || return 1
+  assert_eq "$(printf 'OP\t/x/ai b\nOP\t/x/ai')" "$(cat "$log")"
 }
 
 test_L3_log_once_ignores_detail() {
@@ -309,16 +312,27 @@ test_L3_log_once_ignores_detail() {
   assert_eq "$(printf 'OP\t/x/ai\tdetail')" "$(cat "$log")"
 }
 
+test_L4_log_once_numeric_fields_stay_distinct() {
+  local log="$_WI_TMP/numeric-log"
+  printf 'OP\t1e3\n' > "$log"
+  _wi_stubs_log_once "$log" OP 1000 || return 1
+  assert_eq "$(printf 'OP\t1e3\nOP\t1000')" "$(cat "$log")" || return 1
+  printf '1e3\t/x/ai\n' > "$log"
+  _wi_stubs_log_once "$log" 1000 /x/ai || return 1
+  assert_eq "$(printf '1e3\t/x/ai\n1000\t/x/ai')" "$(cat "$log")"
+}
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
-for log_char in '+' '?' '(' ')' '|' '{' '}' '\' '[' ']' '.' '()' '{2}'; do
+for log_char in '+' '?' '(' ')' '|' '{' '}' '\' '[' ']' '.' '()' '{2}' ' (copy)'; do
   printf 'Literal path character: %s\n' "$log_char"
   wi_test_run test_L1_log_once_literal_path
 done
 wi_test_run test_L2_log_once_distinct_fields
 wi_test_run test_L3_log_once_ignores_detail
+wi_test_run test_L4_log_once_numeric_fields_stay_distinct
 
 echo "== Running tests for lib/stubs.sh =="
 echo ""

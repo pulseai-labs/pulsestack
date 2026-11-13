@@ -152,8 +152,8 @@ records `null`).
 ## 6. Execute the modified 8 tasks
 
 Same skeleton as `initializing-dual-repo-workspace` but with three
-pair-with-specific differences (8.2, 8.4, 8.8). After each task, append to
-`${ai_root}/.workspace/init-log` via `"$wi_bin" log_op …`. On ANY task failure,
+pair-with-specific differences (8.2, 8.4, 8.8). The helpers append their operation
+entries to `${ai_root}/.workspace/init-log`. On ANY task failure,
 call `"$wi_bin" rollback "${ai_root}/.workspace/init-log" --pair-with "$canonical_root"`
 (the `--pair-with` flag tells rollback to skip ops against the existing
 canonical — see section 7).
@@ -172,7 +172,7 @@ Already collected in section 3. Reference `name`, `parent`, `canonical_root`,
 "$wi_bin" skeleton_create_root_ai_only "$parent" "$name"
 ```
 
-Expected init-log entry: `mkdir <ai_root>`. NO entry for canonical mkdir.
+Expected init-log entries: `MKDIR <ai_root>` and `MKDIR <ai_root>/.workspace`. No canonical MKDIR entry.
 
 ### 6.3 — Task 8.3: Seed AI workspace subdirs + .gitignore
 
@@ -182,7 +182,7 @@ Same as fresh mode:
 "$wi_bin" skeleton_seed_subdirs "$ai_root"
 ```
 
-Expected init-log entries: subdir mkdirs + `.gitkeep` files + `.gitignore`.
+Expected init-log entries: MKDIR for subdirs and WRITE_FILE for `.gitkeep` files and `.gitignore`.
 
 ### 6.4 — Task 8.4: Write the pairing manifest (with detected metadata)
 
@@ -211,7 +211,7 @@ repo (ossify's close boundary audit then scans it like any other declared repo),
 Only ask when the user volunteers one — omit the flags otherwise and the `tooling_repo` key
 is left out entirely (today's behavior, unchanged).
 
-Expected init-log entry: `file <ai_root>/.workspace/pairing.json`.
+No init-log entry is written for the manifest; rollback removes it with the logged AI root.
 
 ### 6.5 — Task 8.5: Write the AGENTS.md stub
 
@@ -228,7 +228,7 @@ installed. workspace-init writes no `CLAUDE.md`.
 "$wi_bin" stub_agents_md "$ai_root" "$name"
 ```
 
-Expected init-log entry: `file <ai_root>/AGENTS.md`.
+Expected init-log entry: `WRITE_FILE <ai_root>/AGENTS.md`.
 
 ### 6.6 — Task 8.6: (merged into 6.5)
 
@@ -241,7 +241,7 @@ separate `CLAUDE.md` task.
 "$wi_bin" stub_readme "$ai_root" "$name"
 ```
 
-Expected init-log entry: `file <ai_root>/README.md`.
+Expected init-log entry: `WRITE_FILE <ai_root>/README.md`.
 
 ### 6.8 — Task 8.8: git init (AI ONLY) + hooks (BOTH) + stage (AI ONLY)
 
@@ -268,9 +268,9 @@ Expected init-log entry: `file <ai_root>/README.md`.
    "$wi_bin" git_stage_ai_workspace "$ai_root"
    ```
 
-Expected init-log entries: `git-init <ai_root>` (no canonical git-init),
-`hook <ai_root>/.git/hooks/commit-msg`, `hook <canonical_root>/.git/hooks/commit-msg`,
-`git-stage <ai_root>`.
+Expected init-log entries: `GIT_INIT <ai_root>` (no canonical GIT_INIT),
+`HOOK_INSTALL <ai_root>`, `HOOK_INSTALL <canonical_root>`,
+`GIT_STAGE <ai_root>`.
 
 ## 7. Rollback discipline
 
@@ -284,7 +284,7 @@ on the existing canonical. Pass the `--pair-with "$canonical_root"` flag to
 - `mkdir <ai_root>` and all subdirs under it
 - All file creations inside `<ai_root>` (manifest, stubs, .gitignore, .gitkeep)
 - `git init` of `<ai_root>` (removes `<ai_root>/.git/`)
-- `git-stage <ai_root>` (no inverse needed — discarding `<ai_root>` discards the index too)
+- `GIT_STAGE <ai_root>` (no inverse needed — discarding `<ai_root>` discards the index too)
 - Hook install at `<ai_root>/.git/hooks/commit-msg` (removed with the dir)
 
 **Pair-with-frozen** (rollback DOES NOT undo these):
