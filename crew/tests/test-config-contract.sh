@@ -252,12 +252,19 @@ brief_pin 'If REVIEW_INVOCATION refuses or errors, report its output' "the revie
 section "#856: ping and public merge descriptions"
 pin "$PLUGIN_ROOT/skills/orchestrate/references/completion.md" 'A skipped or failed read or send is never an answer: after a plan or a question the worker waits at that gate' "#8563: failed ping holds the worker at its gate" flat
 pin "$BRIEFS_MD" 'a skipped or failed send is left as it is' "#8564: the ping header covers skipped sends" flat
-for f in "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json" "$SKILL_MD"; do
-  pin "$f" "zero; the run merges on a clean gate set under its merge word (standing by default); an operator gate makes it wait for the operator's word" "#8568: ${f##*/} describes the actual default and operator gate" flat
+for f in "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json"; do
+  file_label="${f#"$PLUGIN_ROOT/"}"
+  pin "$f" "zero; clean gates merge under run.merge_word (default standing); operator gates, one-way doors (or no Door: line), and operator merge executors go to the operator" "#8568: $file_label describes the default and merge exceptions" flat
 done
-pin "$PLUGIN_ROOT/.codex-plugin/plugin.json" "zero. The run merges on a clean gate set under its merge word (standing by default); an operator gate makes it wait for the operator's word" "#8568codex: the long description names default and operator gate" flat
-pin "$PLUGIN_ROOT/README.md" "zero; the run merges on a clean gate set under its merge word (standing by default); an operator gate makes it wait for the operator's word" "#8568readme: merge follows the run word and optional operator gate" flat
+# SKILL.md's frontmatter is YAML: a colon-space in a plain scalar does not parse, so it says "no Door line".
+pin "$SKILL_MD" "zero; clean gates merge under run.merge_word (default standing); operator gates, one-way doors (or no Door line), and operator merge executors go to the operator" "#8568: skills/orchestrate/SKILL.md describes the default and merge exceptions" flat
+pin "$PLUGIN_ROOT/.codex-plugin/plugin.json" "zero. Clean gates merge under run.merge_word (default standing); operator gates, one-way doors (or no Door: line), and operator merge executors go to the operator" "#8568codex: the long description names default and exceptions" flat
+pin "$PLUGIN_ROOT/README.md" "zero; clean gates merge under run.merge_word (default standing); operator gates, one-way doors (or no Door: line), and operator merge executors go to the operator" "#8568readme: merge descriptions name default and exceptions" flat
 pin "$PLUGIN_ROOT/README.md" '/code-review <PR> <LEVEL>' "#8569: the reviewer role carries the level" flat
+# C2: HEAD-green coverage controls for the public numeric contract.
+pin "$PLUGIN_ROOT/README.md" '100000.5 at 100001' "C2: the documented fraction is not floored" flat
+pin "$PLUGIN_ROOT/README.md" 'Any number ≥ 1' "C2: the documented ceiling accepts fractions" flat
+pin "$PLUGIN_ROOT/.claude-plugin/plugin.json" 'next whole token' "C2: the option description rounds the threshold up" flat
 
 section "the named points exist in the run"
 LIFECYCLE_MD="$PLUGIN_ROOT/skills/orchestrate/references/lifecycle.md"

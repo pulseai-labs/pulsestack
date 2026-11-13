@@ -7,7 +7,7 @@ to worker sessions launched by seat name through the project's layer — the sea
 operator's own files, not in this plugin. A planned-work seat and a bounded-work seat
 implement by complexity class, one reviewer seat runs its review command (`/code-review` by default) once per PR and
 returns its findings through its report file, the retained implementer works GitHub
-threads to zero; the run merges on a clean gate set under its merge word (standing by default); an operator gate makes it wait for the operator's word.
+threads to zero; clean gates merge under run.merge_word (default standing); operator gates, one-way doors (or no Door: line), and operator merge executors go to the operator.
 
 Every layer's command syntax comes from its own guide: herdr's from `herdr --skill`, the
 binary's own version-matched guide; Orca's from `orca skills get orca-cli`. This plugin

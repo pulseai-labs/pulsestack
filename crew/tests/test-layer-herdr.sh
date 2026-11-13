@@ -189,11 +189,12 @@ pin "$COMP" 'Before dispatch, clear or move an acknowledged report' "#587b: repo
 pin "$COMP" 'never a second settled-state wait (the coordinator' "#587c: false-wake rule permits the blocked companion" flat
 pin "$COMP" 'An answered dialog re-arms the pair: the doorbell' "#587f: dialog rule names the pair directly" flat
 pin "$REF" "--regex '[0-9.]+[kKmM]? */ *[0-9.]+[kKmM]? tokens' --source visible --timeout 5000" "#515herdr: context waits on a rendered figure with a bound" flat
-pin "$REF" 'accept only the new reply, never a pre-send figure' "#515fresh: an old context figure cannot satisfy the new probe" flat
-# Baseline-green coverage control: the rereads, not merely wait-output, stay bounded.
-pin "$REF" 'Within that same bound accept only the new reply' "control B4: the freshness reread keeps the same bound" flat
-pin "$REF" 'timeout means figure unavailable, treated as past half: the next item goes to a fresh seat' "#515timeout: missing context rotates rather than supplying a figure" flat
+pin "$REF" 'accept only a figure that differs from the pre-send screen' "#515fresh: only a changed figure proves freshness" flat
+pin "$REF" 'at most 5 times, with `sleep 1` between reads' "C6: herdr rereads have a count and spacing" flat
+pin "$REF" 'No changed figure or a wait timeout means figure unavailable, treated as past half: the next item goes to a fresh seat' "C6: herdr exhaustion or timeout rotates the next item" flat
 pin "$ROLES" "the layer's Send owns its bounded figure read and unavailable result" "#515roles: retention routes to the layer probe" flat
+pin "$LIFE" "use the layer's bounded \`/context\` reads and unavailable result" "C5: lifecycle routes to the layer probe and its unavailable result" flat
+pin "$SKILL_MD" "the layer's bounded \`/context\` reads and unavailable result" "C5: the read licence permits the layer probe reads" flat
 pin "$REF" "--regex '<pattern>' --source visible --timeout <ms>\` for \`/context\`" "N3: the Read list names the rendered context regex" flat
 pin "$REF" 'submits text and Enter as one submission' "N7: the detected send remains one submission" flat
 

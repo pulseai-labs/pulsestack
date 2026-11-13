@@ -120,11 +120,12 @@ fi
 
 # Quote only the number in force: raw option text cannot safely enter say's JSON line.
 if [ -n "$ceiling_raw" ]; then
-  ceiling="$(jq -nr --arg s "$ceiling_raw" --argjson d "$DEFAULT_CEILING" '
-    ($s | tonumber?) as $c
+  if ! ceiling="$(jq -nr --arg s "$ceiling_raw" --argjson d "$DEFAULT_CEILING" '
+    ($s | tonumber? // $d) as $c
     | if ($c | type) == "number" and $c >= 1 then ($c | tostring)
-      else ($d | tostring) end' 2>/dev/null)"
-  [ -n "$ceiling" ] || { ceiling=$DEFAULT_CEILING; ceiling_unchecked=1; }
+      else ($d | tostring) end' 2>/dev/null)" || [ -z "$ceiling" ]; then
+    ceiling_unchecked=1
+  fi
 fi
 
 # One jq pass reads the three fields the verdicts need — the event, the
@@ -310,6 +311,15 @@ case "$figure" in
   ''|*[!0-9]*) unavailable "$event" "no readable usage in the latest assistant record"; exit 0 ;;
 esac
 
-[ "$(jq -n --arg f "$figure" --arg c "$ceiling" '($f | tonumber) >= ($c | tonumber)' 2>/dev/null)" = true ] || exit 0
-say "$event" "crew: context $figure >= ceiling $ceiling tokens. Finish the unit in hand and start no new one; a coordinator seat rotates at its next boundary (crew lifecycle.md, Rotation past the context ceiling)."
+if [ "$ceiling_unchecked" -eq 1 ]; then
+  unavailable "$event" "ceiling setting could not be read"; exit 0
+fi
+
+# Only a successful true/false result is a comparison verdict.
+comparison="$(jq -n --arg f "$figure" --arg c "$ceiling" '($f | tonumber) >= ($c | tonumber)' 2>/dev/null)" || comparison=
+case "$comparison" in
+  true) say "$event" "crew: context $figure >= ceiling $ceiling tokens. Finish the unit in hand and start no new one; a coordinator seat rotates at its next boundary (crew lifecycle.md, Rotation past the context ceiling)." ;;
+  false) ;;
+  *) unavailable "$event" "ceiling comparison could not be read" ;;
+esac
 exit 0

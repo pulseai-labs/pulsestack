@@ -132,8 +132,8 @@ Every command's syntax comes from the layer's guide.
    operator's word to wait on that pane again — never by the orchestrator's own re-entry.
    At each task
    boundary for a retained implementer whose profile can run a local slash command and
-   whose send route carries one, send `/context` and read the one reply before attaching
-   the next task; the threshold, and the seat this probe does not reach, are in `roles.md`.
+   whose send route carries one, use the layer's bounded `/context` reads and unavailable result
+   before attaching the next task; the threshold and ineligible-seat rule are in `roles.md`.
 6. **Implementer finishes.** Its report file carries the completion body its
    brief defined — the commit SHAs and file count, each test command's pass and
    fail counts with the full output, the PR it opened with
@@ -350,9 +350,9 @@ when the effect is absent.
    `phase: delivered`. A new report generation proves delivery: set a recorded attempt `delivered`, then read the
    generation once, record it and act on it by kind. With no new generation and `phase: recorded`, treat the attempt
    as `delivered` and re-arm it like any delivered attempt. Never relaunch it automatically. The re-armed wait’s timeout
-   checkpoint (step 5) reports a worker that never started to the operator, who decides on a relaunch; never run two
+   checkpoint (lifecycle step 5) reports a worker that never started to the operator, who decides on a relaunch; never run two
    workers on one attempt.
-   Re-arm step 5’s waits only for an attempt still live after its generation check; a final report consumed on resume
+   Re-arm lifecycle step 5’s waits only for an attempt still live after its generation check; a final report consumed on resume
    settles that dispatch, so it gets no wait. The waits are on the pane (a detected coordinator's companion included)
    through `locator.machine`; every later operation on that pane carries `locator.machine` (the layer file, Machines).
 5. It arms one fresh heartbeat only if at least one dispatch is still live.

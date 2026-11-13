@@ -1993,9 +1993,9 @@ pin "$LIFECYCLE_MD" 'With no new generation and `phase: recorded`, treat the att
   "a recorded attempt without a new generation is delivered and re-armed" flat
 pin "$LIFECYCLE_MD" 'Never relaunch it automatically.' \
   "resume never automatically relaunches a recorded attempt" flat
-pin "$LIFECYCLE_MD" 'The re-armed wait’s timeout checkpoint (step 5) reports a worker that never started to the operator, who decides on a relaunch; never run two workers on one attempt.' \
+pin "$LIFECYCLE_MD" 'The re-armed wait’s timeout checkpoint (lifecycle step 5) reports a worker that never started to the operator, who decides on a relaunch; never run two workers on one attempt.' \
   "the timeout reports an unstarted worker for the operator's relaunch decision without duplicating the attempt" flat
-pin "$LIFECYCLE_MD" 'Re-arm step 5’s waits only for an attempt still live after its generation check; a final report consumed on resume settles that dispatch, so it gets no wait.' \
+pin "$LIFECYCLE_MD" 'Re-arm lifecycle step 5’s waits only for an attempt still live after its generation check; a final report consumed on resume settles that dispatch, so it gets no wait.' \
   "resume re-arms only live attempts and never waits on consumed final reports" flat
 pin "$LIFECYCLE_MD" 'It arms one fresh heartbeat only if at least one dispatch is still live.' \
   "resume arms no heartbeat after its last dispatch settles" flat
@@ -2146,7 +2146,7 @@ pin "$ROLES_MD" 'A seat is released as the Teardown order below says' \
 # pointer is half of what the fix is: the summary points, it does not restate.
 pin "$PLUGIN_README_MD" 'checked by `/context` at each task boundary for a seat that can answer the probe — one that cannot rotates at its item boundary instead, `references/roles.md`)' \
   "README's retained-implementer summary carries the conditioned probe and its fallback" flat
-pin "$SKILL_MD" 'the one `/context` reply at each task boundary for a seat that can answer the probe — one that cannot rotates at its item boundary instead (`references/roles.md`)' \
+pin "$SKILL_MD" 'the layer'"'"'s bounded `/context` reads and unavailable result at each task boundary for an eligible seat (`references/roles.md`); a seat that cannot answer the probe rotates at its item boundary instead.' \
   "SKILL.md's bounded-reads list conditions the probe and gives the fallback" flat
 
 # Fix round 2, on the whole-branch review's finding 3 and the controller's ruling: the

@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: The orchestrator/worker session model over herdr or Orca — one orchestrator keeps decisions and dispatches work to named worker seats through the project's layer, defined in the operator's own files (~/.claude/crew/agents.md, .crew/roles.md). One review per PR (/code-review by default), findings returned in the seat's report file, GitHub threads worked to zero; the run merges on a clean gate set under its merge word (standing by default); an operator gate makes it wait for the operator's word. On a spine this session just planned, the operator approves the seats into the project file and they are injected into one spine session that gives each item seat a fresh tab and pane. Use when the user says the herdr orchestrator session, a herdr worker seat, the herdr crew, dispatch to a herdr session, execution assignments for a spine in herdr, or runs /crew:orchestrate. Not herdr's command reference (`herdr --skill` owns that), and not a PR loop of its own where ossify's work-pr is installed.
+description: The orchestrator/worker session model over herdr or Orca — one orchestrator keeps decisions and dispatches work to named worker seats through the project's layer, defined in the operator's files (~/.claude/crew/agents.md, .crew/roles.md). One review per PR (/code-review by default), findings returned in the seat's report file, GitHub threads worked to zero; clean gates merge under run.merge_word (default standing); operator gates, one-way doors (or no Door line), and operator merge executors go to the operator. On a spine this session just planned, the operator approves the seats into the project file and they are injected into one spine session that gives each item seat a fresh tab and pane. Use when the user says the herdr orchestrator session, a herdr worker seat, the herdr crew, dispatch to a herdr session, execution assignments for a spine in herdr, or runs /crew:orchestrate. Not herdr's command reference (`herdr --skill` owns that), and not a PR loop of its own where ossify's work-pr is installed.
 ---
 
 # Orchestrate — the orchestrator/worker session model
@@ -78,8 +78,8 @@ Three consequences:
   timeout, stays forbidden; the ping and the heartbeat are not that loop, and a ping for a
   generation already consumed retires no wait. Beyond those reads, the only bounded ones are the
   launch-banner read in `roles.md`, the readiness wait of a seat the layer does not detect, and
-  the one `/context` reply at each task boundary for a seat that can answer the probe — one that
-  cannot rotates at its item boundary instead (`references/roles.md`).
+  the layer's bounded `/context` reads and unavailable result at each task boundary for an eligible seat
+  (`references/roles.md`); a seat that cannot answer the probe rotates at its item boundary instead.
 - **Past the context ceiling, the hook says so.** Finish the unit in hand, start no new one,
   and rotate at your next boundary — `lifecycle.md`, "Rotation past the context ceiling".
   Where molt runs, its warnings replace the notice: a child hands off to its parent

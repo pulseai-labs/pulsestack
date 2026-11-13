@@ -127,9 +127,9 @@ file's send, filled by the dispatcher.
 
 - **Detected:** `herdr agent prompt <pane> '<line>'` submits text and Enter as one submission. herdr adds environment such as `HERDR_PANE_ID`, never prompt text. Work takes the turn-start check below. A local slash command (`/context`, `/clear`) settles without a turn and is sent plain, without that `--wait`.
   For `/context`, note the pre-send screen; after the plain send, `herdr pane wait-output <pane>
-  --regex '[0-9.]+[kKmM]? */ *[0-9.]+[kKmM]? tokens' --source visible --timeout 5000`, then `herdr pane read <pane> --source visible`.
-  Within that same bound accept only the new reply, never a pre-send figure (an immediate match may be old; re-read until the new reply renders);
-  timeout means figure unavailable, treated as past half: the next item goes to a fresh seat.
+  --regex '[0-9.]+[kKmM]? */ *[0-9.]+[kKmM]? tokens' --source visible --timeout 5000`. Then read with `herdr pane read <pane> --source visible`
+  at most 5 times, with `sleep 1` between reads; accept only a figure that differs from the pre-send screen.
+  No changed figure or a wait timeout means figure unavailable, treated as past half: the next item goes to a fresh seat.
 - **Undetected:** no `agent` command reaches the pane; they accept only a pane hosting a detected
   agent. Send the by-file line with `herdr pane run <pane> '<line>'` (the line and Enter; only `agent
   prompt` is documented to honour bracketed paste); a seat set to `brief_delivery: inject` is reported to the operator. No turn-start check.

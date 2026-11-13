@@ -520,6 +520,51 @@ done
 # Adjacent control: no setting makes the default known even when jq is broken.
 run "$(input UserPromptSubmit "$T_PAST")" PATH="$BROKENJQ:$PATH"
 expect_notice "control B1: an unset setting has a known default" UserPromptSubmit "ceiling of 500000 tokens"
+
+# C1: only the numbered jq invocation fails; every other invocation is real jq.
+ONCEJQ="$TMP/oncejq-bin"; mkdir -p "$ONCEJQ"
+REAL_JQ="$(command -v jq)"
+cat > "$ONCEJQ/jq" <<'C1_JQ'
+#!/bin/sh
+n=0
+[ ! -f "$C1_COUNT" ] || read -r n < "$C1_COUNT"
+n=$((n+1))
+printf '%s\n' "$n" > "$C1_COUNT"
+if [ "$n" -eq "$C1_FAIL_ON" ]; then
+  case "$C1_FAULT" in
+    error) exit 1 ;;
+    empty) exit 0 ;;
+    number-error) printf '100000\n'; exit 1 ;;
+    other) printf 'not-a-verdict\n'; exit 0 ;;
+    true-error) printf 'true\n'; exit 1 ;;
+    false-error) printf 'false\n'; exit 1 ;;
+  esac
+fi
+exec "$C1_REAL_JQ" "$@"
+C1_JQ
+chmod +x "$ONCEJQ/jq"
+T_SELECTIVE="$(transcript selective 150001)"
+for event in UserPromptSubmit PreToolUse; do
+  for trial in 2:error 2:empty 2:number-error 5:error 5:empty 5:other 5:true-error 5:false-error; do
+    nth="${trial%%:*}"; fault="${trial#*:}"
+    printf '0\n' > "$TMP/jq-count"
+    run "$(input "$event" "$T_SELECTIVE" 'herdr agent prompt w7:p2 next')" \
+      PATH="$ONCEJQ:$PATH" C1_COUNT="$TMP/jq-count" C1_REAL_JQ="$REAL_JQ" \
+      C1_FAIL_ON="$nth" C1_FAULT="$fault" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000
+    if [ "$nth" -eq 2 ]; then
+      expect_notice "C1a: normalization failure is unavailable ($event $fault)" "$event" "figure unavailable" "setting was not checked"
+    else
+      expect_notice "C1b: comparison failure is unavailable ($event $fault)" "$event" "figure unavailable"
+    fi
+    if [ ! -s "$TMP/stderr" ]; then pass "control C1: selective jq failure has empty stderr ($event $trial)"
+    else fail "control C1: selective jq failure has empty stderr ($event $trial)" "$(cat "$TMP/stderr")"; fi
+  done
+  printf '0\n' > "$TMP/jq-count"
+  run "$(input "$event" "$T_SELECTIVE" 'herdr agent prompt w7:p2 next')" \
+    PATH="$ONCEJQ:$PATH" C1_COUNT="$TMP/jq-count" C1_REAL_JQ="$REAL_JQ" \
+    C1_FAIL_ON=0 C1_FAULT=error CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000
+  expect_notice "control C1: stable jq reaches the configured ceiling ($event)" "$event" "context 150001" "ceiling 100000"
+done
 # Fix round 1, Finding 1: the tail could not be read at all. With `tail` off PATH
 # its status was invisible (the pipeline reported jq's), the empty tail fell
 # through to "none", the size check passed, and the handler exited having said
