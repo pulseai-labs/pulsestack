@@ -125,7 +125,7 @@ PING_SEND=herdr agent prompt <that pane>
 This is the one statement of how the orchestrator sends a seat anything; other files say "send" and mean this. The slot `PING_SEND` a brief's `PING:` and `MOLT:` lines carry is this
 file's send, filled by the dispatcher.
 
-- **Detected:** `herdr agent prompt <pane> '<line>'` submits text and Enter, with environment such as `HERDR_PANE_ID`, never prepended prompt text. Work takes the turn-start check below. A local slash command (`/context`, `/clear`) settles without a turn and is sent plain, without that `--wait`.
+- **Detected:** `herdr agent prompt <pane> '<line>'` submits text and Enter as one submission. herdr adds environment such as `HERDR_PANE_ID`, never prompt text. Work takes the turn-start check below. A local slash command (`/context`, `/clear`) settles without a turn and is sent plain, without that `--wait`.
   For `/context`, note the pre-send screen; after the plain send, `herdr pane wait-output <pane>
   --regex '[0-9.]+[kKmM]? */ *[0-9.]+[kKmM]? tokens' --source visible --timeout 5000`, then `herdr pane read <pane> --source visible`.
   Within that same bound accept only the new reply, never a pre-send figure (an immediate match may be old; re-read until the new reply renders);
@@ -160,7 +160,7 @@ timeout counts from before submission, a few seconds above the five-second gate.
 
 The layer's read forms: `herdr pane read <pane>` (the rendered screen, `--source visible` when
 the profile says `model_shows: screen`), `herdr pane wait-output <pane> --match '<pattern>'
---timeout <ms>` (output), and the detection asks `Readiness` states. Each use states its flags
+--timeout <ms>` (output), or `--regex '<pattern>' --source visible --timeout <ms>` for `/context`, and the detection asks `Readiness` states. Each use states its flags
 where it is used — `Readiness` for both wait paths, `Seat launch` for the model read,
 `Completion signal` for the health check. No read is licensed
 by the layer: the shared files say which reads a turn may spend.

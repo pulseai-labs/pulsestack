@@ -253,10 +253,10 @@ section "#856: ping and public merge descriptions"
 pin "$PLUGIN_ROOT/skills/orchestrate/references/completion.md" 'A skipped or failed read or send is never an answer: after a plan or a question the worker waits at that gate' "#8563: failed ping holds the worker at its gate" flat
 pin "$BRIEFS_MD" 'a skipped or failed send is left as it is' "#8564: the ping header covers skipped sends" flat
 for f in "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json" "$SKILL_MD"; do
-  pin "$f" "zero, merge only on the operator's word or the project's standing order" "#8568: ${f##*/} names both merge-word sources" flat
+  pin "$f" "zero; the run merges on a clean gate set under its merge word (standing by default); an operator gate makes it wait for the operator's word" "#8568: ${f##*/} describes the actual default and operator gate" flat
 done
-pin "$PLUGIN_ROOT/.codex-plugin/plugin.json" "a merge only on the operator's word or the project's standing order" "#8568codex: the long description names standing orders" flat
-pin "$PLUGIN_ROOT/README.md" "the merge waits for the operator's word or the project's standing order" "#8568readme: merge can follow a standing order" flat
+pin "$PLUGIN_ROOT/.codex-plugin/plugin.json" "zero. The run merges on a clean gate set under its merge word (standing by default); an operator gate makes it wait for the operator's word" "#8568codex: the long description names default and operator gate" flat
+pin "$PLUGIN_ROOT/README.md" "zero; the run merges on a clean gate set under its merge word (standing by default); an operator gate makes it wait for the operator's word" "#8568readme: merge follows the run word and optional operator gate" flat
 pin "$PLUGIN_ROOT/README.md" '/code-review <PR> <LEVEL>' "#8569: the reviewer role carries the level" flat
 
 section "the named points exist in the run"

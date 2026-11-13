@@ -183,14 +183,19 @@ pin "$COMP" 'An answered dialog re-arms the pair' \
 pin "$COMP" 'the doorbell and its companion again, not one wait' \
   "the fresh wait after an answer is the pair again, not one wait (#575)"
 
-pin "$LIFE" 'then re-arm as `completion.md` states' "#587a: dialog re-arm routes to the coordinator-aware rule" flat
+pin "$LIFE" 'a detected coordinator re-arms the pair (`completion.md`)' "#587a: dialog re-arm distinguishes the coordinator pair" flat
+pin "$LIFE" 'then one fresh bounded wait; a detected coordinator' "B2: a detected leaf dialog re-arms one fresh bounded wait" flat
 pin "$COMP" 'Before dispatch, clear or move an acknowledged report' "#587b: report clearance is an instruction" flat
 pin "$COMP" 'never a second settled-state wait (the coordinator' "#587c: false-wake rule permits the blocked companion" flat
 pin "$COMP" 'An answered dialog re-arms the pair: the doorbell' "#587f: dialog rule names the pair directly" flat
 pin "$REF" "--regex '[0-9.]+[kKmM]? */ *[0-9.]+[kKmM]? tokens' --source visible --timeout 5000" "#515herdr: context waits on a rendered figure with a bound" flat
 pin "$REF" 'accept only the new reply, never a pre-send figure' "#515fresh: an old context figure cannot satisfy the new probe" flat
+# Baseline-green coverage control: the rereads, not merely wait-output, stay bounded.
+pin "$REF" 'Within that same bound accept only the new reply' "control B4: the freshness reread keeps the same bound" flat
 pin "$REF" 'timeout means figure unavailable, treated as past half: the next item goes to a fresh seat' "#515timeout: missing context rotates rather than supplying a figure" flat
 pin "$ROLES" "the layer's Send owns its bounded figure read and unavailable result" "#515roles: retention routes to the layer probe" flat
+pin "$REF" "--regex '<pattern>' --source visible --timeout <ms>\` for \`/context\`" "N3: the Read list names the rendered context regex" flat
+pin "$REF" 'submits text and Enter as one submission' "N7: the detected send remains one submission" flat
 
 # Task 5 (crew 0.3.0): the identity reads live in the layer's `Identity`; the shared files
 # name the step and hold the rules, so a shared file carries no env var name and the layer

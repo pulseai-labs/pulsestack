@@ -29,6 +29,7 @@ TAIL_BYTES=4000000    # the latest assistant record sits in the transcript's tai
 # Claude Code hands the hook String(number); jq owns both the min-1 verdict and comparison.
 ceiling_raw="${CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING:-}"
 ceiling=$DEFAULT_CEILING
+ceiling_unchecked=0
 
 input="$(cat)"
 
@@ -83,7 +84,11 @@ say() {
 }
 
 unavailable() { # <event> <reason>
-  say "$1" "crew: context figure unavailable ($2); the ceiling of $ceiling tokens was not checked."
+  if [ "$ceiling_unchecked" -eq 1 ]; then
+    say "$1" "crew: context figure unavailable ($2); the ceiling setting was not checked."
+  else
+    say "$1" "crew: context figure unavailable ($2); the ceiling of $ceiling tokens was not checked."
+  fi
 }
 
 # event_in_raw <input> — the event the raw input names, for the two paths where
@@ -119,7 +124,7 @@ if [ -n "$ceiling_raw" ]; then
     ($s | tonumber?) as $c
     | if ($c | type) == "number" and $c >= 1 then ($c | tostring)
       else ($d | tostring) end' 2>/dev/null)"
-  [ -n "$ceiling" ] || ceiling=$DEFAULT_CEILING
+  [ -n "$ceiling" ] || { ceiling=$DEFAULT_CEILING; ceiling_unchecked=1; }
 fi
 
 # One jq pass reads the three fields the verdicts need — the event, the
