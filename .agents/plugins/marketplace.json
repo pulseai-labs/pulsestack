@@ -75,7 +75,7 @@
         "authentication": "ON_INSTALL"
       },
       "category": "Coding",
-      "description": "Orchestrator/worker session model over herdr or Orca; clean gates merge under a project standing order granting this role merge authority, else on the operator's word; operator gates and operator merge executors go to the operator."
+      "description": "Orchestrator/worker session model over herdr or Orca; clean gates merge under a project standing order granting the orchestrator merge authority, else on the operator's word; operator gates and operator merge executors go to the operator."
     },
     {
       "name": "merge-bar",

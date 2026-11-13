@@ -88,7 +88,7 @@ fi
 
 # Each catalog must state the operative merge condition, not merely agree with a manifest.
 for catalog in .claude-plugin/marketplace.json .agents/plugins/marketplace.json .omp-plugin/marketplace.json; do
-  if jq -e '.plugins[] | select(.name == "crew") | .description | contains("clean gates merge under a project standing order granting this role merge authority, else on the operator'"'"'s word; operator gates and operator merge executors go to the operator")' "$ROOT/$catalog" >/dev/null 2>&1; then
+  if jq -e '.plugins[] | select(.name == "crew") | .description | contains("clean gates merge under a project standing order granting the orchestrator merge authority, else on the operator'"'"'s word; operator gates and operator merge executors go to the operator")' "$ROOT/$catalog" >/dev/null 2>&1; then
     pass "#1215-catalog: $catalog requires project merge authority or the operator word"
   else
     fail "#1215-catalog: $catalog requires project merge authority or the operator word"

@@ -2032,6 +2032,20 @@ pin "$SKILL_MD" 'step 12'"'"'s `run.merge_word` says, and you merge it under ste
   "#1215-direct: direct work-PR routes the word to step 12" flat
 pin "$NESTED_MD" 'step 12'"'"'s `run.merge_word` says; the merge lands under the reply'"'"'s executor' \
   "#1215-nested: nested work-PR routes the word to step 12" flat
+pin "$LIFECYCLE_MD" 'before step 12'"'"'s merge word, whether asked or granted there' \
+  "#1215-point: named-point timing covers either source of the merge word" flat
+absent "$LIFECYCLE_MD" 'or under `standing` its merge' \
+  "#1215-point-old: no unconditional standing merge in named-point timing" flat
+for f in "$SKILL_MD" "$NESTED_MD"; do
+  absent "$f" 'a clean gate set is the word' \
+    "#1215-no-restatement: ${f##*/} cannot add the old unconditional summary" flat
+done
+pin "$LIFECYCLE_MD" 'a clean gate set on that SHA is the word' \
+  "#1215-single-rule: the operative clean-SHA word occurs exactly once" flat
+absent_any "$LIFECYCLE_MD" "#1215-no-alternatives: no PR-head or any-order disjunction" flat \
+  'on the base branch or the PR head' 'or any order that grants merge'
+pin "$LIFECYCLE_MD" 'with no ask, naming that order in the disposition comment' \
+  "#1215-order-record: the top names the granting order in the existing ledger" flat
 pin "$SKILL_MD" 'and you merge it under step 12' "#8566: direct work-pr names its merge actor" flat
 pin "$LIFECYCLE_MD" 'merge executor is the operator (`MERGE_EXECUTOR=operator`) still goes to the operator' \
   "an operator merge executor is reached under a standing word too (#837 round 1)" flat

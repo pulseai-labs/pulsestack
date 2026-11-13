@@ -229,8 +229,8 @@ Every command's syntax comes from the layer's guide.
     read the project's standing orders on the base branch (merge-bar's working-a-pr, "Standing orders"
     paragraph, says where it is read and whom it binds). Only an order that names the orchestrator role
     and grants it merge authority counts: with one, a clean gate set on that SHA is the word, so merge
-    with no ask; with none, ask the operator for the merge word naming that SHA and say no standing
-    order grants this role merge authority.
+    with no ask, naming that order in the disposition comment; with none, ask the operator for the
+    merge word naming that SHA and say no standing order grants this role merge authority.
     A one-way door — a `handed off: one-way <OID>` return, or where merge-bar's `working-a-pr` runs a
     body with `Door: one-way` or no `Door:` line — follows merge-bar's
     `skills/working-a-pr/references/one-way-door.md` under either word, `standing` included: its
