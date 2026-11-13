@@ -86,6 +86,15 @@ else
   fi
 fi
 
+# Each catalog must state the operative merge condition, not merely agree with a manifest.
+for catalog in .claude-plugin/marketplace.json .agents/plugins/marketplace.json .omp-plugin/marketplace.json; do
+  if jq -e '.plugins[] | select(.name == "crew") | .description | contains("clean gates merge under a project standing order granting this role merge authority, else on the operator'"'"'s word; operator gates and operator merge executors go to the operator")' "$ROOT/$catalog" >/dev/null 2>&1; then
+    pass "#1215-catalog: $catalog requires project merge authority or the operator word"
+  else
+    fail "#1215-catalog: $catalog requires project merge authority or the operator word"
+  fi
+done
+
 # crew's Codex prompts (#535). The `interface.defaultPrompt` array is a
 # user-facing surface — the suggested actions on the Codex plugin page — and a
 # whole-branch review once measured that the prompts could be reverted with

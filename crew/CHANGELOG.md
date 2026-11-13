@@ -2,15 +2,21 @@
 
 All notable changes to the `crew` plugin.
 
+## 0.12.0
+
+**The standing merge default follows project authority.** Closes #1215.
+
+`run.merge_word` stays `standing` by default; lifecycle step 12 reads the project's standing orders and merges a clean SHA without asking only when an order names the orchestrator role and grants merge authority. With none, it asks the operator for that SHA and says why. Legacy runs follow step 12 too. The one-way-door and operator-merge-executor exceptions are unchanged; descriptions and eval expectations follow the corrected rule.
+
 ## 0.11.4
 
 **The ceiling accepts the manifest's numbers; wait and resume prose agrees with its contracts.** Closes #616, #587, #856 and #515.
 
 - **Numeric ceiling (#616):** jq decides the min-1 setting and compares it without flooring; 100000.5 fires at 100001 and exponent forms are compared, not dropped. Failed setting or comparison jq yields an unavailable notice, never a default comparison or a below-ceiling verdict. Normal notices quote the number in force; an unavailable notice instead reports an unchecked setting when jq is missing or normalization yielded no value.
 - **Doorbell follow-ons (#587):** dialog answers re-arm the coordinator's pair, acknowledged reports are cleared or moved before dispatch, false wakes forbid a second settled-state wait rather than the dialog companion, and file identity is inode with mtime. The already-shipped hash-or-identity wake and silent companion timeout stay unchanged; the inaccurate test-count comment is removed.
-- **Resume and descriptions (#856):** an answered transcript question is applied, not re-asked; ping headers cover skipped and failed sends and hold workers at their gates; step references and the direct work-PR merge actor are explicit. Public descriptions name the run's merge word (`standing` by default) and the two cases that go to the operator: an operator gate and an operator merge executor; the reviewer command includes its level, and the retired-command pin's label names only what it checks. The PING counter is already an anchored line count, not a copy of the literal-occurrence loop.
+- **Resume and descriptions (#856):** an answered transcript question is applied, not re-asked; ping headers cover skipped and failed sends and hold workers at their gates; step references and the direct work-PR merge actor are explicit. Public descriptions named the then-current merge default (superseded in 0.12.0); the reviewer command includes its level, and the retired-command pin's label names only what it checks. The PING counter is already an anchored line count, not a copy of the literal-occurrence loop.
 - **Context probe (#515):** after a plain send each layer reads the rendered screen at most five times, with `sleep 1` between reads; herdr first waits up to 5000 ms. Only a figure different from the pre-send screen is accepted; an unavailable figure sends the next item to a fresh seat. Shared files route to the layer's probe rather than restating its reads.
-- **Known limits:** the existing `standing` merge default is unchanged and requires no proof of a project standing order. An unchanged figure is not freshness proof; if no changed figure is established by the bounded probe, it is unavailable. No jq means no setting validation or context comparison. The figure regex matches Claude Code's `/context` render; a `can: slash-commands` seat on another CLI with a different render fails the probe and rotates at every boundary.
+- **Known limits:** An unchanged figure is not freshness proof; if no changed figure is established by the bounded probe, it is unavailable. No jq means no setting validation or context comparison. The figure regex matches Claude Code's `/context` render; a `can: slash-commands` seat on another CLI with a different render fails the probe and rotates at every boundary.
 
 ## 0.11.3
 
@@ -247,7 +253,7 @@ read through the layer's Machines step; the herdr layer states no cross-machine 
 
 ## 0.2.25
 
-**A standing merge word merges with no ask** (#837). With `run.merge_word: standing`, lifecycle step 12 no longer asks anyone: the operator's standing word is the merge word, and a clean gate set on the head SHA (every check green, every finding fixed or logged as debt through merge-bar) is the agreed condition, so the top merges, pinned to that SHA. With `operator`, it still asks the operator. Live OMP tops in runs A3 and B already merged this way; the text now matches. SKILL.md's work-PR paragraph and `ossify-nested-run.md` answer a work-PR session's merge ask by the same rule.
+**The then-current standing merge word skipped the ask** (#837; superseded in 0.12.0). This release aligned step 12, SKILL.md's work-PR paragraph and `ossify-nested-run.md` with live OMP runs A3 and B. The current merge rule lives only in lifecycle step 12.
 
 ## 0.2.24
 

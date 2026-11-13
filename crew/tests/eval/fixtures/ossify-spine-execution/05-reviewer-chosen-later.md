@@ -20,7 +20,7 @@ expected_reason: 'Two halves. The refusal: the reviewers resolved profile and
   file''s work-PR session seat, which is why that seat needs no PR-transition
   decision of its own - and that session creates the
   reviewer and the PR-fix seat inside a `run.json` of its own and runs the whole review-fix
-  loop, and the top only relays the merge word — the operator''s, or under `standing` its own on a clean gate. The wrong
+  loop, and the top only relays the merge word as lifecycle step 12 says. The wrong
   answers this fixture falsifies are: adding a reviewer row because
   the operator asked; deferring the choice but leaving it to the spine session to
   make later; and having the top create the reviewer pane or run the fix rounds

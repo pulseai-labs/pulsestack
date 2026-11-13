@@ -1908,7 +1908,7 @@ pin "$EXEC_MD" 'the `RUN_JSON` path that record'"'"'s return named' \
 section "the run file carries the live facts (#810, #816, #819)"
 # Spec §3/§5: each fact a successor needs is written at the step that learns it.
 pin "$LIFECYCLE_MD" '`run.merge_word` — `standing` unless the brief or the operator sets a merge gate for this run, then `operator`' \
-  "step 1 writes the run's merge authority at creation" flat
+  "control: step 1 still writes the merge-word field and its default" flat
 pin "$LIFECYCLE_MD" 'Every creation and every bind writes `run.orchestrator.machine` beside its pane' \
   "step 1 writes the top's machine on creation and binding" flat
 pin "$MECHANICS_MD" 'A `machine` is a remote server'"'"'s `herdr machine list` label; this server'"'"'s machine is its `hostname -s`' \
@@ -2018,9 +2018,20 @@ pin "$LIFECYCLE_MD" 'step 12 and `run.merge_word`' \
   "the handoff points at the merge rule instead of restating it" flat
 pin "$LIFECYCLE_MD" 'With `operator`, the ask says that this run'"'"'s brief or the operator set an operator merge gate:' \
   "step 12 states an operator gate explicitly" flat
-pin "$LIFECYCLE_MD" 'a clean gate set on that SHA is the agreed condition, so merge with no ask (#837)' \
-  "under a standing merge word the top merges a clean gate with no ask (#837)" flat
-pin "$LIFECYCLE_MD" 'With `standing` (the default), a clean gate set on that SHA is the agreed condition, so merge with no ask' "#8561: the default grants merge without claiming a prior operator word" flat
+pin "$LIFECYCLE_MD" 'With `standing` (the default), read the project'"'"'s standing orders on the base branch' \
+  "#1215-read: standing reads the project orders on the base branch" flat
+pin "$LIFECYCLE_MD" '(merge-bar'"'"'s working-a-pr, "Standing orders" paragraph, says where it is read and whom it binds)' \
+  "#1215-source: standing routes to merge-bar rather than restating governance" flat
+pin "$LIFECYCLE_MD" 'Only an order that names the orchestrator role and grants it merge authority counts' \
+  "#1215-authority: both the named role and merge grant are required" flat
+pin "$LIFECYCLE_MD" 'with one, a clean gate set on that SHA is the word, so merge with no ask' \
+  "#1215-granted: a qualifying order keeps the clean-SHA no-ask merge" flat
+pin "$LIFECYCLE_MD" 'with none, ask the operator for the merge word naming that SHA and say no standing order grants this role merge authority' \
+  "#1215-absent: no qualifying order asks for the SHA and explains why" flat
+pin "$SKILL_MD" 'step 12'"'"'s `run.merge_word` says, and you merge it under step 12' \
+  "#1215-direct: direct work-PR routes the word to step 12" flat
+pin "$NESTED_MD" 'step 12'"'"'s `run.merge_word` says; the merge lands under the reply'"'"'s executor' \
+  "#1215-nested: nested work-PR routes the word to step 12" flat
 pin "$SKILL_MD" 'and you merge it under step 12' "#8566: direct work-pr names its merge actor" flat
 pin "$LIFECYCLE_MD" 'merge executor is the operator (`MERGE_EXECUTOR=operator`) still goes to the operator' \
   "an operator merge executor is reached under a standing word too (#837 round 1)" flat
@@ -2034,8 +2045,8 @@ pin "$LIFECYCLE_MD" 'For a live dispatch with no `seen` and no fresh handoff gen
   "legacy: an ambiguous report is read but requires operator confirmation before action" flat
 pin "$LIFECYCLE_MD" 'A fresh handoff'"'"'s noted hash and identity, where present, are the baseline.' \
   "legacy: a fresh handoff supplies the generation baseline where present" flat
-pin "$LIFECYCLE_MD" 'no `merge_word` counts as `standing`' \
-  "legacy: no merge_word is standing" flat
+pin "$LIFECYCLE_MD" 'no `merge_word` follows step 12 as `standing` unless the run'"'"'s brief sets an operator gate' \
+  "#1215-legacy: no merge_word uses the same step-12 standing rule" flat
 pin "$LIFECYCLE_MD" 'against the attempt'"'"'s `locator.seen`' \
   "the molted top's generation check reads seen from run.json" flat
 
