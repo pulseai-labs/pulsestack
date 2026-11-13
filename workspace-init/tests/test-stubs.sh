@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 # tests/test-stubs.sh — unit tests for lib/stubs.sh
-# Covers (11 tests):
-#   A. AGENTS.md (7) — stub rendering + project-name fallback + idempotency +
-#                      no CLAUDE.md + dispatcher path + `&` in the root +
-#                      WRITE_FILE logging
-#   R. README.md (3) — stub rendering + substitution + idempotency
-#   T. Template missing (1) — returns non-zero when template absent
+# Covers stub rendering, manifest fallback, dispatcher behavior, and literal
+# init-log dedupe with distinct-path, distinct-op, and detail-field controls.
 
 source "$(dirname "$0")/_helpers.sh"
 source "$WI_LIB_DIR/_helpers.sh"
@@ -283,9 +279,46 @@ test_T1_missing_template_fails() {
   [[ $rc -ne 0 ]] || { echo "    expected non-zero exit when template missing"; return 1; }
 }
 
+# #834: literal paths must dedupe without merging neighboring paths or ops.
+test_L1_log_once_literal_path() {
+  local log="$_WI_TMP/literal-log" path="/x/a${log_char}b" i
+  : > "$log"
+  for i in 1 2 3; do
+    _wi_stubs_log_once "$log" OP "$path" || return 1
+  done
+  assert_eq "$(printf 'OP\t%s' "$path")" "$(cat "$log")"
+}
+
+test_L2_log_once_distinct_fields() {
+  local log="$_WI_TMP/fields-log"
+  printf 'OP\t/x/ai\nOP\t/x/aXb\n' > "$log"
+  _wi_stubs_log_once "$log" OP /x/ai-2 || return 1
+  _wi_stubs_log_once "$log" OP /x/a.b || return 1
+  _wi_stubs_log_once "$log" OTHER /x/ai || return 1
+  _wi_stubs_log_once "$log" OP '/x/ai|other' || return 1
+  assert_eq "$(printf 'OP\t/x/ai\nOP\t/x/aXb\nOP\t/x/ai-2\nOP\t/x/a.b\nOTHER\t/x/ai\nOP\t/x/ai|other')" "$(cat "$log")" || return 1
+  printf 'OP\t/x/ai-2\n' > "$log"
+  _wi_stubs_log_once "$log" OP /x/ai || return 1
+  assert_eq "$(printf 'OP\t/x/ai-2\nOP\t/x/ai')" "$(cat "$log")"
+}
+
+test_L3_log_once_ignores_detail() {
+  local log="$_WI_TMP/detail-log"
+  printf 'OP\t/x/ai\tdetail\n' > "$log"
+  _wi_stubs_log_once "$log" OP /x/ai || return 1
+  assert_eq "$(printf 'OP\t/x/ai\tdetail')" "$(cat "$log")"
+}
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
+for log_char in '+' '?' '(' ')' '|' '{' '}' '\' '[' ']' '.' '()' '{2}'; do
+  printf 'Literal path character: %s\n' "$log_char"
+  wi_test_run test_L1_log_once_literal_path
+done
+wi_test_run test_L2_log_once_distinct_fields
+wi_test_run test_L3_log_once_ignores_detail
 
 echo "== Running tests for lib/stubs.sh =="
 echo ""

@@ -1,6 +1,6 @@
 {
   "name": "workspace-init",
-  "version": "0.10.6",
+  "version": "0.10.7",
   "description": "Bootstrap a dual-repo workspace (AI workspace + canonical) with pairing manifest and AI-trace commit-msg filter.",
   "author": {
     "name": "Praveen Kumar Singh",

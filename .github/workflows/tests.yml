@@ -150,6 +150,9 @@ jobs:
         # must match merge-bar's.
         run: bash tests/test-merge-bar-template-parity.sh
 
+      - name: AGENTS.md stub marker parity (repo-root)
+        run: bash tests/test-agents-stub-marker-parity.sh
+
       - name: Mutation harness contract
         # tests/lib/mutate.sh: the shared mutation-test harness - one literal
         # replacement, the mutated line echoed, the suite run from the caller's

@@ -638,12 +638,8 @@ test_claude_code_fallback_is_version_gated() {
 }
 
 test_release_record_matches_the_shipped_files() {
-  # D23/D24: the release record and a test header carry claims about files that
-  # can drift from them. Three of these were wrong in round 1 (R2 found them) and
-  # each mutation SURVIVED until this test existed.
-  local chg hdr
+  local chg
   chg="$(cat "$WI_PLUGIN_ROOT/CHANGELOG.md")"
-  hdr="$(sed -n '1,10p' "$WI_PLUGIN_ROOT/tests/test-stubs.sh")"
   # The "grown organically" pointer lives in `pairing-canonical-repo` §1, not in
   # `pairing-existing-dual` — verify the fact before pinning the claim.
   local dual_s
@@ -655,11 +651,6 @@ test_release_record_matches_the_shipped_files() {
   esac
   assert_contains 'pointer paragraph in `pairing-canonical-repo` §1 names' "$chg" || return 1
   assert_contains 'section plus the canonical-and-ossify continuation sections from the old `CLAUDE.md` stub' "$chg" || return 1
-  # The header's count must equal the runners that file actually declares.
-  local runners
-  runners="$(grep -c 'wi_test_run' "$WI_PLUGIN_ROOT/tests/test-stubs.sh")"
-  assert_contains "Covers ($runners tests)" "$hdr" || return 1
-  assert_not_contains 'SPEC §8.5' "$hdr" || return 1
 }
 
 test_root_readme_has_no_version_labels() {
@@ -678,7 +669,22 @@ test_existing_dual_scans_both_instruction_files() {
   grep -Fq '/ossify:doctor' "$s" || { echo "    next steps must route a CLAUDE.md to the doctor repair"; return 1; }
 }
 
+# #835: the example must show rollback's tally, not invented per-op output.
+test_failure_rollback_example_output() {
+  local example="$WI_PLUGIN_ROOT/skills/initializing-dual-repo-workspace/examples/failure-rollback.md"
+  local output
+  output="$(awk '/^## Rollback execution log$/{section=1; next}
+    section && /^## /{exit}
+    section && /^```$/{fence=!fence; next}
+    section && fence{print}' "$example")"
+  assert_not_contains 'REVERSING:' "$output" || return 1
+  [[ "$output" =~ ^INFO:\ wi_rollback:\ rolled\ back\ [0-9]+\ of\ [0-9]+\ ops$ ]] || {
+    echo "    expected rollback summary, got: $output"; return 1;
+  }
+}
+
 # --- run all ---
+wi_test_run test_failure_rollback_example_output
 wi_test_run test_init_skill_file_exists
 wi_test_run test_pair_skill_file_exists
 wi_test_run test_init_triggers_on_create_workspace

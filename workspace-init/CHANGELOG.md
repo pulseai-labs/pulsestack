@@ -1,5 +1,18 @@
 # workspace-init changelog
 
+## 0.10.7
+
+Closes #834, #835 and #841.
+
+### Fixed
+- **Init-log dedupe compares exact fields at both sites.** The stub and skeleton log-once helpers compare OP and path as literal TSV fields, preserving backslashes and ignoring an optional detail field. Paths containing ERE metacharacters no longer produce duplicate entries or suppress a different path's entry.
+- **The failure-and-rollback example shows a real run.** It uses a directory at README.md to force a write failure, shows the actual WRITE_FILE entries and summary tally, and no longer promises per-entry output. An existing regular README.md is overwritten, not refused; rollback output is unchanged.
+- **A repo-level parity gate spans the AGENTS.md stub marker.** CI compares the template's first line with ossify's exact-first-line contract in §1a.
+
+### Known limits
+- A path containing a tab or newline still breaks the TSV init-log format. This patch does not add path validation or change the format.
+- Rollback remains best-effort and emits warnings on failed inverse operations; the example's clean outcome is not a guarantee for every failure.
+
 ## 0.10.6
 
 Routing prose follows ossify 1.37.0 (#1042). The fresh-bootstrap next steps and their example put adopt's replacement of a marked `AGENTS.md` stub under "ossify 1.24.0 or later"; it is from 1.35.0, and on 1.24.0-1.34.x adopt merges into the stub. A headless `/ossify:start` (no operator to answer) refuses a canonical with any file at `HEAD` from ossify 1.37.0 (#1040); every place that sends a canonical with no product source to `/ossify:start` now says so: both READMEs, both stubs, and the next steps of the three skills with their examples. Prose only.

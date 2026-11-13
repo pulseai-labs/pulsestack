@@ -31,7 +31,10 @@ _wi_stubs_log_once() {
   local log="$1"
   local op="$2"
   local target_path="$3"
-  if [[ -f "$log" ]] && grep -qE "^${op}	$(printf '%s' "$target_path" | sed 's/[][\\/.^$*]/\\&/g')(	|\$)" "$log" 2>/dev/null; then
+  # #834: ENVIRON preserves backslashes that awk -v would interpret.
+  if [[ -f "$log" ]] && WI_LOG_OP="$op" WI_LOG_PATH="$target_path" awk -F '\t' '
+    $1 == ENVIRON["WI_LOG_OP"] && $2 == ENVIRON["WI_LOG_PATH"] { found = 1 }
+    END { exit !found }' "$log" 2>/dev/null; then
     return 0
   fi
   wi_log_op "$log" "$op" "$target_path"
