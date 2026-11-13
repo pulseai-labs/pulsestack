@@ -128,6 +128,7 @@ pin "$REF" 'wait with `--regex` on it, its regex metacharacters escaped, plus ba
 pin "$REF" "shows the TUI is up only on a line the command cannot produce" "B2: the match shows the TUI is up only off the command line" flat
 pin "$REF" "A screen showing \`command not found\`, another model, or neither once the readiness wait's bound ends is a failed launch" "B2/C2: command not found, another model or neither at the bound is a failed launch" flat
 pin "$COMP" "but start the new seat's command only after that pane is confirmed gone (a layer whose create call carries the command closes first): two writers never share a checkout" "C7: a successor's command starts only after the predecessor's pane is gone" flat
+pin "$COMP" "never a re-read of the file — as a fresh seat is launched (below), from the fallback's row" "C7 r2: the stall fallback launches through the fresh-seat paragraph and its handover order" flat
 
 pin "$REF" '`agent get`/`agent wait` answer `agent_not_found`: ask again for up to five seconds, then take the not-detected path' "a detection ask before the record is retried, then bounded (#845)" flat
 
