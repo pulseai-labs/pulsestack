@@ -2,6 +2,12 @@
 
 All notable changes to the `crew` plugin.
 
+## 0.12.0
+
+**The standing merge default follows project authority.** Closes #1215.
+
+`run.merge_word` stays `standing` by default; lifecycle step 12 reads the project's standing orders and merges a clean SHA without asking only when an order names the orchestrator role and grants merge authority, naming that order in the disposition comment. With none, it asks the operator for that SHA and says why. Legacy runs follow step 12 too. The one-way-door and operator-merge-executor exceptions are unchanged; descriptions and eval expectations follow the corrected rule.
+
 ## 0.11.4
 
 **The ceiling accepts the manifest's numbers; wait and resume prose agrees with its contracts.** Closes #616, #587, #856 and #515.

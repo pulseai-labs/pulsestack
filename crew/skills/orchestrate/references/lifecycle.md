@@ -18,7 +18,7 @@ Every command's syntax comes from the layer's guide.
    `dagr check --strict` it, and the rename over `run.json` — `mv`,
    which this command allows — lands only once that check is clean. A created run records
    `run.merge_word` — `standing` unless the brief or the operator sets a merge gate for this run,
-   then `operator`. A session that
+   then `operator` (step 12). A session that
    binds an existing `run.json` rewrites `run.orchestrator` to its own address from
    the layer's Identity — dagr's stable-agent fallback otherwise — in the same producer
    loop every other write takes.
@@ -226,7 +226,11 @@ Every command's syntax comes from the layer's guide.
     Act only when every one is clean: a non-mergeable state is surfaced to the operator
     as the blocker, and a new actionable finding returns to step 10.
     The run's `run.merge_word` decides where the merge word comes from. With `standing` (the default),
-    a clean gate set on that SHA is the agreed condition, so merge with no ask (#837).
+    read the project's standing orders on the base branch (merge-bar's working-a-pr, "Standing orders"
+    paragraph, says where it is read and whom it binds). Only an order that names the orchestrator role
+    and grants it merge authority counts: with one, a clean gate set on that SHA is the word, so merge
+    with no ask, naming that order in the disposition comment; with none, ask the operator for the
+    merge word naming that SHA and say no standing order grants this role merge authority.
     A one-way door — a `handed off: one-way <OID>` return, or where merge-bar's `working-a-pr` runs a
     body with `Door: one-way` or no `Door:` line — follows merge-bar's
     `skills/working-a-pr/references/one-way-door.md` under either word, `standing` included: its
@@ -266,7 +270,7 @@ Every command's syntax comes from the layer's guide.
 
 A role the operator defines in the project file (`config.md`) runs at a named point of
 the run above: `after-implementer` (after step 6), `before-review` (before step 8),
-`after-disposition` (after step 9), `before-merge-ask` (before step 12's merge word: its ask, or under `standing` its merge),
+`after-disposition` (after step 9), `before-merge-ask` (before step 12's merge word, whether asked or granted there),
 `at-teardown` (step 12's teardown — release and branch deletion, not step 13's
 handoff). `at: on-demand` has no fixed point, dispatched when wanted — its seat
 counts against the allowance the project file declares, one by default. A declared
@@ -359,8 +363,8 @@ when the effect is absent.
 6. It continues at the fresh handoff's next step. A `done` task is never re-run.
 
 A run file older than 0.2.21 lacks these fields: an attempt with no `phase` counts as `delivered`; with no
-`locator.report`, the path comes from a handoff, or the operator once; no `merge_word` counts as `standing` unless
-the run's brief sets an operator gate. For a live dispatch with no `seen` and no
+`locator.report`, the path comes from a handoff, or the operator once; no `merge_word` follows step 12 as
+`standing` unless the run's brief sets an operator gate. For a live dispatch with no `seen` and no
 fresh handoff generation, the existing report is ambiguous: the top reads it but does not act on it until the operator
 confirms it belongs to the live attempt. A fresh handoff's noted hash and identity, where present, are the baseline.
 A live worker dispatched under 0.2.20 or earlier keeps pinging its fixed pane until that dispatch ends; the heartbeat

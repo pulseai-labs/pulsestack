@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: The orchestrator/worker session model over herdr or Orca — one orchestrator keeps decisions and dispatches work to named worker seats through the project's layer, defined in the operator's files (~/.claude/crew/agents.md, .crew/roles.md). One review per PR (/code-review by default), findings returned in the seat's report file, GitHub threads worked to zero; clean gates merge under run.merge_word (default standing); operator gates and operator merge executors go to the operator. On a spine this session just planned, the operator approves the seats into the project file and they are injected into one spine session that gives each item seat a fresh tab and pane. Use when the user says the herdr orchestrator session, a herdr worker seat, the herdr crew, dispatch to a herdr session, execution assignments for a spine in herdr, or runs /crew:orchestrate. Not herdr's command reference (`herdr --skill` owns that), and not a PR loop of its own where ossify's work-pr is installed.
+description: The orchestrator/worker session model over herdr or Orca — one orchestrator keeps decisions and dispatches named seats from the operator's files (~/.claude/crew/agents.md, .crew/roles.md). One review per PR (/code-review by default), findings returned in the seat's report file, GitHub threads worked to zero; clean gates merge under a project standing order granting the orchestrator merge authority, else on the operator's word; operator gates and operator merge executors go to the operator. On a spine just planned here, operator-approved seats go into the project file and one spine session, with a fresh tab and pane per item seat. Use when the user says the herdr orchestrator session, a herdr worker seat, the herdr crew, dispatch to a herdr session, execution assignments for a spine in herdr, or runs /crew:orchestrate. Not herdr's command reference (`herdr --skill` owns that), and not a PR loop of its own where ossify's work-pr is installed.
 ---
 
 # Orchestrate — the orchestrator/worker session model
@@ -201,8 +201,7 @@ These cases are named because they look like clashes and are not:
   often sits elsewhere. `work-pr`'s "re-review on the new head" means re-fetching
   GitHub signals after a push, so no second review occurs. The worker stops at
   `work-pr`'s merge ask and returns its ledger in its report file; you answer it as
-  step 12's `run.merge_word` says (with `standing`, a clean gate set is the word; with `operator`,
-  ask the operator), and you merge it under step 12 — one `gh` command.
+  step 12's `run.merge_word` says, and you merge it under step 12 — one `gh` command.
 
 ## 7. Refusals
 
