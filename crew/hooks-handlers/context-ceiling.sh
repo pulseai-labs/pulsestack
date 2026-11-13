@@ -26,9 +26,9 @@ set +e
 DEFAULT_CEILING=500000
 TAIL_BYTES=4000000    # the latest assistant record sits in the transcript's tail
 
-ceiling="${CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING:-}"
-case "$ceiling" in ''|*[!0-9]*) ceiling=$DEFAULT_CEILING ;; esac
-[ "$ceiling" -ge 1 ] || ceiling=$DEFAULT_CEILING    # the manifest's min is 1; 0 fires on every prompt
+# Claude Code hands the hook String(number); jq owns both the min-1 verdict and comparison.
+ceiling_raw="${CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING:-}"
+ceiling=$DEFAULT_CEILING
 
 input="$(cat)"
 
@@ -109,8 +109,17 @@ event_in_raw() {
 if ! command -v jq >/dev/null 2>&1; then
   # Without jq there is no figure to read on either event, so both are told.
   event="$(event_in_raw "$input")"
-  [ -n "$event" ] && unavailable "$event" "jq not found"
+  [ -n "$event" ] && say "$event" "crew: context figure unavailable (jq not found); the ceiling setting was not checked."
   exit 0
+fi
+
+# Quote only the number in force: raw option text cannot safely enter say's JSON line.
+if [ -n "$ceiling_raw" ]; then
+  ceiling="$(jq -nr --arg s "$ceiling_raw" --argjson d "$DEFAULT_CEILING" '
+    ($s | tonumber?) as $c
+    | if ($c | type) == "number" and $c >= 1 then ($c | tostring)
+      else ($d | tostring) end' 2>/dev/null)"
+  [ -n "$ceiling" ] || ceiling=$DEFAULT_CEILING
 fi
 
 # One jq pass reads the three fields the verdicts need — the event, the
@@ -296,6 +305,6 @@ case "$figure" in
   ''|*[!0-9]*) unavailable "$event" "no readable usage in the latest assistant record"; exit 0 ;;
 esac
 
-[ "$figure" -ge "$ceiling" ] || exit 0
+[ "$(jq -n --arg f "$figure" --arg c "$ceiling" '($f | tonumber) >= ($c | tonumber)' 2>/dev/null)" = true ] || exit 0
 say "$event" "crew: context $figure >= ceiling $ceiling tokens. Finish the unit in hand and start no new one; a coordinator seat rotates at its next boundary (crew lifecycle.md, Rotation past the context ceiling)."
 exit 0

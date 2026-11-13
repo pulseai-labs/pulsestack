@@ -1737,7 +1737,7 @@ pin "$PRBRIEFS_MD" 'REVIEW_INVOCATION=<the reviewer'"'"'s agent'"'"'s `review:`,
   "the work-PR brief injects the reviewer's filled review command"
 pin "$PRBRIEFS_MD" 'brief it to run REVIEW_INVOCATION.' \
   "the work-PR session briefs the reviewer with the filled review command"
-absent "$PRBRIEFS_MD" '/code-review PR_NUMBER' "the work-PR brief hardcodes no reviewer command"
+absent "$PRBRIEFS_MD" '/code-review PR_NUMBER' "the work-PR brief omits the retired /code-review PR_NUMBER spelling"
 pin "$PRBRIEFS_MD" 'merge bound to the named SHA' \
   "the work-PR session merges bound to the SHA the top relayed"
 pin "$PRBRIEFS_MD" 'never a squash or rebase' \
@@ -1943,7 +1943,7 @@ pin "$LIFECYCLE_MD" 'From the handoff on, this session writes nothing to the run
 # Ruling 18 (split): the hard-stop resume moved out of 0.2.22 to #810; pin retired with its clause.
 pin "$LIFECYCLE_MD" 'write nothing more to the run file and take no dispatch action' \
   "stand-down keeps the outgoing top from writing or dispatching" flat
-pin "$LIFECYCLE_MD" 'It writes `run.orchestrator.machine` and `.session` beside the pane (step 1).' \
+pin "$LIFECYCLE_MD" 'It writes `run.orchestrator.machine` and `.session` beside the pane (lifecycle step 1).' \
   "resume step 2 writes the successor's machine beside its pane" flat
 # Ruling 18 (split): the hard-stop resume moved out of 0.2.22 to #810; pin retired with its clause.
 pin "$LIFECYCLE_MD" 'Binding a run another top drove through a rotation runs **The resume** (Rotation past the context ceiling) first; its step 2 is this rebind.' \
@@ -1970,7 +1970,7 @@ pin "$LIFECYCLE_MD" 'Claude `~/.claude/projects/*/<id>.jsonl`' \
   "the transcript is found by session id on Claude Code too (#810)" flat
 pin "$LIFECYCLE_MD" 'With no session recorded, no file found, or the old top on another machine, ask the operator once for the transcript path or the next step.' \
   "a hard stop with no transcript asks the operator once (#810)" flat
-pin "$LIFECYCLE_MD" 'it always rewrites `run.orchestrator.session` (step 1), since molt'"'"'s `/clear` starts a new session in this pane' \
+pin "$LIFECYCLE_MD" 'it always rewrites `run.orchestrator.session` (lifecycle step 1), since molt'"'"'s `/clear` starts a new session in this pane' \
   "a top that molts in place records its new session (#810)" flat
 for f in "$BRIEFS_MD" "$PRBRIEFS_MD"; do
   pin "$f" 'and `run.orchestrator.session` from the layer'"'"'s Identity' \
@@ -1999,8 +1999,8 @@ pin "$LIFECYCLE_MD" 'Re-arm step 5’s waits only for an attempt still live afte
   "resume re-arms only live attempts and never waits on consumed final reports" flat
 pin "$LIFECYCLE_MD" 'It arms one fresh heartbeat only if at least one dispatch is still live.' \
   "resume arms no heartbeat after its last dispatch settles" flat
-pin "$LIFECYCLE_MD" 'If `run.question` is present, it asks it once again' \
-  "the resume re-asks an open operator question" flat
+pin "$LIFECYCLE_MD" 'If `run.question` is present, ask again only if the hard-stop transcript has no answer; otherwise apply the recorded answer and remove `run.question`.' \
+  "#8562: resume uses the transcript answer instead of re-asking" flat
 pin "$LIFECYCLE_MD" 'A `done` task is never re-run' \
   "the resume never re-runs a done task" flat
 pin "$LIFECYCLE_MD" 'It continues at the fresh handoff'"'"'s next step.' \
@@ -2020,6 +2020,8 @@ pin "$LIFECYCLE_MD" 'With `operator`, the ask says that this run'"'"'s brief or 
   "step 12 states an operator gate explicitly" flat
 pin "$LIFECYCLE_MD" 'a clean gate set on that SHA is the agreed condition, so merge with no ask (#837)' \
   "under a standing merge word the top merges a clean gate with no ask (#837)" flat
+pin "$LIFECYCLE_MD" 'With `standing` (the default), a clean gate set on that SHA is the agreed condition, so merge with no ask' "#8561: the default grants merge without claiming a prior operator word" flat
+pin "$SKILL_MD" 'and you merge it under step 12' "#8566: direct work-pr names its merge actor" flat
 pin "$LIFECYCLE_MD" 'merge executor is the operator (`MERGE_EXECUTOR=operator`) still goes to the operator' \
   "an operator merge executor is reached under a standing word too (#837 round 1)" flat
 pin "$LIFECYCLE_MD" 'A run file older than 0.2.21' \

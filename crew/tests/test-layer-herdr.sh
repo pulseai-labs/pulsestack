@@ -148,16 +148,12 @@ pin "$COMP" "The doorbell's return — a new report or its timeout — ends the 
 
 # The fix round's completions. #574's dispatch-time step now notes the identity the
 # doorbell compares — and "note the file's identity" is stated once, so the doorbell
-# paragraph refers back to that note rather than restating it (the `(inode or mtime)`
-# pin below is the one-definition check: a re-added restatement makes it two).
+# paragraph refers back to that note rather than restating the identity tuple.
 pin "$COMP" "and the file's identity" \
   "the dispatch-time note records the file's identity beside the hash (#574)"
-# Counted flat, not per line: a restatement of the definition may break at any point, and
-# the measured revert wraps `inode` onto its own line — a per-line count would call that
-# file "defined once" (measured: 3, not 2, before this pin was made wrap-proof). Residual,
-# and accepted: a restatement naming neither word escapes; any realistic one names one.
-pin "$COMP" 'inode or mtime' \
-  "the identity is defined once — inode or mtime, not restated (#574)" flat
+# Count flat so a restatement split at a markdown wrap still counts twice.
+pin "$COMP" 'inode with mtime' \
+  "#587g: the identity tuple always includes the inode and is defined once" flat
 pin "$COMP" 'the identity noted at dispatch' \
   "the doorbell paragraph refers back to the dispatch-time note (#574)"
 # #650 R1-1: one generation rule. The typed wake's novelty test must be the same
@@ -186,6 +182,15 @@ pin "$COMP" 'An answered dialog re-arms the pair' \
   "an answered dialog re-arms the pair (#575)"
 pin "$COMP" 'the doorbell and its companion again, not one wait' \
   "the fresh wait after an answer is the pair again, not one wait (#575)"
+
+pin "$LIFE" 'then re-arm as `completion.md` states' "#587a: dialog re-arm routes to the coordinator-aware rule" flat
+pin "$COMP" 'Before dispatch, clear or move an acknowledged report' "#587b: report clearance is an instruction" flat
+pin "$COMP" 'never a second settled-state wait (the coordinator' "#587c: false-wake rule permits the blocked companion" flat
+pin "$COMP" 'An answered dialog re-arms the pair: the doorbell' "#587f: dialog rule names the pair directly" flat
+pin "$REF" "--regex '[0-9.]+[kKmM]? */ *[0-9.]+[kKmM]? tokens' --source visible --timeout 5000" "#515herdr: context waits on a rendered figure with a bound" flat
+pin "$REF" 'accept only the new reply, never a pre-send figure' "#515fresh: an old context figure cannot satisfy the new probe" flat
+pin "$REF" 'timeout means figure unavailable, treated as past half: the next item goes to a fresh seat' "#515timeout: missing context rotates rather than supplying a figure" flat
+pin "$ROLES" "the layer's Send owns its bounded figure read and unavailable result" "#515roles: retention routes to the layer probe" flat
 
 # Task 5 (crew 0.3.0): the identity reads live in the layer's `Identity`; the shared files
 # name the step and hold the rules, so a shared file carries no env var name and the layer

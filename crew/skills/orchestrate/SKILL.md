@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: The orchestrator/worker session model over herdr or Orca — one orchestrator session that spends its context on decisions and dispatches everything else to worker sessions launched by seat name through the project's layer, the seats defined in the operator's own files (~/.claude/crew/agents.md, .crew/roles.md). One review per PR (/code-review by default), findings returned in the seat's report file, GitHub threads worked to zero, merge only on the operator's word. On a spine this session just planned, the operator approves the seats into the project file and they are injected into one spine session that gives each item seat a fresh tab and pane. Use when the user says the herdr orchestrator session, a herdr worker seat, the herdr crew, dispatch to a herdr session, execution assignments for a spine in herdr, or runs /crew:orchestrate. Not herdr's command reference (`herdr --skill` owns that), and not a PR loop of its own where ossify's work-pr is installed.
+description: The orchestrator/worker session model over herdr or Orca — one orchestrator session that spends its context on decisions and dispatches everything else to worker sessions launched by seat name through the project's layer, the seats defined in the operator's own files (~/.claude/crew/agents.md, .crew/roles.md). One review per PR (/code-review by default), findings returned in the seat's report file, GitHub threads worked to zero, merge only on the operator's word or the project's standing order. On a spine this session just planned, the operator approves the seats into the project file and they are injected into one spine session that gives each item seat a fresh tab and pane. Use when the user says the herdr orchestrator session, a herdr worker seat, the herdr crew, dispatch to a herdr session, execution assignments for a spine in herdr, or runs /crew:orchestrate. Not herdr's command reference (`herdr --skill` owns that), and not a PR loop of its own where ossify's work-pr is installed.
 ---
 
 # Orchestrate — the orchestrator/worker session model
@@ -202,7 +202,7 @@ These cases are named because they look like clashes and are not:
   GitHub signals after a push, so no second review occurs. The worker stops at
   `work-pr`'s merge ask and returns its ledger in its report file; you answer it as
   step 12's `run.merge_word` says (with `standing`, a clean gate set is the word; with `operator`,
-  ask the operator), and the assigned merge executor lands it — one `gh` command where that is you.
+  ask the operator), and you merge it under step 12 — one `gh` command.
 
 ## 7. Refusals
 

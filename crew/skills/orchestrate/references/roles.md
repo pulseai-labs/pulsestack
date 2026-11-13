@@ -104,9 +104,8 @@ The session that built the PR fixes the PR, and an implementer is retained acros
 consecutive work items. No ownership transfer exists: retain a seat by keeping its
 pane and sending it the next task's brief (the layer file says how). At each task
 boundary the context probe is `/context`, for a seat whose profile can run a local slash
-command (`can: slash-commands`, `config.md`): send it and read the one reply with
-the model read (the layer's Read) — the orchestrator's one context source: past half its window, as
-`/context` reports, or an auto-compact, the next item goes to a fresh implementer. That
+command (`can: slash-commands`, `config.md`); the layer's Send owns its bounded figure read and unavailable result.
+Past half its window, as `/context` reports, or an auto-compact, the next item goes to a fresh implementer. That
 probe is the mechanism for the seats that can answer it, and a seat is sent one only when
 both hold: its profile can run a local slash command, and the send route that reaches it —
 the layer file's send route (`layers/<layer>.md`; its second detection ask's answer where it

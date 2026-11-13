@@ -2,6 +2,16 @@
 
 All notable changes to the `crew` plugin.
 
+## 0.11.4
+
+**The ceiling accepts the manifest's numbers; wait and resume prose agrees with its contracts.** Closes #616, #587, #856 and #515.
+
+- **Numeric ceiling (#616):** jq decides the min-1 setting and compares it without flooring; 100000.5 fires at 100001 and exponent spellings are retained. Notices quote the number in force; without jq the hook reports that the setting was not checked.
+- **Doorbell follow-ons (#587):** dialog answers re-arm the coordinator's pair, acknowledged reports are cleared or moved before dispatch, false wakes forbid a second settled-state wait rather than the dialog companion, and file identity is inode with mtime. The already-shipped hash-or-identity wake and silent companion timeout stay unchanged; the inaccurate test-count comment is removed.
+- **Resume and descriptions (#856):** an answered transcript question is applied, not re-asked; ping headers cover skipped and failed sends and hold workers at their gates; step references and the direct work-PR merge actor are explicit. Public descriptions name the operator's word or the project's standing order; the reviewer command includes its level, and the retired-command pin's label names only what it checks. The PING counter is already an anchored line count, not a copy of the literal-occurrence loop.
+- **Context probe (#515):** after a plain send each layer waits at most 5000 ms for the new rendered figure, never a pre-send figure; an unavailable figure sends the next item to a fresh seat. Retention routes to the layer's one probe contract.
+- **Known limits:** the existing `standing` merge default is unchanged and requires no proof of a project standing order. A pre-existing figure is not freshness proof; if a new reply cannot be established within the bound, the probe is unavailable. No jq means no setting validation or context comparison.
+
 ## 0.11.3
 
 **Text only (#1099).** `completion.md` (the doorbell paragraph, the stall rule, the handoff rule) and `lifecycle.md`'s stand-down name how a seat stops its own wait, companion or heartbeat: OMP `write proc://<job id>/kill`, Claude Code `TaskStop`, a shell process this session started by its exact PID or job id; never a process listing (`ps`, `pgrep`, `pidof`, `/proc`) fed to `kill`. `SKILL.md` and every coordinator brief's NEVER line carry the same refusal. No code.

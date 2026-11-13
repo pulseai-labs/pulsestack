@@ -249,6 +249,16 @@ brief_pin 'run `/code-review <number> <level>`' "the reviewer TASK does not hard
 brief_pin 'If `/code-review` refuses' "the reviewer's failure rule names REVIEW_INVOCATION, not /code-review" 0
 brief_pin 'If REVIEW_INVOCATION refuses or errors, report its output' "the reviewer reports its own command's refusal" 1
 
+section "#856: ping and public merge descriptions"
+pin "$PLUGIN_ROOT/skills/orchestrate/references/completion.md" 'A skipped or failed read or send is never an answer: after a plan or a question the worker waits at that gate' "#8563: failed ping holds the worker at its gate" flat
+pin "$BRIEFS_MD" 'a skipped or failed send is left as it is' "#8564: the ping header covers skipped sends" flat
+for f in "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json" "$SKILL_MD"; do
+  pin "$f" "zero, merge only on the operator's word or the project's standing order" "#8568: ${f##*/} names both merge-word sources" flat
+done
+pin "$PLUGIN_ROOT/.codex-plugin/plugin.json" "a merge only on the operator's word or the project's standing order" "#8568codex: the long description names standing orders" flat
+pin "$PLUGIN_ROOT/README.md" "the merge waits for the operator's word or the project's standing order" "#8568readme: merge can follow a standing order" flat
+pin "$PLUGIN_ROOT/README.md" '/code-review <PR> <LEVEL>' "#8569: the reviewer role carries the level" flat
+
 section "the named points exist in the run"
 LIFECYCLE_MD="$PLUGIN_ROOT/skills/orchestrate/references/lifecycle.md"
 for point in after-implementer before-review after-disposition before-merge-ask at-teardown; do

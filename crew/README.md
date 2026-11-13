@@ -7,7 +7,7 @@ to worker sessions launched by seat name through the project's layer — the sea
 operator's own files, not in this plugin. A planned-work seat and a bounded-work seat
 implement by complexity class, one reviewer seat runs its review command (`/code-review` by default) once per PR and
 returns its findings through its report file, the retained implementer works GitHub
-threads to zero, and the merge waits for the operator's word.
+threads to zero, and the merge waits for the operator's word or the project's standing order.
 
 Every layer's command syntax comes from its own guide: herdr's from `herdr --skill`, the
 binary's own version-matched guide; Orca's from `orca skills get orca-cli`. This plugin
@@ -58,7 +58,7 @@ verifier session.
 | Orchestrator | this session — the operator launches it | |
 | Implementer, planned | a seat the project file names | `contract`, and the default when unclassified |
 | Implementer, fast | a seat the project file names | `bounded` |
-| Reviewer | a seat with `slash-commands` for `/code-review <PR>`, or its agent's `review:` command; once | |
+| Reviewer | a seat with `slash-commands` for `/code-review <PR> <LEVEL>`, or its agent's `review:` command; once | |
 | Verifier | a seat the project file names — the work-item verify; read-only probes and mechanical runs may take a lighter one. Read-only | |
 | Operator | the human: the merge word | |
 
@@ -188,9 +188,9 @@ traffic out of the top's.
 
 One fail-open hook, gated on the layer's Identity, tells a seat in a pane its own context
 figure once it reaches the `context_ceiling` setting (default 500000 tokens): finish the
-unit in hand and start no new one, and a coordinator seat rotates at the next boundary. It
-never allows, denies or asks, it is inert outside a seat's pane, and it reports the figure as
-unavailable rather than guessing when it cannot read it. The rotation itself is prose, in
+unit in hand and start no new one, and a coordinator seat rotates at the next boundary. Any number ≥ 1 is accepted; a fractional ceiling fires at the next whole token (100000.5 at 100001); invalid or sub-1 settings use the default.
+It never allows, denies or asks, is inert outside a seat's pane, and reports an unreadable figure as
+unavailable rather than guessing. The rotation itself is prose, in
 `references/lifecycle.md`. Since 0.2.6 the hook is silent in a session where the `molt` mod
 is active, because `molt` owns the context boundary there. Since 0.2.8, every child seat is
 launched as a molt child (`MOLT_HANDOFF=parent`): at molt's warnings it pings its parent and

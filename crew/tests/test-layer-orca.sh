@@ -71,6 +71,9 @@ pin "$REF" 'PING_SEND=orca terminal send --terminal <that terminal> --enter --te
 pin "$REF" '--wait-submit' "the turn-start proof is named exactly once"
 pin "$REF" '--retry-request' "the transport-failure retry is named exactly once, never a resend"
 present "$REF" 'not probed' "the one-host limit is stated where the form is"
+pin "$REF" 'within 5000 ms, read until the new figure' "#515orca: context read waits for the new figure within a bound" flat
+pin "$REF" 'accept only the new reply, never a pre-send figure' "#515orcafresh: a previous figure is not the new response" flat
+pin "$REF" 'timeout means figure unavailable, treated as past half: the next item goes to a fresh seat' "#515orcatimeout: missing context rotates rather than supplying a figure" flat
 
 section "read (probes §3)"
 pin "$REF" '--screen' "the rendered read is named exactly once"

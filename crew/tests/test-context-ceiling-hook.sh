@@ -90,7 +90,7 @@ run() {
     esac
   done
   OUT="$(printf '%s' "$stdin" | env -u CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING \
-    HERDR_PANE_ID="$pane" ORCA_TERMINAL_HANDLE="$orca" "$@" "$BASH_BIN" "$HOOK" 2>/dev/null)"
+    HERDR_PANE_ID="$pane" ORCA_TERMINAL_HANDLE="$orca" "$@" "$BASH_BIN" "$HOOK" 2>"$TMP/stderr")"
   RC=$?
 }
 
@@ -545,6 +545,39 @@ run "$(input UserPromptSubmit "$T_BELOW")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=
 expect_silent "an empty setting falls back to 500000"
 run "$(input UserPromptSubmit "$T_BELOW")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=0
 expect_silent "a zero setting falls back to 500000"
+
+# #616: exact fractions, String(number) spellings, and adjacent rejection controls.
+T_FRACTION="$(transcript s-fraction 100001)"
+T_ONE_BELOW="$(transcript s-one-below 100000)"
+for event in UserPromptSubmit PreToolUse; do
+  run "$(input "$event" "$T_FRACTION" 'herdr agent prompt w7:p2 next')" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000.5
+  expect_notice "#616: fraction fires at 100001 ($event)" "$event" "context 100001" "ceiling 100000.5"
+  run "$(input "$event" "$T_ONE_BELOW" 'herdr agent prompt w7:p2 next')" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000.5
+  expect_silent "control #616: fraction is not floored ($event)"
+  run "$(input "$event" "$T_ONE_BELOW" 'herdr agent prompt w7:p2 next')" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000
+  expect_notice "control #616: whole ceiling fires at equality ($event)" "$event" "context 100000" "ceiling 100000"
+done
+for setting in '100000.5' '1e+21' 'Infinity'; do
+  run "$(input UserPromptSubmit "$T_PAST")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING="$setting"
+  case "$setting" in
+    100000.5) expect_notice "#616: String fraction is honoured" UserPromptSubmit "ceiling 100000.5" ;;
+    *) expect_silent "#616: String large number stays above the figure ($setting)" ;;
+  esac
+  if [ ! -s "$TMP/stderr" ]; then pass "control #616: String number has empty stderr ($setting)"
+  else fail "control #616: String number has empty stderr ($setting)" "$(cat "$TMP/stderr")"; fi
+done
+run "$(jq -cn '{hook_event_name: "UserPromptSubmit"}')" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=1e+21
+expect_notice "#616: exponent is the ceiling in force" UserPromptSubmit "ceiling of 1E+21 tokens"
+for setting in 'abc' '' '-5' '0' '0.5' '1e+' '1.2.3' 'bad"\\setting'; do
+  run "$(input UserPromptSubmit "$T600")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING="$setting"
+  expect_notice "control #616: rejected setting uses default ($setting)" UserPromptSubmit "ceiling 500000"
+  run "$(input UserPromptSubmit "$T_BELOW")" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING="$setting"
+  expect_silent "control #616: rejected setting does not fire below default ($setting)"
+done
+for event in UserPromptSubmit PreToolUse; do
+  run "$(input "$event" "$T_PAST" 'herdr agent prompt w7:p2 next')" PATH="$NOJQ" CLAUDE_PLUGIN_OPTION_CONTEXT_CEILING=100000.5
+  expect_notice "#616: no jq names unchecked setting ($event)" "$event" "figure unavailable (jq not found)" "setting was not checked"
+done
 
 section "registration"
 HJ="$PLUGIN_ROOT/hooks/hooks.json"
