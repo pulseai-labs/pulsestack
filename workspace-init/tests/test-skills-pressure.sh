@@ -693,23 +693,91 @@ test_skill_init_log_op_names_match_runtime() {
   done
 }
 
+# #835: read only fences explicitly presented as init-log entries.
+_example_init_log_entries() {
+  awk '
+    /^## Init-log state before failure$/ { section = 1; next }
+    /^## / { section = 0 }
+    /^[[:space:]]*Init-log entr(y|ies):[[:space:]]*$/ { pending = 1; next }
+    /^[[:space:]]*```/ {
+      if (fence) { fence = 0; capture = 0; pending = 0 }
+      else { fence = 1; capture = section || pending }
+      next
+    }
+    pending && !fence && NF { pending = 0 }
+    fence && capture { sub(/^   /, ""); print }
+  ' "$1"
+}
+
+_assert_example_init_log_ops() {
+  local example="$1" entries allowed
+  entries="$(_example_init_log_entries "$example")" || return 1
+  [[ -n "$entries" ]] || { echo "    no init-log entries extracted from $example"; return 1; }
+  allowed="$(awk '
+    $1 ~ /^(wi_log_op|_wi_(skeleton|stubs)_log_once)$/ && $3 ~ /^[A-Z_]+$/ { print $3 }
+  ' "$WI_LIB_DIR"/*.sh | sort -u)"
+  [[ -n "$allowed" ]] || { echo '    no literal producer ops found'; return 1; }
+  WI_EXAMPLE_OPS="$allowed" awk -F '\t' '
+    BEGIN {
+      n = split(ENVIRON["WI_EXAMPLE_OPS"], names, "\n")
+      for (i = 1; i <= n; i++) valid[names[i]] = 1
+    }
+    !($1 in valid) { print "    op not written by lib/: " $1; bad = 1 }
+    END { exit bad }
+  ' <<< "$entries"
+}
+
+test_failure_example_init_log_ops_match_writers() {
+  _assert_example_init_log_ops "$WI_PLUGIN_ROOT/skills/initializing-dual-repo-workspace/examples/failure-rollback.md"
+}
+
+test_pair_example_init_log_ops_match_writers() {
+  _assert_example_init_log_ops "$PAIR_CLEAN_EX"
+}
+
+test_skill_rollback_inverses_match_runtime() {
+  local inverses
+  inverses="$(awk '/^inverts each op / { print }' "$INIT_SKILL")"
+  assert_contains '`MKDIR` → `rm -rf`' "$inverses" || return 1
+  assert_contains '`WRITE_FILE` → `rm -f`' "$inverses" || return 1
+}
+
 # #835: the example must show rollback's tally, not invented per-op output.
 test_failure_rollback_example_output() {
   local example="$WI_PLUGIN_ROOT/skills/initializing-dual-repo-workspace/examples/failure-rollback.md"
-  local output
+  local output entries count reverted total message_count
   output="$(awk '/^## Rollback execution log$/{section=1; next}
     section && /^## /{exit}
     section && /^```$/{fence=!fence; next}
     section && fence{print}' "$example")"
   assert_not_contains 'REVERSING:' "$output" || return 1
-  [[ "$output" =~ ^INFO:\ wi_rollback:\ rolled\ back\ [0-9]+\ of\ [0-9]+\ ops$ ]] || {
+  [[ "$output" =~ ^INFO:\ wi_rollback:\ rolled\ back\ ([0-9]+)\ of\ ([0-9]+)\ ops$ ]] || {
     echo "    expected rollback summary, got: $output"; return 1;
   }
+  reverted="${BASH_REMATCH[1]}"
+  total="${BASH_REMATCH[2]}"
+  entries="$(_example_init_log_entries "$example")" || return 1
+  [[ -n "$entries" ]] || { echo '    rollback example has no log entries'; return 1; }
+  count="$(printf '%s\n' "$entries" | awk 'END { print NR }')"
+  assert_eq "$count" "$reverted" || return 1
+  assert_eq "$count" "$total" || return 1
+  message_count="$(awk '
+    /^## Message to the user$/ { section = 1; next }
+    section && /^## / { section = 0 }
+    section && /^```text$/ { fence = 1; next }
+    section && /^```$/ { fence = 0 }
+    section && fence && /^All [0-9]+ logged operations / { print $2; n++ }
+    END { exit (n != 1) }
+  ' "$example")" || return 1
+  assert_eq "$count" "$message_count" || return 1
 }
 
 # --- run all ---
 wi_test_run test_failure_rollback_example_output
 wi_test_run test_skill_init_log_op_names_match_runtime
+wi_test_run test_failure_example_init_log_ops_match_writers
+wi_test_run test_pair_example_init_log_ops_match_writers
+wi_test_run test_skill_rollback_inverses_match_runtime
 wi_test_run test_init_skill_file_exists
 wi_test_run test_pair_skill_file_exists
 wi_test_run test_init_triggers_on_create_workspace

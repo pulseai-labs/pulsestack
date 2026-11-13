@@ -112,9 +112,16 @@ Already done. Values: `name=foo`, `parent=/Users/example/projects`, `canonical_r
 "$wi_bin" skeleton_create_root_ai_only "/Users/example/projects" "foo"
 ```
 
-Only creates `/Users/example/projects/foo-ai/` (empty).
+Creates `/Users/example/projects/foo-ai/` and its `.workspace/` directory, which holds the init-log.
 
-Init-log entry: `MKDIR /Users/example/projects/foo-ai`. NO entry for canonical mkdir.
+Init-log entries:
+
+```
+MKDIR	/Users/example/projects/foo-ai
+MKDIR	/Users/example/projects/foo-ai/.workspace
+```
+
+No MKDIR entry is written for the existing canonical.
 
 ### Task 8.3: Seed AI workspace subdirs
 
@@ -161,7 +168,13 @@ Three sub-steps:
    "$wi_bin" git_init_ai_only "/Users/example/projects/foo-ai"
    ```
 
-   Init-log entry: `GIT-INIT /Users/example/projects/foo-ai`. NO canonical git-init.
+   Init-log entry:
+
+   ```
+   GIT_INIT	/Users/example/projects/foo-ai
+   ```
+
+   No GIT_INIT entry is written for the existing canonical.
 
 2. **Install commit-msg hook in BOTH repos:**
 
@@ -172,14 +185,17 @@ Three sub-steps:
    Renders the hook template (substituting the AI workspace reference — `self` for the
    workspace's own hook, `sibling:foo-ai` for the canonical's) and installs to:
    - `/Users/example/projects/foo-ai/.git/hooks/commit-msg` (executable)
-   - `/Users/example/projects/foo/git/hooks/commit-msg` (executable)
+   - `/Users/example/projects/foo/.git/hooks/commit-msg` (executable)
 
    The canonical-side hook finds the manifest beside its own repo at commit time, so the pair
    keeps its filter on any host where the two repos sit side by side.
 
    Init-log entries:
-   - `HOOK /Users/example/projects/foo-ai/.git/hooks/commit-msg`
-   - `HOOK /Users/example/projects/foo/.git/hooks/commit-msg`
+
+   ```
+   HOOK_INSTALL	/Users/example/projects/foo
+   HOOK_INSTALL	/Users/example/projects/foo-ai
+   ```
 
 3. **Stage AI workspace only:**
 
@@ -190,7 +206,11 @@ Three sub-steps:
    Runs `git -C /Users/example/projects/foo-ai add .` to stage all files.
    Does NOT touch canonical's working tree.
 
-   Init-log entry: `GIT-STAGE /Users/example/projects/foo-ai`.
+   Init-log entry:
+
+   ```
+   GIT_STAGE	/Users/example/projects/foo-ai
+   ```
 
 ## Final state
 
@@ -198,7 +218,7 @@ Three sub-steps:
 
 Newly created at `/Users/example/projects/foo-ai/` — it contains exactly:
 
-- `.workspace/` — `.gitkeep`, `pairing.json` (manifest with detected canonical metadata), `init-log` (records all 8 tasks)
+- `.workspace/` — `.gitkeep`, `pairing.json` (manifest with detected canonical metadata), `init-log` (records bootstrap operations; manifest writing adds no entry)
 - `.claude/.gitkeep`
 - `docs/.gitkeep`, `docs/specs/.gitkeep`
 - `.superpowers/.gitkeep`

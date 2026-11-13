@@ -305,6 +305,19 @@ test_L2_log_once_distinct_fields() {
   assert_eq "$(printf 'OP\t/x/ai b\nOP\t/x/ai')" "$(cat "$log")"
 }
 
+test_L2_near_equal_fields_stay_distinct() {
+  local log="$_WI_TMP/near-fields-log"
+  printf 'OPX\t/x/ai\n' > "$log"
+  _wi_stubs_log_once "$log" OP /x/ai || return 1
+  assert_eq "$(printf 'OPX\t/x/ai\nOP\t/x/ai')" "$(cat "$log")" || return 1
+  printf 'OP\t/x/Ai\n' > "$log"
+  _wi_stubs_log_once "$log" OP /x/ai || return 1
+  assert_eq "$(printf 'OP\t/x/Ai\nOP\t/x/ai')" "$(cat "$log")" || return 1
+  printf 'OP\t/x/ai/\n' > "$log"
+  _wi_stubs_log_once "$log" OP /x/ai || return 1
+  assert_eq "$(printf 'OP\t/x/ai/\nOP\t/x/ai')" "$(cat "$log")"
+}
+
 test_L3_log_once_ignores_detail() {
   local log="$_WI_TMP/detail-log"
   printf 'OP\t/x/ai\tdetail\n' > "$log"
@@ -331,6 +344,7 @@ for log_char in '+' '?' '(' ')' '|' '{' '}' '\' '[' ']' '.' '()' '{2}' ' (copy)'
   wi_test_run test_L1_log_once_literal_path
 done
 wi_test_run test_L2_log_once_distinct_fields
+wi_test_run test_L2_near_equal_fields_stay_distinct
 wi_test_run test_L3_log_once_ignores_detail
 wi_test_run test_L4_log_once_numeric_fields_stay_distinct
 
