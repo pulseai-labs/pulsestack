@@ -2,62 +2,80 @@
 
 ## Scenario
 
-User runs `/init-workspace foo` from `/Users/example/projects/`. The parent directory is writable,
-but mid-stream, Task 8.7 (write README.md) fails with a file-exists error — a stale partial run left
-a README.md from a previous failed invocation.
+User runs `/init-workspace foo` from `/Users/example/projects/`. Both target
+directories are absent and preflight passes. After the AGENTS.md task, another
+process creates a directory at `foo-ai/README.md`. Task 8.7 cannot write a file
+there, so the skill invokes rollback.
+
+An existing regular README.md is not a refusal: `stub_readme` overwrites it.
+This example uses a directory to exercise an actual write failure.
 
 ## Inputs and pre-flight
 
-Same as fresh-bootstrap:
 - **name** = `foo`
 - **parent** = `/Users/example/projects` (writable)
 - **project_type** = `personal`
 - **ai_root** = `/Users/example/projects/foo-ai`
 - **canonical_root** = `/Users/example/projects/foo`
 
-All pre-flight checks pass; no existing AI/canonical dirs are found.
+_Resolve `wi_bin` once with `command -v wi`; the plugin loader puts `bin/` on
+`$PATH`. The transcript below maps the run's project parent to
+`/Users/example/projects` and its plugin checkout to
+`/Users/example/projects/pulsestack`._
+
+The bootstrap sequence through Task 8.5 succeeds without output:
+
+```bash
+"$wi_bin" skeleton_preflight "$parent" "$name"
+"$wi_bin" skeleton_create_root_pair "$parent" "$name"
+"$wi_bin" skeleton_seed_subdirs "$ai_root"
+"$wi_bin" manifest_write "$ai_root" "$canonical_root" "$project_type"
+"$wi_bin" stub_agents_md "$ai_root" "$name"
+```
 
 ## Init-log state before failure
 
-After Tasks 8.2 through part of 8.7, the init-log at `/Users/example/projects/foo-ai/.workspace/init-log` contains:
+At this point, `/Users/example/projects/foo-ai/.workspace/init-log` contains:
 
 ```
 MKDIR	/Users/example/projects/foo-ai
 MKDIR	/Users/example/projects/foo
 MKDIR	/Users/example/projects/foo-ai/.workspace
+WRITE_FILE	/Users/example/projects/foo-ai/.workspace/.gitkeep
 MKDIR	/Users/example/projects/foo-ai/.claude
+WRITE_FILE	/Users/example/projects/foo-ai/.claude/.gitkeep
 MKDIR	/Users/example/projects/foo-ai/docs
+WRITE_FILE	/Users/example/projects/foo-ai/docs/.gitkeep
 MKDIR	/Users/example/projects/foo-ai/docs/specs
+WRITE_FILE	/Users/example/projects/foo-ai/docs/specs/.gitkeep
 MKDIR	/Users/example/projects/foo-ai/.superpowers
+WRITE_FILE	/Users/example/projects/foo-ai/.superpowers/.gitkeep
 MKDIR	/Users/example/projects/foo-ai/.archive
-FILE	/Users/example/projects/foo-ai/.gitignore
-FILE	/Users/example/projects/foo-ai/.workspace/.gitkeep
-FILE	/Users/example/projects/foo-ai/.claude/.gitkeep
-FILE	/Users/example/projects/foo-ai/docs/.gitkeep
-FILE	/Users/example/projects/foo-ai/docs/specs/.gitkeep
-FILE	/Users/example/projects/foo-ai/.superpowers/.gitkeep
-FILE	/Users/example/projects/foo-ai/.archive/.gitkeep
-FILE	/Users/example/projects/foo-ai/.workspace/pairing.json
-FILE	/Users/example/projects/foo-ai/AGENTS.md
+WRITE_FILE	/Users/example/projects/foo-ai/.archive/.gitkeep
+WRITE_FILE	/Users/example/projects/foo-ai/.gitignore
+WRITE_FILE	/Users/example/projects/foo-ai/AGENTS.md
 ```
+
+`manifest_write` created `.workspace/pairing.json` but did not append an entry.
+The logged root-directory removal still removes it during this fresh-mode rollback.
 
 ## The failure
 
-_Dispatcher invocations below are `"$wi_bin" …` — the calling skill resolves `wi_bin` once (`command -v wi`; the plugin loader puts `bin/` on `$PATH`); if it is unset in your context, resolve it that way first._
-
-During Task 8.7, `wi_stub_readme` attempts to write `/Users/example/projects/foo-ai/README.md`:
+To reproduce the collision after preflight, create the directory, then run Task 8.7:
 
 ```bash
+mkdir "$ai_root/README.md"
 "$wi_bin" stub_readme "$ai_root" "$name"
 ```
 
-But the file already exists (from the stale partial run). The function detects the error:
+The dispatcher returns exit code 1 and prints:
 
 ```
-ERROR: /Users/example/projects/foo-ai/README.md already exists (not overwriting)
+/Users/example/projects/pulsestack/workspace-init/lib/_helpers.sh: line 204: /Users/example/projects/foo-ai/README.md: Is a directory
+ERROR: wi_stub_readme: template render failed
 ```
 
-`wi_stub_readme` returns exit code 1. The skill catches this and immediately invokes rollback:
+The skill catches the failure and invokes rollback:
 
 ```bash
 "$wi_bin" rollback "${ai_root}/.workspace/init-log"
@@ -65,58 +83,46 @@ ERROR: /Users/example/projects/foo-ai/README.md already exists (not overwriting)
 
 ## Rollback execution log
 
-`wi_rollback` walks the init-log in reverse order and inverts each operation:
+`wi_rollback` walks the init-log in reverse order, inverts each operation, and
+prints a summary, not a line per operation:
 
 ```
-REVERSING: FILE /Users/example/projects/foo-ai/AGENTS.md → rm
-REVERSING: FILE /Users/example/projects/foo-ai/.workspace/pairing.json → rm
-REVERSING: FILE /Users/example/projects/foo-ai/.archive/.gitkeep → rm
-REVERSING: FILE /Users/example/projects/foo-ai/.superpowers/.gitkeep → rm
-REVERSING: FILE /Users/example/projects/foo-ai/docs/specs/.gitkeep → rm
-REVERSING: FILE /Users/example/projects/foo-ai/docs/.gitkeep → rm
-REVERSING: FILE /Users/example/projects/foo-ai/.claude/.gitkeep → rm
-REVERSING: FILE /Users/example/projects/foo-ai/.workspace/.gitkeep → rm
-REVERSING: FILE /Users/example/projects/foo-ai/.gitignore → rm
-REVERSING: MKDIR /Users/example/projects/foo-ai/.archive → rmdir
-REVERSING: MKDIR /Users/example/projects/foo-ai/.superpowers → rmdir
-REVERSING: MKDIR /Users/example/projects/foo-ai/docs/specs → rmdir
-REVERSING: MKDIR /Users/example/projects/foo-ai/docs → rmdir
-REVERSING: MKDIR /Users/example/projects/foo-ai/.claude → rmdir
-REVERSING: MKDIR /Users/example/projects/foo-ai/.workspace → rmdir
-REVERSING: MKDIR /Users/example/projects/foo → rmdir
-REVERSING: MKDIR /Users/example/projects/foo-ai → rmdir
+INFO: wi_rollback: rolled back 16 of 16 ops
 ```
 
-All operations complete successfully. Filesystem is now clean.
+Rollback returns exit code 0. The logged `MKDIR` inverses use `rm -rf`, so the
+unlogged README.md directory and pairing manifest are removed with the AI root.
 
 ## Final clean state
 
-After rollback:
+Check both targets after rollback:
 
 ```bash
-$ ls /Users/example/projects/
-(only pre-existing projects shown; neither foo-ai/ nor foo/ are present)
+test ! -e "$ai_root" && printf 'foo-ai absent\n'
+test ! -e "$canonical_root" && printf 'foo absent\n'
 ```
 
-The user is back to where they started before running `/init-workspace foo`.
-
-The stale README.md that caused the failure has been removed as part of the rollback
-(it was not in the init-log, so rollback didn't try to remove it; the directory structure
-it lived in was demolished by rmdir, leaving the filesystem clean).
-
-## Error message to user
-
-After rollback completes, the skill prints to stderr:
+Output:
 
 ```
-ERROR: Task 8.7 (write README.md) failed: /Users/example/projects/foo-ai/README.md already exists
-
-Init rolled back: all created directories and files have been removed.
-Workspace is back to clean state as if init never ran.
-
-To retry: clean up any stale files at /Users/example/projects/foo-ai and
-/Users/example/projects/foo manually (if they still exist), then re-run /init-workspace foo
+foo-ai absent
+foo absent
 ```
 
-The skill exits with code 1. The user can now investigate the stale state, clean it up manually if needed,
-and re-run `/init-workspace foo`. Per SPEC §8.9, rollback always returns the workspace to clean state.
+Neither target remains; the pre-existing project parent is untouched. The skill
+reports the failed task and stops rather than continuing to git initialization.
+Rollback is best-effort: inspect any warnings before assuming another failed
+run reached this clean state.
+
+## Message to the user
+
+The skill reports the observed result to the user; this is its message, not
+dispatcher output:
+
+```text
+Task 8.7 (write README.md) failed because README.md was a directory.
+All 16 logged operations were rolled back. Both /Users/example/projects/foo-ai
+and /Users/example/projects/foo are gone; the existing parent directory remains.
+Check what created README.md as a directory, then re-run /init-workspace foo
+from /Users/example/projects/.
+```

@@ -143,12 +143,12 @@ preflight error to stderr and exit non-zero.
 
 ## 5. The 8 bootstrap tasks
 
-Execute the tasks in the order below. After each task, append an entry to
-`<ai-workspace>/.workspace/init-log` via `"$wi_bin" log_op …` so rollback can undo
-the work in reverse order. **On ANY task failure**, immediately invoke
+Execute the tasks in the order below. The helpers append their operation entries
+to `<ai-workspace>/.workspace/init-log` as described below, so rollback can undo
+the logged work in reverse order. **On ANY task failure**, immediately invoke
 `"$wi_bin" rollback "${ai_root}/.workspace/init-log"` and exit non-zero. Per
 **SPEC §8** and **SPEC §8.9**, rollback walks the log in reverse and
-inverts each op (`mkdir` → `rmdir`, file create → `rm`, `git init` →
+inverts each op (`MKDIR` → `rm -rf`, `WRITE_FILE` → `rm -f`, `GIT_INIT` →
 remove `.git/`, hook install → remove hook file).
 
 Init-log path: `${ai_root}/.workspace/init-log`.
@@ -169,7 +169,8 @@ two inner roots and `$ai_root/.workspace`, never the wrapper itself.
 "$wi_bin" skeleton_create_root_pair "$parent" "$name"
 ```
 
-Expected init-log entries: `mkdir <ai_root>` and `mkdir <canonical_root>`.
+Expected init-log entries: `MKDIR <ai_root>`, `MKDIR <canonical_root>`,
+and `MKDIR <ai_root>/.workspace`.
 
 ### 5.3 — Task 8.3: Seed AI workspace subdirs + .gitignore
 
@@ -181,9 +182,9 @@ template to `<ai_root>/.gitignore`.
 "$wi_bin" skeleton_seed_subdirs "$ai_root"
 ```
 
-Expected init-log entries: `mkdir <ai_root>/.workspace`, `mkdir <ai_root>/.claude`,
-`mkdir <ai_root>/docs`, `mkdir <ai_root>/docs/specs`, `mkdir <ai_root>/.superpowers`,
-`mkdir <ai_root>/.archive`, plus `file <ai_root>/.gitignore` and `.gitkeep` files.
+Expected init-log entries: `MKDIR <ai_root>/.workspace`, `MKDIR <ai_root>/.claude`,
+`MKDIR <ai_root>/docs`, `MKDIR <ai_root>/docs/specs`, `MKDIR <ai_root>/.superpowers`,
+`MKDIR <ai_root>/.archive`, plus `WRITE_FILE <ai_root>/.gitignore` and WRITE_FILE entries for `.gitkeep` files.
 
 ### 5.4 — Task 8.4: Write the pairing manifest
 
@@ -202,7 +203,7 @@ other declared repo), append `--tooling-repo "$tooling_root"` (and
 `--tooling-repo-remote "$tooling_remote"` if known). Don't prompt for one in fresh
 mode; omit the flags and the `tooling_repo` key is left out entirely (unchanged).
 
-Expected init-log entry: `file <ai_root>/.workspace/pairing.json`.
+No init-log entry is written for the manifest; rollback removes it with the logged AI root.
 
 ### 5.5 — Task 8.5: Write the AGENTS.md stub
 
@@ -219,7 +220,7 @@ installed. workspace-init writes no `CLAUDE.md`.
 "$wi_bin" stub_agents_md "$ai_root" "$name"
 ```
 
-Expected init-log entry: `file <ai_root>/AGENTS.md`.
+Expected init-log entry: `WRITE_FILE <ai_root>/AGENTS.md`.
 
 ### 5.6 — Task 8.6: (merged into 5.5)
 
@@ -234,7 +235,7 @@ Renders the AI workspace README.
 "$wi_bin" stub_readme "$ai_root" "$name"
 ```
 
-Expected init-log entry: `file <ai_root>/README.md`.
+Expected init-log entry: `WRITE_FILE <ai_root>/README.md`.
 
 ### 5.8 — Task 8.8: git init + hooks + stage
 
@@ -251,9 +252,9 @@ Three sequential sub-steps; any failure triggers full rollback:
 3. `"$wi_bin" git_stage_ai_workspace "$ai_root"` — `git -C "$ai_root" add .` (stages
    the skeleton; does NOT commit).
 
-Expected init-log entries: `git-init <ai_root>`, `git-init <canonical_root>`,
-`hook <ai_root>/.git/hooks/commit-msg`, `hook <canonical_root>/.git/hooks/commit-msg`,
-`git-stage <ai_root>`.
+Expected init-log entries: `GIT_INIT <ai_root>`, `GIT_INIT <canonical_root>`,
+`HOOK_INSTALL <ai_root>`, `HOOK_INSTALL <canonical_root>`,
+`GIT_STAGE <ai_root>`.
 
 ## 6. Print next-steps
 

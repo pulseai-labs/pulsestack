@@ -638,9 +638,9 @@ test_claude_code_fallback_is_version_gated() {
 }
 
 test_release_record_matches_the_shipped_files() {
-  # D23/D24: the release record and a test header carry claims about files that
-  # can drift from them. Three of these were wrong in round 1 (R2 found them) and
-  # each mutation SURVIVED until this test existed.
+  # D23/D24: the release record and header claims drifted in round 1;
+  # their mutations survived until this test existed. Keep the header
+  # unnumbered and reject the obsolete AGENTS.md task reference.
   local chg hdr
   chg="$(cat "$WI_PLUGIN_ROOT/CHANGELOG.md")"
   hdr="$(sed -n '1,10p' "$WI_PLUGIN_ROOT/tests/test-stubs.sh")"
@@ -655,10 +655,7 @@ test_release_record_matches_the_shipped_files() {
   esac
   assert_contains 'pointer paragraph in `pairing-canonical-repo` §1 names' "$chg" || return 1
   assert_contains 'section plus the canonical-and-ossify continuation sections from the old `CLAUDE.md` stub' "$chg" || return 1
-  # The header's count must equal the runners that file actually declares.
-  local runners
-  runners="$(grep -c 'wi_test_run' "$WI_PLUGIN_ROOT/tests/test-stubs.sh")"
-  assert_contains "Covers ($runners tests)" "$hdr" || return 1
+  assert_not_contains 'Covers (' "$hdr" || return 1
   assert_not_contains 'SPEC §8.5' "$hdr" || return 1
 }
 
@@ -678,7 +675,143 @@ test_existing_dual_scans_both_instruction_files() {
   grep -Fq '/ossify:doctor' "$s" || { echo "    next steps must route a CLAUDE.md to the doctor repair"; return 1; }
 }
 
+_has_obsolete_init_log_op() {
+  grep -Eq '`(mkdir|file|git-init|hook|git-stage|GIT-INIT|HOOK|GIT-STAGE)( |`)'
+}
+
+# #835: expected journal entries must name the ops the helpers actually write.
+test_skill_init_log_op_names_match_runtime() {
+  local skill entries
+  for skill in "$INIT_SKILL" "$PAIR_SKILL"; do
+    entries="$(awk '/^Expected init-log entr(y|ies):/{f=1}
+      f && /^$/{f=0} f{print}' "$skill")"
+    assert_contains '`MKDIR ' "$entries" || return 1
+    assert_contains '`WRITE_FILE ' "$entries" || return 1
+    assert_contains '`GIT_INIT ' "$entries" || return 1
+    assert_contains '`HOOK_INSTALL <ai_root>`' "$entries" || return 1
+    assert_contains '`GIT_STAGE <ai_root>`' "$entries" || return 1
+    assert_not_contains 'pairing.json' "$entries" || return 1
+    if _has_obsolete_init_log_op <<< "$entries"; then
+      echo "    obsolete op name in $skill: $entries"; return 1
+    fi
+  done
+}
+
+# #835: read only fences explicitly presented as init-log entries.
+_example_init_log_entries() {
+  awk '
+    /^## Init-log state before failure$/ { section = 1; next }
+    /^## / { section = 0 }
+    /^[[:space:]]*Init-log entr(y|ies):[[:space:]]*$/ { pending = 1; next }
+    /^[[:space:]]*```/ {
+      if (fence) { fence = 0; capture = 0; pending = 0 }
+      else { fence = 1; capture = section || pending }
+      next
+    }
+    pending && !fence && NF { pending = 0 }
+    fence && capture { sub(/^   /, ""); print }
+  ' "$1"
+}
+
+_assert_example_init_log_ops() {
+  local example="$1" entries allowed
+  entries="$(_example_init_log_entries "$example")" || return 1
+  [[ -n "$entries" ]] || { echo "    no init-log entries extracted from $example"; return 1; }
+  allowed="$(awk '
+    $1 ~ /^(wi_log_op|_wi_(skeleton|stubs)_log_once)$/ && $3 ~ /^[A-Z_]+$/ { print $3 }
+  ' "$WI_LIB_DIR"/*.sh | sort -u)"
+  [[ -n "$allowed" ]] || { echo '    no literal producer ops found'; return 1; }
+  WI_EXAMPLE_OPS="$allowed" awk -F '\t' '
+    BEGIN {
+      n = split(ENVIRON["WI_EXAMPLE_OPS"], names, "\n")
+      for (i = 1; i <= n; i++) valid[names[i]] = 1
+    }
+    !($1 in valid) { print "    op not written by lib/: " $1; bad = 1 }
+    END { exit bad }
+  ' <<< "$entries"
+}
+
+test_failure_example_init_log_ops_match_writers() {
+  _assert_example_init_log_ops "$WI_PLUGIN_ROOT/skills/initializing-dual-repo-workspace/examples/failure-rollback.md"
+}
+
+test_pair_example_init_log_ops_match_writers() {
+  local text entries
+  if ! awk '
+    /^[[:space:]]*Init-log entr(y|ies):/ {
+      if (pending) bad = 1
+      labels++
+      if ($0 !~ /^[[:space:]]*Init-log entr(y|ies):[[:space:]]*$/) bad = 1
+      pending = 1; next
+    }
+    pending && NF {
+      if ($0 !~ /^[[:space:]]*```/) bad = 1
+      pending = 0
+    }
+    END { exit (bad || pending || labels != 4) }
+  ' "$PAIR_CLEAN_EX"; then
+    echo '    each of the four init-log labels must be followed by a fence'; return 1
+  fi
+  text="$(cat "$PAIR_CLEAN_EX")"
+  if _has_obsolete_init_log_op <<< "$text"; then
+    echo '    obsolete backticked op name in pairing example'; return 1
+  fi
+  assert_not_contains 'records all 8 tasks' "$text" || return 1
+  assert_not_contains 'foo/git/hooks' "$text" || return 1
+  _assert_example_init_log_ops "$PAIR_CLEAN_EX" || return 1
+  entries="$(_example_init_log_entries "$PAIR_CLEAN_EX")" || return 1
+  assert_eq 6 "$(printf '%s\n' "$entries" | awk 'END { print NR }')" || return 1
+  awk -F '\t' '
+    $1 ~ /^(HOOK_INSTALL|GIT_INIT|GIT_STAGE)$/ && index($2, ".git/") {
+      print "    expected repository root, not a .git/ operand: " $0; bad = 1
+    }
+    END { exit bad }
+  ' <<< "$entries"
+}
+
+test_skill_rollback_inverses_match_runtime() {
+  local inverses
+  inverses="$(awk '/^inverts each op / { print }' "$INIT_SKILL")"
+  assert_contains '`MKDIR` → `rm -rf`' "$inverses" || return 1
+  assert_contains '`WRITE_FILE` → `rm -f`' "$inverses" || return 1
+}
+
+# #835: the example must show rollback's tally, not invented per-op output.
+test_failure_rollback_example_output() {
+  local example="$WI_PLUGIN_ROOT/skills/initializing-dual-repo-workspace/examples/failure-rollback.md"
+  local output entries count reverted total message_count
+  output="$(awk '/^## Rollback execution log$/{section=1; next}
+    section && /^## /{exit}
+    section && /^```$/{fence=!fence; next}
+    section && fence{print}' "$example")"
+  assert_not_contains 'REVERSING:' "$output" || return 1
+  [[ "$output" =~ ^INFO:\ wi_rollback:\ rolled\ back\ ([0-9]+)\ of\ ([0-9]+)\ ops$ ]] || {
+    echo "    expected rollback summary, got: $output"; return 1;
+  }
+  reverted="${BASH_REMATCH[1]}"
+  total="${BASH_REMATCH[2]}"
+  entries="$(_example_init_log_entries "$example")" || return 1
+  [[ -n "$entries" ]] || { echo '    rollback example has no log entries'; return 1; }
+  count="$(printf '%s\n' "$entries" | awk 'END { print NR }')"
+  assert_eq "$count" "$reverted" || return 1
+  assert_eq "$count" "$total" || return 1
+  message_count="$(awk '
+    /^## Message to the user$/ { section = 1; next }
+    section && /^## / { section = 0 }
+    section && /^```text$/ { fence = 1; next }
+    section && /^```$/ { fence = 0 }
+    section && fence && /^All [0-9]+ logged operations / { print $2; n++ }
+    END { exit (n != 1) }
+  ' "$example")" || return 1
+  assert_eq "$count" "$message_count" || return 1
+}
+
 # --- run all ---
+wi_test_run test_failure_rollback_example_output
+wi_test_run test_skill_init_log_op_names_match_runtime
+wi_test_run test_failure_example_init_log_ops_match_writers
+wi_test_run test_pair_example_init_log_ops_match_writers
+wi_test_run test_skill_rollback_inverses_match_runtime
 wi_test_run test_init_skill_file_exists
 wi_test_run test_pair_skill_file_exists
 wi_test_run test_init_triggers_on_create_workspace
