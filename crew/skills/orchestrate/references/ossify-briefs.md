@@ -18,8 +18,7 @@ the top copies its approved profile in — and marked `coordinator` before its c
 ```text
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
-ROLE: ossify spine session and nested coordinator. State the model you are
-running in your first reply, then continue.
+ROLE: ossify spine session and nested coordinator.
 
 PLACEMENT: <abs path of the repo or worktree the lane runs from>.
 
@@ -31,11 +30,12 @@ RUN_JSON=<abs path of the run.json you write and own — never the top's>
 MECHANICS=<the directory this session read the orchestrate skill's SKILL.md from>/references/layers/<layer>.md
 SPINE_ID=<spine id>
 SPINE_COMMAND=<the command this seat was launched with, from its machine entry> — a record of your own launch: you are already that seat, never run it
-SPINE_EXPECTED_MODEL=<the model the banner or screen must show>
 SPINE_EFFORT=<the effort this seat was launched at>
 SEATS — the operator-approved seats for this spine. Use them verbatim.
 <item id> implementer: <agent name> | <command> | model: <expected model> | effort: <effort> | model_shows: <banner|screen> | brief_delivery: <inject|file> | host: <machine>[ | rail: <rail>]
 <item id> verifier:    <agent name> | <command> | model: <expected model> | effort: <effort> | model_shows: <banner|screen> | brief_delivery: <inject|file> | host: <machine>[ | rail: <rail>]
+<item> <role> fallback: <row> when <condition>
+A coordinator that observes a fallback row's condition switches that seat to its row, runs the same launch read against the row's `model:`, records the switch in its report, and does not ask.
 Each row names its agent and its machine, and a rail where its entry names one: a row whose
 machine is not yours launches through the layer's Machines step. A seat this block does not list halts the item and asks.
 HANDOFF_PATH=<a prior spine session's handoff path, or "none">
@@ -52,10 +52,9 @@ read-out before any mutation, and a halt row in it is a halt to report, never re
 Before that re-run, close every item pane a predecessor left live — found through the
 handoff, RUN_JSON or the layer's Run workspace list — the way MECHANICS's Teardown closes one, panes only, never
 a worktree: an old implementer must not write a tree the re-entry redispatches. A predecessor
-pane you cannot find or close is a halt to report. A first reply whose model
-is not SPINE_EXPECTED_MODEL is a failed launch to report, not to work around.
+pane you cannot find or close is a halt to report.
   1. Check the SEATS block against SPINE.md before anything else: every planned
-     item has exactly one implementer row and one verifier row, and no row names
+     item has exactly one primary implementer row and one primary verifier row, and no row names
      an item the plan does not. A failure halts — ask, never substitute.
   2. Create RUN_JSON for your item tasks, or continue it if it exists. A session that
      binds an existing `run.json` rewrites `run.orchestrator` to its own address from
@@ -79,10 +78,9 @@ is not SPINE_EXPECTED_MODEL is a failed launch to report, not to work around.
      never this rule. Launch only for a request the lane issues: an `adopt` item reaches you as
      an ordinary request, and an item ossify finishes itself (`finish-merge`, `finish-status`)
      or one already `complete` gets none.
-     Confirm each model as its row's
-     `model_shows` says and by
-     the worker's own check; the effort is the given launch argument. A row that is missing or
-     ambiguous halts that launch and asks; only a top reply carrying replacement rows moves the block.
+     Confirm each model as its row's `model_shows` says — a mismatch is a failed launch to report, never worked
+     around; the effort is the given launch argument. A row that is missing or
+     ambiguous halts that launch and asks; apart from a fallback row, only a top reply carrying replacement rows moves the block.
   4. Gather the round's implementation plans — each read from its implementer's report file — into
      ONE ordered relay to the top, and wait; send each implementer the top's decision before any edit starts.
   5. On each complete return, create and dispatch that item's fresh VERIFIER
@@ -140,8 +138,7 @@ If no item session will launch, stay alive, report that, and wait for the operat
 ```text
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
-ROLE: ossify work-item implementer for <work-item-id>. State the model you are
-running in your first reply, then continue.
+ROLE: ossify work-item implementer for <work-item-id>.
 
 PLACEMENT: worktree <abs path>, branch <branch>, base <base-branch>. Use git -C
 for every git command; cd does not persist.
@@ -151,15 +148,13 @@ PING: after every report rename — plan, question, escalation, late finding, fi
 Everything you say upward (plan, question, escalation, report) goes in that file.
 
 BEFORE ANY EDIT, in this order:
-  1. Confirm the model you are running is <expected model>. If it is not, stop
-     and report — do not continue on a substitute.
-  2. Read <handoff path>, <spec path>, and the relevant source and tests. Change
+  1. Read <handoff path>, <spec path>, and the relevant source and tests. Change
      nothing.
-  3. Write your implementation plan to your report file: the files you will
+  2. Write your implementation plan to your report file: the files you will
      touch, the ordered steps, the RED test you will write per acceptance
      criterion, the verification commands, and the risks or deviations you
      expect. Then WAIT.
-  4. Apply the decision that comes back — approved as written, or amended. Do
+  3. Apply the decision that comes back — approved as written, or amended. Do
      not start on your own reading of it.
 
 TASK: then run `/ossify:work-item <handoff path>` and let it complete. Its
@@ -194,12 +189,10 @@ the layer's `Seat marking` states.
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 ROLE: verifier for <work-item-id>, read-only, in worktree <abs path>, at the accepted result's
-`head_oid`, staged tree `tree_oid`. State the model you are running; EXPECTED_MODEL below is the
-value to match — a mismatch is a failed launch to report and stop.
+`head_oid`, staged tree `tree_oid`.
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report verifier] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
-EXPECTED_MODEL=<this item's SEATS row names it — fill this line; a coordinator never sends it blank>
 
 CLAIMS: <the numbered list the coordinator fills from this item's spec, from the verifier body
 it supplied — every claim, so the verifier reads no other file for them>.

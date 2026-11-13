@@ -2,10 +2,9 @@
 scenario_id: 12-close-seat-model-mismatch-fails-launch-negative
 expected_outcome: halt
 expected_reason: 'The close seat is launched from its approved seat values, carried
-  in the close brief, and its model is confirmed as its `model_shows` says —
-  the banner here — and the first
-  reply, exactly as an item row''s is.
-  The banner here shows strong-v2 while CLOSE_EXPECTED_MODEL reads strong-v1, so this is a
+  in its resolved profile, and its model is confirmed only by the launcher
+  as its `model_shows` says — the banner here, exactly as an item row''s is.
+  The banner here shows strong-v2 while `expected_model:` reads strong-v1, so this is a
   FAILED LAUNCH: the pane is released and the mismatch reported, and nothing is
   dispatched into that pane. Both offered repairs are wrong: continuing because
   the model on the banner is newer or better is a dispatch-time substitution, exactly
@@ -20,8 +19,8 @@ expected_reason: 'The close seat is launched from its approved seat values, carr
 You are the top orchestrator dispatching the first close session for spine
 `r11.s2`. The project file names `strong-coder` as this spine's close seat; its
 machine entry launches `strong-coder --effort max` expecting model `strong-v1`,
-and the drafted close brief carries those values as `CLOSE_COMMAND` /
-`CLOSE_EXPECTED_MODEL` / `CLOSE_EFFORT`. You created the pane from
+and the drafted close brief records `CLOSE_COMMAND` and `CLOSE_EFFORT`;
+the resolved profile carries `expected_model: strong-v1`. You created the pane from
 `CLOSE_COMMAND`, waited for the banner, and read it once.
 
 The banner shows `strong-v2 with max effort` — the platform migrated the seat's

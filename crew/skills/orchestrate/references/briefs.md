@@ -5,7 +5,7 @@ context, may be launched where the project's rules do not load, and the layer de
 text verbatim, by file (`layers/<layer>.md`, Send) — no preamble, nothing prepended, nothing else.
 Every brief carries, in this order:
 
-1. Role, and "state your model in your first reply".
+1. Role.
 2. Placement: the absolute path the seat sits in — a worktree or a repo path — and, where
    relevant, the ref or SHA it sits at; the worktree templates carry branch and base
    besides.
@@ -18,8 +18,7 @@ Every brief carries, in this order:
 6. Planned implementer only: the plan gate.
 
 Angle brackets are slots. Fill every slot; delete nothing else. The `SEAT_` lines are
-the operator's approved seat, copied into the brief at launch; a worker that finds its
-model is not `SEAT_EXPECTED_MODEL` reports a failed launch and stops.
+the operator's approved launch record, copied into the brief at launch.
 
 The report file is replaced whole, never appended to in pieces: the orchestrator's
 doorbell compares that file's hash or its identity (`completion.md`), and it reads a
@@ -65,8 +64,7 @@ The rule's operative form is the dispatch matrix:
 Ten dispatched templates live in this file: the generic five — planned implementer,
 fast implementer, reviewer, verifier, fix round — the four dedicated dispatch
 templates the ossify dispatches use — lane driver, doctor dispatch, direct work-item,
-non-spine close — and the demo walk a close dispatch constructs for a `user:` entry on
-another machine. The correction-request template is a send, not a session, so it carries
+non-spine close — and the demo walk a close dispatch constructs for a `user:` entry. The correction-request template is a send, not a session, so it carries
 no seat.
 
 **An activated ossify spine has four briefs of its own** — spine session, item
@@ -83,14 +81,13 @@ filled into its brief by the coordinator, and `ossify-briefs.md` does not restat
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 SEAT_COMMAND=<the command this seat was launched with, verbatim from agents.md> — a record of your own launch: you are already that seat, never run it
-SEAT_EXPECTED_MODEL=<the model the banner or screen must show>; if the model you are running is not it, that is a failed launch — report it and stop
 SEAT_EFFORT=<the effort this seat was launched at>
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report implementer] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
 SCRATCH_DIR=<this seat's scratch directory: scratch output and commit-message files go here>
 PR_BODY_TEMPLATE=<the installed merge-bar's `skills/opening-a-pr/references/pr-body.md`, pasted verbatim; ossify's `skills/work-pr/references/pr-body.md` where only ossify is installed; `none` only where neither is>
-ROLE: implementer. State the model you are running in your first reply, then continue.
+ROLE: implementer.
 
 PLACEMENT: worktree <abs-path>, branch <branch>, base <base-branch>. Use git -C for every
 git command; cd does not persist.
@@ -132,14 +129,13 @@ If a tool or policy refuses you, report it verbatim and stop that step.
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 SEAT_COMMAND=<the command this seat was launched with, verbatim from agents.md> — a record of your own launch: you are already that seat, never run it
-SEAT_EXPECTED_MODEL=<the model the banner or screen must show>; if the model you are running is not it, that is a failed launch — report it and stop
 SEAT_EFFORT=<the effort this seat was launched at>
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report implementer] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
 SCRATCH_DIR=<this seat's scratch directory: scratch output and commit-message files go here>
 PR_BODY_TEMPLATE=<the installed merge-bar's `skills/opening-a-pr/references/pr-body.md`, pasted verbatim; ossify's `skills/work-pr/references/pr-body.md` where only ossify is installed; `none` only where neither is>
-ROLE: implementer. State the model you are running in your first reply, then continue.
+ROLE: implementer.
 
 PLACEMENT: worktree <abs-path>, branch <branch>, base <base-branch>. Use git -C for every
 git command; cd does not persist.
@@ -171,20 +167,18 @@ stop; report refusals verbatim.
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 SEAT_COMMAND=<the command this seat was launched with, verbatim from agents.md> — a record of your own launch: you are already that seat, never run it
-SEAT_EXPECTED_MODEL=<the model the banner or screen must show>; if the model you are running is not it, that is a failed launch — report it and stop
 SEAT_EFFORT=<the effort this seat was launched at>
 REVIEW_INVOCATION=<this seat's agent's `review:` from agents.md, else `/code-review <PR> <LEVEL>`, with `<PR>`, `<PR_URL>` and `<LEVEL>` filled by the orchestrator>
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report reviewer] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
-ROLE: reviewer. State the model you are running in your first reply, then continue.
+ROLE: reviewer.
 
 PLACEMENT: worktree <abs-path> checked out at PR <number>'s head <sha>.
 
 TASK: run REVIEW_INVOCATION as given — its level is the one the orchestrator decided, not
 one you pick; outside an activated ossify spine the level is `medium` unless the
-orchestrator names another. Your first reply must state the model you are running; it is expected to
-be SEAT_EXPECTED_MODEL, and a mismatch is a failed launch to report, not to work around.
+orchestrator names another.
 Let the review finish, then write your report file carrying, in this order:
 `Findings: none` on a clean review, or else every finding in this body, one per line
   <file>:<line> | P0|P1|P2|P3 | <claim in one sentence>
@@ -212,14 +206,12 @@ escalation goes there too, then stop.
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 SEAT_COMMAND=<the command this seat was launched with, verbatim from agents.md> — a record of your own launch: you are already that seat, never run it
-SEAT_EXPECTED_MODEL=<the model the banner or screen must show>; if the model you are running is not it, that is a failed launch — report it and stop
 SEAT_EFFORT=<the effort this seat was launched at>
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report verifier] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
 SCRATCH_DIR=<this seat's scratch directory: scratch output and commit-message files go here>
-ROLE: verifier, read-only. State the model you are running in your first reply, then
-continue.
+ROLE: verifier, read-only.
 
 PLACEMENT: <worktree abs-path or repo path>, at <ref or sha>. A re-check is this brief sent
 again, every slot refilled: judge the tree named here, never your previous check's. Two slots
@@ -269,14 +261,12 @@ part of it is rebuilt from another template's.
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 SEAT_COMMAND=<the command this seat was launched with, verbatim from agents.md> — a record of your own launch: you are already that seat, never run it
-SEAT_EXPECTED_MODEL=<the model the banner or screen must show>; if the model you are running is not it, that is a failed launch — report it and stop
 SEAT_EFFORT=<the effort this seat was launched at>
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report implementer] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
 SCRATCH_DIR=<this seat's scratch directory: scratch output and commit-message files go here>
-ROLE: implementer, fix round. State the model you are running in your first reply, then
-continue.
+ROLE: implementer, fix round.
 
 PLACEMENT: worktree <abs-path>, branch <branch>, base <base-branch>. Use git -C for every
 git command; cd does not persist.
@@ -329,13 +319,12 @@ of item pairs: the default lane creates none.
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 SEAT_COMMAND=<the command this seat was launched with, verbatim from agents.md> — a record of your own launch: you are already that seat, never run it
-SEAT_EXPECTED_MODEL=<the model the banner or screen must show>; if the model you are running is not it, that is a failed launch — report it and stop
 SEAT_EFFORT=<the effort this seat was launched at>
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report coordinator] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
 ROLE: lane driver for ossify spine <spine id> — ossify's orchestrator for that spine, not an
-implementer. State the model you are running in your first reply, then continue.
+implementer.
 
 PLACEMENT: <the tree the lane runs from — abs path>.
 
@@ -368,12 +357,11 @@ adjudicate it: the brief states only what the seat returns.
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 SEAT_COMMAND=<the command this seat was launched with, verbatim from agents.md> — a record of your own launch: you are already that seat, never run it
-SEAT_EXPECTED_MODEL=<the model the banner or screen must show>; if the model you are running is not it, that is a failed launch — report it and stop
 SEAT_EFFORT=<the effort this seat was launched at>
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report coordinator] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
-ROLE: doctor session. State the model you are running in your first reply, then continue.
+ROLE: doctor session.
 
 PLACEMENT: <the tree the dispatch runs from — abs path>.
 
@@ -399,13 +387,11 @@ seat — its report, scratch and handoff directories in `SEAT_MODS_ALLOW` (the l
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 SEAT_COMMAND=<the command this seat was launched with, verbatim from agents.md> — a record of your own launch: you are already that seat, never run it
-SEAT_EXPECTED_MODEL=<the model the banner or screen must show>; if the model you are running is not it, that is a failed launch — report it and stop
 SEAT_EFFORT=<the effort this seat was launched at>
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report implementer] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
-ROLE: implementer, direct work item. State the model you are running in your first reply,
-then continue.
+ROLE: implementer, direct work item.
 
 PLACEMENT: worktree <the handoff's worktree — abs path>, branch <branch>, base
 <base-branch>. Use git -C for every git command; cd does not persist.
@@ -437,12 +423,11 @@ command (the layer's `Seat marking`).
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 SEAT_COMMAND=<the command this seat was launched with, verbatim from agents.md> — a record of your own launch: you are already that seat, never run it
-SEAT_EXPECTED_MODEL=<the model the banner or screen must show>; if the model you are running is not it, that is a failed launch — report it and stop
 SEAT_EFFORT=<the effort this seat was launched at>
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report coordinator] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
-ROLE: close session. State the model you are running in your first reply, then continue.
+ROLE: close session.
 
 PLACEMENT: <the tree the close runs from — abs path>.
 
@@ -474,9 +459,9 @@ that step's and stays scoped to it.
 
 ## Demo walk
 
-One `user:`-type demo-ledger entry an operator assigns to another machine, walked by a seat
-on that machine: a close session drives no desktop, so the entry runs where the product's app
-runs. The close dispatch constructs this brief from its `DEMO_WALK` row — one seat per entry,
+One `user:`-type demo-ledger entry an operator assigns to a walk seat on the close session's
+own machine or another: a close session drives no desktop, so the entry runs where the
+product's app runs. The close dispatch constructs this brief from its `DEMO_WALK` row — one seat per entry,
 from that row only — and carries this body verbatim (the dispatch matrix above). The seat is
 marked a guarded `verifier` before its command (the layer's `Seat marking`): read-only, its
 `SEAT_MODS_ALLOW` this report directory. This is the one dispatched template with no `MOLT:`
@@ -486,14 +471,13 @@ line: a bounded walk writes nothing outside itself and hands nothing off.
 PROHIBITIONS: every seat-mods denial and narrower task limit wins. Design/spec/release gates, product choices, credential values and Molt handoff remain operator-owned; a worker's implementation plan is the top's to approve, and the merge follows run.merge_word. No delete, branch-delete, force-push, no-verify, AI-trailer or guarded-merge exception is granted.
 
 SEAT_COMMAND=<the command this seat was launched with, verbatim from agents.md> — a record of your own launch: you are already that seat, never run it
-SEAT_EXPECTED_MODEL=<the model the banner or screen must show>; if the model you are running is not it, that is a failed launch — report it and stop
 SEAT_EFFORT=<the effort this seat was launched at>
 REPORT_PATH=<the absolute path this seat writes its report to>, replaced whole — a temp file in the same directory renamed over the path, never in pieces; NOTIFY_RUN=<the absolute path of the dispatcher's run.json — filled only when the layer can address the dispatcher's seat and your pane is on the dispatcher's machine; otherwise the sentinel `none`, which is never read or sent to>; NOTIFY_MACHINE=<your pane's machine, as the dispatcher's run.json records machines>
 PING_SEND=<the layer's Send, filled by the dispatcher: how one line reaches a pane on your layer>
 PING: after every report rename — plan, question, escalation, late finding, final report — one send, no `--wait`, no retry, and only when NOTIFY_RUN is not `none`: read `jq -r '"\(.run.orchestrator.pane) \(.run.orchestrator.machine)"' <NOTIFY_RUN>` at that moment — one line, the pane then the machine; only when that machine equals NOTIFY_MACHINE, `<PING_SEND> '[crew report verifier] <task id> <kind> <path>'`, one single-quoted literal argument (a single quote in it is written `'\''`; `$` and backticks stay literal). A failed read or another machine skips the send. The report file is the contract; a failed send is left as it is. A skipped or failed send is never an answer: after a plan or a question, wait at that gate as if it had been delivered (#810).
-ROLE: demo walk. You are read-only, a guarded `verifier` marked before your command (the layer's `Seat marking`), its `SEAT_MODS_ALLOW` this report directory. State the model you are running in your first reply, then continue.
+ROLE: demo walk. You are read-only, a guarded `verifier` marked before your command (the layer's `Seat marking`), its `SEAT_MODS_ALLOW` this report directory.
 
-PLACEMENT: <the checkout the walk drives — abs path on this machine>.
+PLACEMENT: <the fixture the close session built for this walk — abs path on this machine>.
 
 DEMO ENTRY — the `user:` demo-ledger line this walk runs, verbatim:
 <id> — text: <the journey, as the ledger words it>

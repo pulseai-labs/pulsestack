@@ -124,7 +124,7 @@ pin "$CONFIG_MD" 'the row names the resolver'"'"'s own machine under the layer'"
   "a host-less entry's row names the resolver's own machine, never an inferred one"
 pin "$CONFIG_MD" 'never the words `this machine`' \
   "the rendered row never carries the ambiguous local words"
-pin "$CONFIG_MD" 'the row'"'"'s command, model and effort only' \
+pin "$CONFIG_MD" 'the row'"'"'s command and effort only' \
   "a brief's own launch record is named by field, not by position"
 pin "$CONFIG_MD" 'A profile that crosses a session carries its seat'"'"'s machine and its agent'"'"'s name' \
   "the carry rule is stated once"
@@ -214,7 +214,7 @@ brief_pin() {
 # Ten dispatched templates: planned implementer, fast implementer, reviewer,
 # verifier, fix round, the four dedicated dispatch templates — lane driver,
 # doctor dispatch, direct work-item, non-spine close — and the demo walk the
-# close dispatch constructs for a `user:` entry on another machine (Task 13).
+# close dispatch constructs for a `user:` entry (Task 13).
 # The correction-request template is a send, not a launch, so it carries no seat.
 brief_pin 'SEAT_COMMAND=' "every dispatched template names its seat's command" 10
 brief_pin 'you are already that seat, never run it' "every SEAT_COMMAND says it is a record, never run (#845)" 10
@@ -237,7 +237,7 @@ for f in "$PLUGIN_ROOT"/skills/orchestrate/references/*.md; do
 done
 if [ "$cmd_total" -ge 13 ] && [ -z "$cmd_bare" ]; then pass "every *_COMMAND launch record says never run ($cmd_total)"
 else fail "every *_COMMAND launch record says never run" "total $cmd_total (want >= 13), bare:$cmd_bare"; fi
-brief_pin 'SEAT_EXPECTED_MODEL=' "every dispatched template names its expected model" 10
+brief_pin 'SEAT_EXPECTED_MODEL=' "#751: no leaf template keeps its unused own-model slot" 0
 brief_pin 'SEAT_EFFORT=' "every dispatched template names its effort" 10
 brief_pin 'NOTIFY_RUN=' "every dispatched template names the run file its ping reads" 10
 brief_pin 'NOTIFY_MACHINE=' "every dispatched template names the worker's machine" 10

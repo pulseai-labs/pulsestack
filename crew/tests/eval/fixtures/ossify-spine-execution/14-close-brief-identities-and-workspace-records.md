@@ -38,7 +38,6 @@ Your brief's identity block reads:
     REPORT_PATH=/runs/r13.s1/close-report.md
     SPINE_ID=r13.s1
     CLOSE_COMMAND=strong-coder --effort max
-    CLOSE_EXPECTED_MODEL=strong-v1
     CLOSE_EFFORT=max
     CLOSE_REVIEW_LEDGER=none
     CLOSE_TASK_ID=task_stale_r13s1

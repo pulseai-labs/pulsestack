@@ -126,16 +126,14 @@ template, which is a send, not a session. Each
 template is a whole contract, complete on its own; the rule and the dispatch matrix that
 makes it checkable are that file's header. A brief is the whole contract the worker
 will ever see, because a worker session has no orchestration context and may be
-launched somewhere its project rules do not load. Every brief asks the worker to
-state its model in its first reply: a model that is not `SEAT_EXPECTED_MODEL` is a
-failed launch the worker reports and stops on rather than works around, and that
-report reaches you in its report file, like everything else it says — and that file is
-the wait's own wake, so a brief naming no `REPORT_PATH` gives the wait for it nothing.
+launched somewhere its project rules do not load. Everything the worker says reaches
+you in its report file — the wait's own wake, so a brief naming no `REPORT_PATH`
+gives the wait for it nothing.
 Every brief also carries `NOTIFY_RUN` (the run file whose `run.orchestrator` the worker pings),
 filled with the dispatching session's own `run.json` only when the layer detects that pane and
 the seat shares its machine, otherwise the sentinel `none` (never read, never sent to); a
 coordinator fills its children's with its own nested `run.json` and `NOTIFY_MACHINE` with the child's machine the same way, and an operator's custom brief
-gains the same envelope in the dispatched copy, never in the stored file. This session's own check is
+gains the same envelope in the dispatched copy, never in the stored file. The only model check is
 the launch's banner read (`references/roles.md`), made
 before dispatch.
 

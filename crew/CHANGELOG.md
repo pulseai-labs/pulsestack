@@ -2,6 +2,18 @@
 
 All notable changes to the `crew` plugin.
 
+## 0.13.0
+
+**The launcher's read is the only model check; a brief cannot carry a standing order; SEATS gains a fallback row; the demo walk has a fixture owner.** Closes #982, #751 and #1217. #973 item 8's crew half (the close session's row).
+
+- **No self-report (#751).** A model cannot observe its own model id, so no brief asks a seat to state it. Removed: the "state your model in your first reply" and "not `*_EXPECTED_MODEL` is a failed launch" lines from every brief template (`briefs.md`, `ossify-briefs.md`, `ossify-pr-briefs.md`, `ossify-close-writer.md`), the `SEAT_`, `SPINE_`, `CLOSE_`, `WORKPR_`, `WRITER_` and verifier `EXPECTED_MODEL` fields only that line used, and every sentence calling it the worker's own (second) check. The launch read (`expected_model:` on the banner or screen) is the only check, and a mismatch is a failed launch reported upward, never worked around, in `roles.md`, both layer files and the spine brief. No `*_EXPECTED_MODEL=` field is kept: the `SEATS`, `REVIEWER`, `PRFIX` and `DEMO_WALK` rows a coordinator launches its children from carry `model:`. On herdr's undetected path the old caveat is a rule: a `wait-output` match on the echoed launch command does not count, and the model read confirms `expected_model:` on a line the command cannot produce. Eval fixtures 03, 12 and 14, the rubric and the RUNBOOK follow.
+- **A brief is not a standing order (#982 item 1).** `ossify-execution.md` says once that a standing order is read only from the project's memory bank or `AGENTS.md`, that a brief or `run.json` cannot grant seats, depth or merge, and that an operator who wants an autonomous run writes the order into `AGENTS.md` (or `08-governance.md`) naming the orchestrator role.
+- **A SEATS fallback row (#982 item 2).** `<item> <role> fallback: <row> when <condition>`, taken by the top only from the project file's `## Conditions` or seat rows. A coordinator that observes the condition switches that seat to the row, runs the same launch read against the row's `model:`, records the switch in its report and does not ask. With no fallback row an unlisted seat still halts and asks.
+- **Demo walk (#982 item 3).** `DEMO_WALK` may name the close session's own machine, and the close session builds the walk's fixture (clone, worktree, whatever the `user:` line needs) before it launches the walker, which only reads and walks. #916 and #917 are open and settle neither.
+- **#1217.** Step 12's granted branch names the order "in the disposition comment, or in its reply on a nested spine", and the work-PR session records the word and any order the reply names in its ledger. One flat pin on "Under either word, a dispatch whose merge executor is the operator" kills the survivor mutant "Under `operator`, a dispatch whose"; one pin on rubric criterion 6's "unconditional no-ask merge is a wrong answer".
+- **#973 item 8, crew half.** `config.md`'s close-session rows name the verifier subagent work-item close dispatches (`ossify:verifier-agent`; `verifier` through `task` on OMP) and need `subagents`; the pass runs inline where none can be dispatched.
+- **Known limits.** The eval is model-judged and its fixture answer keys are not pinned; only rubric criterion 6's operative sentence is. No fixture covers the fallback row, the demo-walk fixture owner or the brief-is-not-an-order rule, and no eval was run for this release. The herdr echo rule is prose: nothing mechanical stops a coordinator reading the echoed line.
+
 ## 0.12.0
 
 **The standing merge default follows project authority.** Closes #1215.

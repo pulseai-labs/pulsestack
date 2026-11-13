@@ -97,7 +97,7 @@ aligned.
 3. **Profiles are bound by the SEATS block and never substituted.** Each item's
    implementer and verifier are launched from that item's SEATS row, verbatim —
    the full resolved profile — with the model confirmed as its `model_shows`
-   says and by the worker's own check, and the effort carried by the
+   says (the launcher alone reads it), and the effort carried by the
    launch argument. The spine session's own seat is approved the same way, as a
    `spine session` seat **beside** the item rows — named in the project file,
    its resolved profile resolved from the machine file into
@@ -107,10 +107,10 @@ aligned.
    each launched from its resolved profile with the model confirmed as an item row's is.
    **The brief is the freeze**: a running spine launches from its injected SEATS
    block and never re-reads the project file — an edit to the file, even to this
-   spine's own section, does not reach the run — and a seat change arrives only
-   as a new operator decision whose reply carries the replacement rows, which
-   then become the rows to spend. The check runs **before anything else**: one
-   implementer row and one verifier row per planned item, no row for an item the
+   spine's own section, does not reach the run. A carried conditional fallback
+   switches only on its observed condition, with the same launch read and a report,
+   not an ask; other seat changes need an operator reply carrying replacement rows. The check runs **before anything else**: one
+   primary implementer row and one primary verifier row per planned item, no row for an item the
    plan does not have; a missing or ambiguous row halts **that item** and
    asks. Reaching for the project file to fill a gap is a wrong
    answer — the file is not launch authority for a spine in flight — and so is
@@ -147,7 +147,7 @@ aligned.
    replacement writer. Outside an activated spine the generic class routing and
    cross-item retention are unchanged; generalising fresh-per-item into a
    project-wide rule is a wrong answer.
-5. **No fallback, and the reviewer is chosen later.** Nested worker depth must
+5. **No default-lane fallback, and the reviewer is chosen later.** Nested worker depth must
    be `2`; no CLI read proves it, so the operator confirms before launch and the
    first item launch is the proof. When the spine session cannot launch an item
    session it stays the lane owner, reports, and waits for an operator decision —
@@ -159,7 +159,7 @@ aligned.
    nor the SEATS block: the reviewer's resolved profile and review
    level, and one PR-fix implementer, since no item pair survives to the PR. All
    of them reach the **work-PR session's** brief, which creates both seats and
-   confirms each model as its `model_shows` says and by the worker's own check, as an item row's is; the
+   confirms each model as its `model_shows` says, as an item row's is; the
    fix task waits for the disposition ledger and rides the fix-round brief.
    The work-PR session branches **initial versus resumed before any reviewer
    exists**, on the top-supplied `PRIOR_REVIEW`: `none` is an initial run;
@@ -194,7 +194,7 @@ aligned.
    dispatched only after a first close that halted naming at least one PR, and
    only once every one of them has merged, while a first close returning `closed`
    is the whole ceremony — and step 12's teardown waits for a record pass only
-   when one is actually due. Offering any fallback as a pragmatic option, pinning
+   when one is actually due. Offering an unlisted fallback as a pragmatic option, pinning
    either profile during planning, or dispatching a record pass that no PR
    justifies is a wrong answer; naming the PR-fix seat is correct, not
    invention.

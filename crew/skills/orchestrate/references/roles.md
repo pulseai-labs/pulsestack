@@ -94,9 +94,7 @@ This file states only the role table and retention. Acceptance of input is not t
 turn: the send's own check confirms the turn started in the same call, and the layer's Send
 says what to do when it did not. A stalled or timed-out send is never sent again to prove
 delivery — a stall does not prove non-delivery — and the state it left is read instead. A wrong model is a failed launch: release the seat and report
-it. Every brief also asks the worker to state its model in its first reply — the second
-check, and the worker's own: one that finds its model is not `SEAT_EXPECTED_MODEL` reports
-a failed launch in its report file and stops, rather than working around it.
+it upward, never working around it.
 
 ## Retention follows artifacts
 
@@ -130,7 +128,7 @@ On a spine this session planned (`ossify-execution.md`), two rows above are
 superseded **for that spine's work items only**: the implementer and the verifier
 are launched from the spine's operator-approved SEATS rows, whose values may name
 a native `claude --model <id> --effort <level>` command rather than an alias; the
-model is confirmed as the row's `model_shows` says and by the worker's own check, exactly
+model is confirmed as the row's `model_shows` says, exactly
 as *The launch* requires; and each item gets a
 **fresh** pair, retained across that item's corrections and released when it closes or
 escalates. A pair never crosses work items there. The session that launches the seat
@@ -164,7 +162,7 @@ session, a fresh tab and pane per close dispatch; a work-PR session, one per ret
 PR — each launched from its own seat in the project file (`spine session`,
 `close session`, `work-PR session`), marked `coordinator` before its command
 (the layer's `Seat marking`), the model confirmed as its profile's
-`model_shows` says and by the worker's own check, as an item row's is — and a close-review writer,
+`model_shows` says, as an item row's is — and a close-review writer,
 one per affected hosting repo at a `halted: close-review`, launched from the profile the operator
 names at that halt (`ossify-close-writer.md`), never a seat the file pre-defines.** The
 work-PR session owns the reviewer and the

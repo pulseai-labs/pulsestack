@@ -76,8 +76,9 @@ pointer relies on, so a stray re-run costs a live seat a turn.
 **Readiness**, on whichever of the two paths below the pane takes.
 
 **The model.** `herdr pane read <pane>`, with `--source visible` (the rendered viewport)
-when `model_shows: screen`, must show `expected_model:`; one showing
-`command not found` — or another model — is a failed launch (`roles.md`).
+when `model_shows: screen`, must show `expected_model:` on a line the command cannot produce;
+one showing `command not found` or another model is a failed launch, reported upward and
+never worked around (`roles.md`).
 
 **Dispatch**, sent as below.
 
@@ -114,9 +115,8 @@ which `--dangerously-skip-permissions` does not skip, and it is handled as a `bl
 `herdr pane wait-output <pane> --match '<expected_model:>' --timeout <ms>`, with
 `--source visible` when `model_shows: screen`. Every resolved profile carries
 `expected_model:`, and `model_shows` says where it appears — so the model string also shows
-the TUI is up. Without `--timeout` the wait has no bound. Caveat: it searches existing output
-before it polls, so a seat whose own command line contains its model string matches at once —
-wait on output the launch command cannot produce, or exclude the echoed command.
+the TUI is up. Without `--timeout` the wait has no bound. A match on the echoed command line does not count:
+the wait searches existing output first, so it can fire on the echo; only `The model` read decides.
 
 ## Send
 

@@ -11,7 +11,7 @@ expected_reason: 'THE DISCRIMINATING FIXTURE for this surface. Each item gets it
   dispatched later, from its own row command. Both panes are tabs of the workspace
   the spine session created for its run, and their two item tasks live in the
   run.json it owns; the two items may run concurrently. The model is confirmed as
-  each row''s `model_shows` says — the banner here — and by the worker''s own check;
+  each row''s `model_shows` says — the launcher reads the banner here;
   the effort is the launch argument, with no runtime attestation. The wrong answers
   this fixture falsifies are: dispatching one lane-driver session that spawns per-item
   subagents through the Agent tool (which is what the pre-change contract prescribed);

@@ -50,11 +50,12 @@ releases every item pair and closes the workspace it created, as
 
 1. Validate `SPINE.md` and the round's item set against the **SEATS block your
    brief injected** (`ossify-execution.md` §3): every planned item has exactly
-   one implementer row and one verifier row, and no row names an item the plan
+   one primary implementer row and one primary verifier row, and no row names an item the plan
    does not. A failure halts — ask, never substitute.
    **Every item launch spends its SEATS row verbatim** — the whole resolved
-   profile. A seat the block does not list, or lists twice, halts that item
-   and asks; you **never re-read the project file** or invent a value. When the
+   profile. A seat the block does not list, or lists twice as primary, halts that item
+   and asks; you **never re-read the project file** or invent a value. A fallback row
+   is spent as `ossify-briefs.md` says; when the
    top changes a seat, its reply carries the replacement rows, and those become
    the block.
 2. Invoke the ossify lane in external-executor mode. ossify prepares every
