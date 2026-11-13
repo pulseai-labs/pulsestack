@@ -675,6 +675,10 @@ test_existing_dual_scans_both_instruction_files() {
   grep -Fq '/ossify:doctor' "$s" || { echo "    next steps must route a CLAUDE.md to the doctor repair"; return 1; }
 }
 
+_has_obsolete_init_log_op() {
+  grep -Eq '`(mkdir|file|git-init|hook|git-stage|GIT-INIT|HOOK|GIT-STAGE)( |`)'
+}
+
 # #835: expected journal entries must name the ops the helpers actually write.
 test_skill_init_log_op_names_match_runtime() {
   local skill entries
@@ -687,7 +691,7 @@ test_skill_init_log_op_names_match_runtime() {
     assert_contains '`HOOK_INSTALL <ai_root>`' "$entries" || return 1
     assert_contains '`GIT_STAGE <ai_root>`' "$entries" || return 1
     assert_not_contains 'pairing.json' "$entries" || return 1
-    if grep -Eq '`(mkdir|file|git-init|hook|git-stage) ' <<< "$entries"; then
+    if _has_obsolete_init_log_op <<< "$entries"; then
       echo "    obsolete op name in $skill: $entries"; return 1
     fi
   done
@@ -732,7 +736,37 @@ test_failure_example_init_log_ops_match_writers() {
 }
 
 test_pair_example_init_log_ops_match_writers() {
-  _assert_example_init_log_ops "$PAIR_CLEAN_EX"
+  local text entries
+  if ! awk '
+    /^[[:space:]]*Init-log entr(y|ies):/ {
+      if (pending) bad = 1
+      labels++
+      if ($0 !~ /^[[:space:]]*Init-log entr(y|ies):[[:space:]]*$/) bad = 1
+      pending = 1; next
+    }
+    pending && NF {
+      if ($0 !~ /^[[:space:]]*```/) bad = 1
+      pending = 0
+    }
+    END { exit (bad || pending || labels != 4) }
+  ' "$PAIR_CLEAN_EX"; then
+    echo '    each of the four init-log labels must be followed by a fence'; return 1
+  fi
+  text="$(cat "$PAIR_CLEAN_EX")"
+  if _has_obsolete_init_log_op <<< "$text"; then
+    echo '    obsolete backticked op name in pairing example'; return 1
+  fi
+  assert_not_contains 'records all 8 tasks' "$text" || return 1
+  assert_not_contains 'foo/git/hooks' "$text" || return 1
+  _assert_example_init_log_ops "$PAIR_CLEAN_EX" || return 1
+  entries="$(_example_init_log_entries "$PAIR_CLEAN_EX")" || return 1
+  assert_eq 6 "$(printf '%s\n' "$entries" | awk 'END { print NR }')" || return 1
+  awk -F '\t' '
+    $1 ~ /^(HOOK_INSTALL|GIT_INIT|GIT_STAGE)$/ && index($2, ".git/") {
+      print "    expected repository root, not a .git/ operand: " $0; bad = 1
+    }
+    END { exit bad }
+  ' <<< "$entries"
 }
 
 test_skill_rollback_inverses_match_runtime() {
