@@ -11,7 +11,7 @@ whole contract its reader will ever see — fill every slot, delete nothing else
 ## Close session (one fresh seat per dispatch, created by the top)
 
 The top marks it `coordinator` before its command (the layer's `Seat marking`).
-It creates nothing but one demo-walk seat per `user:` entry `DEMO_WALK` names, and returns a
+It creates no seat but one demo-walk seat per `user:` entry `DEMO_WALK` names, and returns a
 list; only the successful record pass is single and conditional.
 
 ```text
@@ -53,7 +53,7 @@ session's own or another. Build the entry's fixture there first (clone, worktree
 it. Then launch the
 demo-walk seat from that row — the seat's profile, verbatim — marked `verifier` before its
 command (the layer's `Seat marking`), every call for it carrying the layer's Machines step for
-that host; send it `briefs.md`'s `demo walk` body, carried in this dispatch, with that entry
+that host, and confirm its model as the row's `model_shows` says (the layer's model read; a mismatch is a failed launch, reported upward, never worked around); send it `briefs.md`'s `demo walk` body, carried in this dispatch, with that entry
 verbatim; wait on it through the layer's Wait, read its report where it was written
 (`Machines`), release the seat, and take its result as the entry's — a failing walk halts this
 dispatch as the ceremony's walk does. One seat per entry, from that row only; every other

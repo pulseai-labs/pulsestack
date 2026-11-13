@@ -76,9 +76,9 @@ pointer relies on, so a stray re-run costs a live seat a turn.
 **Readiness**, on whichever of the two paths below the pane takes.
 
 **The model.** `herdr pane read <pane>`, with `--source visible` (the rendered viewport)
-when `model_shows: screen`, must show `expected_model:` on a line the command cannot produce;
-one showing `command not found` or another model is a failed launch, reported upward and
-never worked around (`roles.md`).
+when `model_shows: screen`, must show `expected_model:` on a line the command cannot produce.
+A screen showing `command not found`, another model, or neither once the readiness wait's bound
+ends is a failed launch, reported upward and never worked around (`roles.md`).
 
 **Dispatch**, sent as below.
 
@@ -113,10 +113,10 @@ which `--dangerously-skip-permissions` does not skip, and it is handled as a `bl
 
 **Not detected** (`mcode-*`, which herdr has no detection manifest for):
 `herdr pane wait-output <pane> --match '<expected_model:>' --timeout <ms>`, with
-`--source visible` when `model_shows: screen`. Every resolved profile carries
-`expected_model:`, and `model_shows` says where it appears — so the model string also shows
-the TUI is up. Without `--timeout` the wait has no bound. A match on the echoed command line does not count:
-the wait searches existing output first, so it can fire on the echo; only `The model` read decides.
+`--source visible` when `model_shows: screen`. The match shows the TUI is up only on a line the
+command cannot produce: a match on the echoed command line does not count, because the wait
+searches existing output first. Where the command holds the string, wait with `--regex` on it plus
+banner text the command lacks. Only `The model` read decides. Without `--timeout` the wait has no bound.
 
 ## Send
 

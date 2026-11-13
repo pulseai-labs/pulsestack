@@ -134,7 +134,7 @@ filled with the dispatching session's own `run.json` only when the layer detects
 the seat shares its machine, otherwise the sentinel `none` (never read, never sent to); a
 coordinator fills its children's with its own nested `run.json` and `NOTIFY_MACHINE` with the child's machine the same way, and an operator's custom brief
 gains the same envelope in the dispatched copy, never in the stored file. The only model check is
-the launch's banner read (`references/roles.md`), made
+the launch's banner or screen read (`references/roles.md`), made
 before dispatch.
 
 ## 6. With ossify

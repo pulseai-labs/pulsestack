@@ -118,7 +118,7 @@ takes the next tick's one check as a read (the layer's Read), and a read showing
 errors and retries (API errors, request timeouts, rate-limit waits), nothing else advancing, is
 a seat failure, not a failed task — named in the tick's line and the handoff. Settle its
 dispatch first (stop its report-file wait and companion by job id: OMP `write proc://<id>/kill`, Claude Code `TaskStop`), then launch the fallback the project
-file's `## Conditions` names for that seat as a fresh seat is launched (below), from the
+file's `## Conditions` names for that seat — in a spine session its SEATS fallback row (`ossify-briefs.md`), never a re-read of the file — as a fresh seat is launched (below), from the
 fallback's row, its brief re-sent whole, with `RESUME FROM:` the seat's last report when it
 wrote one. A seat a fresh session cannot resume (the cuts the molt paragraph below lists) gets
 no fallback; it, and a stall with no fallback named, is reported to the operator once.

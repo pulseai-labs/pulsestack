@@ -31,11 +31,12 @@ MECHANICS=<the directory this session read the orchestrate skill's SKILL.md from
 SPINE_ID=<spine id>
 SPINE_COMMAND=<the command this seat was launched with, from its machine entry> — a record of your own launch: you are already that seat, never run it
 SPINE_EFFORT=<the effort this seat was launched at>
-SEATS — the operator-approved seats for this spine. Use them verbatim.
+SEATS — the operator-approved seats for this spine, fallback rows included. Use them verbatim.
 <item id> implementer: <agent name> | <command> | model: <expected model> | effort: <effort> | model_shows: <banner|screen> | brief_delivery: <inject|file> | host: <machine>[ | rail: <rail>]
 <item id> verifier:    <agent name> | <command> | model: <expected model> | effort: <effort> | model_shows: <banner|screen> | brief_delivery: <inject|file> | host: <machine>[ | rail: <rail>]
-<item> <role> fallback: <row> when <condition>
+<item> <role> fallback: <row> when <condition>, or `none`
 A coordinator that observes a fallback row's condition switches that seat to its row, runs the same launch read against the row's `model:`, records the switch in its report, and does not ask.
+The condition is observed of a seat's run (a provider stall, a quota stop), never at the launch read: another model there stays a failed launch. The row is spent as a fresh seat, its brief re-sent whole with `RESUME FROM:` the seat's last report when it wrote one. A fallback's own failed launch is a failed launch too, reported upward, with no second fallback; so is a seat a fresh session cannot resume (`completion.md`'s molt cuts) with no fallback row.
 Each row names its agent and its machine, and a rail where its entry names one: a row whose
 machine is not yours launches through the layer's Machines step. A seat this block does not list halts the item and asks.
 HANDOFF_PATH=<a prior spine session's handoff path, or "none">

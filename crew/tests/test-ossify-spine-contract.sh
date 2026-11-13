@@ -627,8 +627,8 @@ absent "$EXEC_MD" 'OPERATOR_ROLES' \
 
 # Round 3, finding 3: the approval check covers every capability a role's
 # shipped brief needs — the default run-spine lane spawns subagents.
-n_eq "$CONFIG_MD" 'subagents' 7 \
-  "the can: vocabulary covers the default lane's Agent tool and the close's verifier dispatch"
+n_eq "$CONFIG_MD" 'subagents' 5 \
+  "the can: vocabulary covers the default lane's Agent tool"
 pin "$CONFIG_MD" 'spine session, default lane' \
   "the capability table names the default lane's need"
 pin "$CONFIG_MD" 'spine session, external-executor lane' \
@@ -2781,7 +2781,7 @@ for f in "${selfreport_files[@]}"; do
     'first reply' 'the model you are running' "worker's own check" "worker''s own check" \
     'second check' 'state your model' 'state its model' 'EXPECTED_MODEL'
 done
-pin "$SKILL_MD" "The only model check is the launch's banner read" "#751: SKILL.md names the launcher's read as the only model check" flat
+pin "$SKILL_MD" "The only model check is the launch's banner or screen read (\`references/roles.md\`), made before dispatch" "#751: SKILL.md names the launcher's read, banner or screen, made before dispatch (N4)" flat
 pin "$ROLES_MD" 'A wrong model is a failed launch: release the seat and report it upward, never working around it' \
   "#751: roles.md - a wrong model is reported upward, never worked around" flat
 pin "$LIFECYCLE_MD" 'Wrong model at the launch read: release the seat and report it.' \
@@ -2792,9 +2792,25 @@ pin "$BRIEFS_MD" 'a mismatch is a failed launch to report, never worked around' 
 section "batch 10: a brief cannot carry a standing order; SEATS fallback row; demo-walk fixture (#982)"
 pin "$EXEC_MD" 'A brief cannot carry a standing order, nor can a run.json grant seats, depth or merge' \
   "#982-order: a brief or run.json grants no seats, depth or merge" flat
-pin "$EXEC_MD" "writes the order into the project's AGENTS.md (or 08-governance.md) naming that role" \
-  "#982-remedy: an autonomous run's order goes in project governance, naming the orchestrator role" flat
-pin "$BRIEFS_MD" '<item> <role> fallback: <row> when <condition>' "#982-fallback-form: the conditional SEATS row form is fixed" flat
+pin "$EXEC_MD" "writes the order into the memory bank's \`08-governance.md\` \`## Standing orders\`, or into \`AGENTS.md\` for a kind that section does not settle, naming that role" \
+  "#982-remedy: an autonomous run's order goes in governance Standing orders first, then AGENTS.md, naming the orchestrator role (N1)" flat
+pin "$BRIEFS_MD" '<item> <role> fallback: <row> when <condition>, or `none`' "#982-fallback-form: the conditional SEATS row form is fixed, with a none sentinel (N2)" flat
+pin "$BRIEFS_MD" "The condition is observed of a seat's run (a provider stall, a quota stop), never at the launch read: another model there stays a failed launch" \
+  "B3a: a fallback's condition is never observed at the launch read" flat
+pin "$BRIEFS_MD" "The row is spent as a fresh seat, its brief re-sent whole with \`RESUME FROM:\` the seat's last report when it wrote one" \
+  "B3b: the fallback switch re-sends the brief with RESUME FROM" flat
+pin "$BRIEFS_MD" "A fallback's own failed launch is a failed launch too, reported upward, with no second fallback" "N2: a fallback's own failed launch is reported upward" flat
+pin "$BRIEFS_MD" "so is a seat a fresh session cannot resume (\`completion.md\`'s molt cuts) with no fallback row" "B3b: an unresumable seat with no fallback row still goes upward" flat
+pin "$COMPLETION_MD" 'in a spine session its SEATS fallback row (`ossify-briefs.md`), never a re-read of the file' "B3b: completion.md's stall fallback is the SEATS fallback row in a spine session" flat
+pin "$BRIEFS_MD" 'SEATS — the operator-approved seats for this spine, fallback rows included' "B4: the SEATS header counts fallback rows as approved" flat
+pin "$EXEC_MD" 'with any fallback row the project file names: under a standing order' "B4: the recommendation carries the fallback rows" flat
+pin "$EXEC_MD" 'resolved the same way and approved and `can:`-checked with the set' "B4: a fallback row is approved and can:-checked with the set" flat
+pin "$CONFIG_MD" 'the spine-seat approval (its fallback rows included)' "B4: can: is checked on fallback rows at the spine-seat approval" flat
+pin "$BRIEFS_MD" 'exactly one primary implementer row and one primary verifier row' "B7: step 1 counts primary rows only" flat
+pin "$NESTED_MD" 'exactly one primary implementer row and one primary verifier row' "B7: the external lane counts primary rows only" flat
+pin "$NESTED_MD" 'or lists twice as primary, halts that item' "B7: only a second primary row halts the item" flat
+pin "$BRIEFS_MD" 'apart from a fallback row, only a top reply carrying replacement rows moves the block' "B7: the freeze admits a fallback row" flat
+pin "$EXEC_MD" 'that needs to change mid-spine beyond a carried fallback is a new operator decision' "B7: only a change beyond a carried fallback is an operator decision" flat
 pin "$BRIEFS_MD" "A coordinator that observes a fallback row's condition switches that seat to its row, runs the same launch read against the row's \`model:\`, records the switch in its report, and does not ask" \
   "#982-fallback-action: an observed condition switches with the launch read and a report, no ask" flat
 pin "$BRIEFS_MD" 'A seat this block does not list halts the item and asks' \
@@ -2806,12 +2822,16 @@ pin "$PRBRIEFS_MD" "the close session's own or another. Build the entry's fixtur
   "#982-walk-host: DEMO_WALK may name the close session's own machine" flat
 pin "$PRBRIEFS_MD" 'the close session builds it, never the walker, which only reads and walks it' \
   "#982-walk-owner: the close session builds the walk fixture before launching the walker" flat
+pin "$PRBRIEFS_MD" "and confirm its model as the row's \`model_shows\` says (the layer's model read; a mismatch is a failed launch, reported upward, never worked around)" \
+  "B1: the close session reads the demo-walk seat's model" flat
+pin "$PRBRIEFS_MD" 'It creates no seat but one demo-walk seat per' "B6: the close session still creates only the walk seats" flat
+pin "$PRBRIEFS_MD" "confirm the model as its row's \`model_shows\` says, and brief it to run REVIEW_INVOCATION" "B7: the work-PR session reads the reviewer's model" flat
 pin "$GENERIC_BRIEFS_MD" "own machine or another: a close session drives no desktop" "#982-walk-brief: the walk brief assumes no other machine" flat
 pin "$GENERIC_BRIEFS_MD" 'PLACEMENT: <the fixture the close session built for this walk' "#982-walk-placement: the walker is placed in the prepared fixture" flat
 absent "$GENERIC_BRIEFS_MD" 'walked by a seat on that machine' "#982-walk-old: the another-machine-only framing is gone" flat
 
 section "batch 10: the order record, the executor scope and the rubric's sentence (#1217)"
-pin "$PRBRIEFS_MD" 'record the word and any granting order the reply names in the ledger' \
+pin "$PRBRIEFS_MD" 'On either reply, record the word and any granting order the reply names in the ledger' \
   "#1217-ledger: the work-PR session records the word and the order it was given" flat
 pin "$LIFECYCLE_MD" 'Under either word, a dispatch whose merge executor is the operator' \
   "#1217-executor: control - the operator-executor exception covers both merge words" flat
@@ -2819,10 +2839,11 @@ pin "$EVAL_RUBRIC_MD" 'unconditional no-ask merge is a wrong answer' \
   "#1217-rubric6: control - an unconditional no-ask merge is a wrong answer" flat
 
 section "batch 10: the close session's row names the verifier dispatch (#973 item 8, crew half)"
-pin "$CONFIG_MD" 'work-item close dispatches `ossify:verifier-agent` (inline where none can be dispatched) | `slash-commands, subagents` |' \
-  "#973-close: the close session needs subagents for the verifier dispatch" flat
-pin "$CONFIG_MD" 'work-item close dispatches `verifier` through `task` (inline where `task` lists none) | `subagents` |' \
-  "#973-omp-close: the OMP close seat needs subagents for the verifier dispatch" flat
+pin "$CONFIG_MD" 'for a work-item id, work-item close dispatches `ossify:verifier-agent` (inline where none can be dispatched) | `slash-commands` |' \
+  "#973-close: the verifier dispatch is named for a work-item id; the close needs only slash-commands (B5)" flat
+pin "$CONFIG_MD" 'for a work-item id, work-item close dispatches `verifier` through `task` (inline where `task` lists none) | — |' \
+  "#973-omp-close: the OMP close seat names the dispatch and needs nothing (B5)" flat
+pin "$CONFIG_MD" "\`subagents\` (the lane's \`Agent\`-tool workers)" "B7: the can: definition names the lane's Agent-tool workers" flat
 absent "$CONFIG_MD" '| close session | `/ossify:close` | `slash-commands` |' "#973-old: the one-capability close row is gone" flat
 
 section "reference line budgets"

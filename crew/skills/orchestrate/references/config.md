@@ -59,7 +59,7 @@ Each field exists because a measured case needs it:
   resolve its paths on its own machine, never consuming one from a remote reply, and
   inspect the remote state before retrying, because a connection failure does not prove
   a mutation was not applied. The layer's Machines step says how to reach one.
-- `can:` — what the agent is able to run, comma-separated: `slash-commands`, `subagents` (the `Agent`-tool or `task` workers a lane or a work-item close dispatches), or `—`. The per-role requirement, and where it is checked, are stated below.
+- `can:` — what the agent is able to run, comma-separated: `slash-commands`, `subagents` (the lane's `Agent`-tool workers), or `—`. The per-role requirement, and where it is checked, are stated below.
 - `rail:` — optional, one line `<guard> — <check command>` holding no `|` (the row's separator): the guard
   this agent runs under in place of seat-mods and the one command that checks it (`devin-seat guard — guard.py --selftest`); the model read takes it (`roles.md`).
 - `review:` — optional: the command a reviewer seat on this agent runs, `<PR>`, `<PR_URL>` and `<LEVEL>` filled at dispatch (`/review <PR_URL>` on OMP); absent, `/code-review <PR> <LEVEL>`.
@@ -112,7 +112,7 @@ every session that read them.
 A brief's record of its own seat's launch is the row's command and effort only —
 a session launches nothing with its own profile.
 
-`can:` is checked where a seat is approved — the project-file approval, the spine-seat approval, the PR-transition ask, the close-review halt ask — never at dispatch. The requirement is per role: a role whose shipped or declared brief invokes a slash command needs `can: slash-commands` on the agent that fills it.
+`can:` is checked where a seat is approved — the project-file approval, the spine-seat approval (its fallback rows included), the PR-transition ask, the close-review halt ask — never at dispatch. The requirement is per role: a role whose shipped or declared brief invokes a slash command needs `can: slash-commands` on the agent that fills it.
 
 | role | its brief invokes | needs |
 |---|---|---|
@@ -124,8 +124,8 @@ a session launches nothing with its own profile.
 | spine session, default lane | `/ossify:run-spine`; spawns `ossify:implementer-agent` subagents through the `Agent` tool | `slash-commands, subagents` |
 | OMP seat (omp-roles spine-driver), default lane | the role file carries the procedure by `skill://`; the brief's `/ossify:run-spine` reaches it as text | `subagents` |
 | spine session, external-executor lane | `/ossify:run-spine` | `slash-commands` |
-| close session | `/ossify:close`; work-item close dispatches `ossify:verifier-agent` (inline where none can be dispatched) | `slash-commands, subagents` |
-| OMP seat (omp-roles close), close session | the role file carries `skill://close` (the brief's `/ossify:close` reaches it as text); work-item close dispatches `verifier` through `task` (inline where `task` lists none) | `subagents` |
+| close session | `/ossify:close`; for a work-item id, work-item close dispatches `ossify:verifier-agent` (inline where none can be dispatched) | `slash-commands` |
+| OMP seat (omp-roles close), close session | the role file carries `skill://close` (the brief's `/ossify:close` reaches it as text); for a work-item id, work-item close dispatches `verifier` through `task` (inline where `task` lists none) | — |
 | work-PR session | `/ossify:work-pr` | `slash-commands` |
 | doctor session | `/ossify:doctor` | `slash-commands` |
 | OMP seat: doctor session or ossify item implementer (omp-seat worker), activated spine session (omp-roles crew-spine), work-PR session (crew-work-pr) | the brief's `/ossify:<skill>` reaches it as text; the seat follows `skill://<skill>` | — |

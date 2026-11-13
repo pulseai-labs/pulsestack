@@ -46,7 +46,7 @@ launches, under a standing order in the project's memory bank or AGENTS.md for s
 (merge-bar's working-a-pr, "Standing orders" paragraph, says where it is read and whom it
 binds; the orders that bind here are those naming the orchestrator role. A brief cannot carry a
 standing order, nor can a run.json grant seats, depth or merge: an operator who wants an autonomous
-run writes the order into the project's AGENTS.md (or 08-governance.md) naming that role. With no
+run writes the order into the memory bank's `08-governance.md` `## Standing orders`, or into `AGENTS.md` for a kind that section does not settle, naming that role. With no
 standing order, ask), take
 the depth as `2` and continue; otherwise ask the operator to confirm nested worker depth
 is `2`: the spine session launches item sessions of its own. The layer has no depth setting
@@ -65,7 +65,7 @@ this plugin's own.
 
 **Recommending.** After `/plan-spine`, recommend one implementer and one verifier seat per item
 from the project file's seats and conditions — scope, risk and cost,
-item by item — and the three coordinator seats beside them: under a standing order in the project's memory bank or AGENTS.md for seats and profiles, write the recommended set and continue; otherwise
+item by item — and the three coordinator seats beside them, with any fallback row the project file names: under a standing order in the project's memory bank or AGENTS.md for seats and profiles, write the recommended set and continue; otherwise
 present every seat to the operator in one approval phase and write nothing until all of it is
 decided — a half-approved set looks binding and is not. Record the recommendation and any
 override. Prefer an agent the layer detects for an item row where the choice is open: the
@@ -78,7 +78,7 @@ three coordinator seats' beside them. The project file
 names agents, never commands, so no machine detail reaches the repo. The profile resolves at
 injection: build the spine session's SEATS block by looking each approved name
 up in the machine file for its resolved profile — and add a `fallback:` row only where the project
-file's `## Conditions` or its seat rows name one, resolved the same way — then inject
+file's `## Conditions` or its seat rows name one, resolved the same way and approved and `can:`-checked with the set — then inject
 the block into the spine session's brief (`ossify-briefs.md`) — the approved seats travel in the brief,
 so an edit made for another spine cannot reach a
 spine already running. **The item briefs travel with it**: append that file's item implementer,
