@@ -81,9 +81,9 @@ Authored at the same time, from the same sources. Contents at Release 0:
    decisions are load-bearing before it touches them.
 
 Keep it short. `AGENTS.md` is read on every call; the memory bank is where depth
-belongs. It is the one instruction file: Claude Code loads it when no
-`CLAUDE.md` exists, and Codex and OMP read it directly. Never author a
-`CLAUDE.md`.
+belongs. Codex and OMP read it directly. Claude Code reads it only without
+`CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` in the workspace or any
+ancestor (excluding `~/.claude/CLAUDE.md`). Never author `CLAUDE.md`.
 
 Two sections are not ours to author: when the file replaced was workspace-init's
 marked stub (occupied-destinations §1a), its `## Git policy` and
