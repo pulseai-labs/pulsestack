@@ -40,7 +40,7 @@ do **not** decompose spines into work items, author demo lines, or author specs 
 
 **Trigger phrases (description-match):**
 
-- `/plan-release` (slash command — see §10 for the `$ARGUMENTS` env-var bridge)
+- `/plan-release` (slash command — see §10 for the `$ARGUMENTS` trailing argument)
 - "plan the next release", "plan Release 0", "groom the feature map", "pick the
   spines for MVP", "what's in this release?"
 
@@ -74,7 +74,7 @@ libs break. Use `oss help` for discovery.
 
 ```bash
 if ! sp="$(oss state_path 2>/dev/null)"; then
-  printf '%s\n' "ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
+  printf '%s\n' "ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. In a paired canonical repo, run from the AI workspace: (cd <ai-workspace> && oss …). On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
   exit 0
 fi
 # Later bare verbs resolve state alone and would honor this override —
@@ -426,9 +426,9 @@ in the DAG.
 
 ## 10. Slash-command interaction
 
-The `/plan-release` slash command (`commands/plan-release.md`) exports the raw
-argument string as `$ARGUMENTS` via an env-var bridge — on shim-less channels
-(`Skill()`, natural language) nothing exports it; the release name
+The `/plan-release` slash command (`commands/plan-release.md`) passes
+`$ARGUMENTS` to `bash -c` as a trailing argument — on shim-less channels
+(`Skill()`, natural language), the release name
 arrives as a literal token in the invocation/request text. **Parse `$ARGUMENTS`
 in bash; never reference `$1` / `$2` / `$N`** — Claude Code substitutes
 positional tokens in command bodies at template-render time and silently

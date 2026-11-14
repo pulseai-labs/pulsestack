@@ -4,15 +4,15 @@ argument-hint: "[release-name]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Skill
 ---
 
-Parse args from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`/`$N`),
+Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
 then load the `ossify:plan-release` skill body, which owns release planning.
 
 ```bash
-ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
+bash -c '
   set -u
-  ARGS="${ARGS_FROM_CLAUDE:-}"
+  ARGS="${*:-}"
   echo "plan-release: ARGS=${ARGS:-<none>}"
-'
+' _ "$ARGUMENTS"
 ```
 
 Now load the skill body and follow it:

@@ -4,15 +4,15 @@ argument-hint: "[state|spec|rules|interop|budget|provenance]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep
 ---
 
-Parse args from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`/`$N`),
+Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
 then load the `ossify:doctor` skill body, which owns the diagnosis.
 
 ```bash
-ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
+bash -c '
   set -u
-  ARGS="${ARGS_FROM_CLAUDE:-}"
+  ARGS="${*:-}"
   echo "doctor: ARGS=${ARGS:-<none>}"
-'
+' _ "$ARGUMENTS"
 ```
 
 Now load the skill body and follow it:

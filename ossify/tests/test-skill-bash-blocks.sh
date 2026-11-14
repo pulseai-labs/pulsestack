@@ -244,7 +244,7 @@ check_4_positionals() { # $1=ossify-root
     [ -e "$f" ] || continue
     while IFS= read -r hit; do
       [ -n "$hit" ] || continue
-      echo "$f:${hit%%:*}: positional argument outside inline code - a command body parses \$ARGUMENTS via the env-var bridge: ${hit#*:}"
+      echo "$f:${hit%%:*}: positional argument outside inline code - a command body parses \$ARGUMENTS via a trailing argument: ${hit#*:}"
     done < <(awk -f "$WORK/strip-inline.awk" "$f" | { grep -E '\$\{?([1-9][0-9]*|N)\}?' || true; })
   done
 }
@@ -741,7 +741,7 @@ echo "# c3ref" > "$FIX/skills/c3/references/c3ref.md"
 # --- check 4 plant: a real positional, alongside the backticked warning ------
 cat > "$FIX/commands/c4.md" <<'EOF'
 # c4
-Parse args from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`/`$N`),
+Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
 then hand off. This body reads $1 directly, which is the defect.
 EOF
 

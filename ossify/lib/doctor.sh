@@ -42,6 +42,7 @@
 # found. They are prose now, in doctor/references/state-inspection.md. They gated
 # nothing: every one emitted `warn:` or `skip:`, neither of which ever set rc.
 oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FILE when omitted)
+  _oss_need 0 doctor "[state-file]" "$@" || return 2
   local sf rc=0 out; sf="$(_oss_resolve_state "${1:-}")" || return $?
   [ -f "$sf" ] || { echo "fail: state - not found at $sf"; return 1; }
 

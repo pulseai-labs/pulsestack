@@ -54,6 +54,8 @@ t_capture oss_manifest_require
 t_assert_rc 1 "require refuses when no manifest"
 t_assert_contains "$T_OUT" "/init-workspace" "refusal keeps /init-workspace token"
 t_assert_contains "$T_OUT" "/pair-workspace" "refusal keeps /pair-workspace token"
+t_assert_contains "$T_OUT" 'In a paired canonical repo, run from the AI workspace' 'canonical refusal names the workspace remedy (#717)'
+t_assert_contains "$T_OUT" '(cd <ai-workspace> && oss …)' 'canonical refusal gives the subshell form (#717)'
 cd "$HERE"
 
 # _oss_resolve_state precedence: explicit > OSS_STATE_FILE.

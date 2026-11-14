@@ -394,9 +394,9 @@ you here.
 
 ## 11. Slash-command interaction
 
-`/work-item <handoff-path>` (`commands/work-item.md`) exports the raw argument
-as `$ARGUMENTS` via an env-var bridge — on shim-less channels (`Skill()`,
-natural language) nothing exports it; the handoff path arrives as a literal
+`/work-item <handoff-path>` (`commands/work-item.md`) passes `$ARGUMENTS` to `bash -c`
+as a trailing argument — on shim-less channels (`Skill()`,
+natural language), the handoff path arrives as a literal
 token in the invocation/request text. **Parse `$ARGUMENTS` in bash; never
 reference `$1`/`$2`/`$N`** — Claude Code substitutes positionals at render time.
 

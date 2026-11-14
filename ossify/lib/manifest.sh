@@ -6,7 +6,7 @@
 # workspace-init pairing manifest (<ai-root>/.workspace/pairing.json),
 # translated into the same internal shape on read; never writes either.
 
-OSS_MANIFEST_REFUSAL="ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
+OSS_MANIFEST_REFUSAL="ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. In a paired canonical repo, run from the AI workspace: (cd <ai-workspace> && oss …). On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
 
 # Resolve the effective ${USER} value without ever propagating a failed `id`
 # call into a caller's `set -e` context: this function's own exit status is
@@ -508,5 +508,5 @@ _oss_resolve_state() { # [$1=explicit-path]
 # normalizer. If you need to compare two paths, prefer a blunt comparison that
 # fails SAFE and says what to do about it; see doctor/references/interop-check.md.
 
-oss_cmd_state_path() { oss_manifest_state_path; }   # `oss state_path` for skills/debug
-oss_cmd_spec_path()  { oss_manifest_spec_path; }    # `oss spec_path` for doctor's spec surface
+oss_cmd_state_path() { _oss_need 0 state_path "" "$@" || return 2; oss_manifest_state_path; }   # `oss state_path` for skills/debug
+oss_cmd_spec_path()  { _oss_need 0 spec_path "" "$@" || return 2; oss_manifest_spec_path; }    # `oss spec_path` for doctor's spec surface

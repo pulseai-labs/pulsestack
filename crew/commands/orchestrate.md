@@ -4,14 +4,14 @@ argument-hint: "[objective]"
 allowed-tools: Bash(bash:*), Bash(crew-run:*), Bash(dagr:*), Bash(herdr:*), Bash(git:*), Bash(gh:*), Bash(mv:*), Bash(orca:*), Bash(orca-ide:*), Read, Write, Edit
 ---
 
-Parse the objective from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`):
+Parse the objective from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`):
 
 ```bash
-ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
+bash -c '
   set -u
-  ARGS="${ARGS_FROM_CLAUDE:-}"
+  ARGS="${*:-}"
   echo "orchestrate: OBJECTIVE=${ARGS:-<none>}"
-'
+' _ "$ARGUMENTS"
 ```
 
 **Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/SKILL.md` end to end and follow it**,

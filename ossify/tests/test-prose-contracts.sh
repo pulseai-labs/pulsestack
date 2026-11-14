@@ -16,6 +16,14 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/lib/pin.sh"
 WI="$HERE/../skills/work-item"
 
+# Obsolete bridge descriptions must not survive, even across line wraps.
+t_capture find "$HERE/../skills" -type f -name '*.md' -exec awk '
+  { text[FILENAME] = text[FILENAME] " " tolower($0) }
+  END { for (f in text) if (text[f] ~ /env(-|[[:space:]]+)var[[:space:]]+bridge/) print f }
+' {} +
+t_assert_rc 0 'the obsolete-bridge scan reads the skills tree'
+t_assert_eq "" "$T_OUT" 'ossify skills contain no obsolete bridge descriptions'
+
 # The TEMPLATE line, not the worked example: both files also carry a filled-in
 # example of each shape, and those legitimately differ. The templates are the
 # ones still holding `<placeholder>` markers.
@@ -61,6 +69,18 @@ pin "$WI/references/handoff-contract.md" 'git_policy: STAGE-not-commit' \
 # delete the guard on what it guarded.
 # ---------------------------------------------------------------------------
 CLOSE="$HERE/../skills/close"
+
+# #717: pin the operative exception, regardless of line wrapping.
+_close_flat="$(mktemp)"
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$CLOSE/SKILL.md" > "$_close_flat"
+pin "$_close_flat" 'In a paired canonical repo, use a subshell `(cd <ai-workspace> && oss …)` for every `oss` call; keep the session directory unchanged.' \
+  'close sanctions a workspace subshell without changing the session directory (#717)'
+rm -f "$_close_flat"
+_doctor_flat="$(mktemp)"
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$HERE/../skills/doctor/SKILL.md" > "$_doctor_flat"
+pin "$_doctor_flat" 'from a paired canonical repo, `(cd <ai-workspace> && oss …)` is a subshell, not a session `cd`.' \
+  'doctor names the workspace subshell as no session cd (#717)'
+rm -f "$_doctor_flat"
 
 # The §9 heading is matched by EXACT STRING at harvest time. If the contract
 # that pins it and the ceremony that greps it ever disagree, every report reads

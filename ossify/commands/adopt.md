@@ -4,15 +4,15 @@ argument-hint: "[project-name]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Skill
 ---
 
-Parse args from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`/`$N`),
+Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
 then load the adoption ceremony, whose contract you load below.
 
 ```bash
-ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
+bash -c '
   set -u
-  ARGS="${ARGS_FROM_CLAUDE:-}"
+  ARGS="${*:-}"
   echo "adopt: ARGS=${ARGS:-<none>}"
-'
+' _ "$ARGUMENTS"
 ```
 
 Now load the skill body and follow it:

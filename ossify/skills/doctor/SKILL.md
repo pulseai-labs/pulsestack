@@ -434,9 +434,9 @@ Named here rather than left to read as executed:
   `feature_list`, `critic_detect`, `state_restore` and `migrate` (**named to the
   user, not run by you**).
 - **`git`** is reached only as `git -C "<absolute path>"`. Resolve paths once
-  with `oss state_path` / `oss repo_root <key>` and never `cd`: the manifest walk
-  starts at `$PWD`, so a `cd` mid-run silently re-points the state file rather
-  than failing.
+  with `oss state_path` / `oss repo_root <key>` and never change the session directory;
+  from a paired canonical repo, `(cd <ai-workspace> && oss …)` is a subshell, not a session `cd`.
+  The manifest walk starts at `$PWD`, so changing directory can re-point state.
 - **Peer entry skills:** `start` owns spec-core authoring and the bones registry;
   `plan-release` owns spine selection and the class declaration; `plan-spine`
   owns decomposition and demo lines; `work-item` owns execution; `close` owns
@@ -447,9 +447,9 @@ Named here rather than left to read as executed:
 
 ## 12. Slash-command interaction
 
-`/ossify:doctor [surface]` (`commands/doctor.md`) exports the raw argument as
-`$ARGUMENTS` via an env-var bridge — on shim-less channels (`Skill()`,
-natural language) nothing exports it; read the surface token from the
+`/ossify:doctor [surface]` (`commands/doctor.md`) passes `$ARGUMENTS` to `bash -c`
+as a trailing argument — on shim-less channels (`Skill()`,
+natural language), read the surface token from the
 invocation/request text. **Parse `$ARGUMENTS` in bash; never reference
 `$1`/`$2`/`$N`** — Claude Code substitutes positionals at render time.
 

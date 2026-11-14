@@ -328,9 +328,9 @@ Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 
 ## 8. Slash-command interaction
 
-The `/adopt` command exports the raw argument as `$ARGUMENTS` via the env-var
-bridge — parse it in bash; never reference `$1`/`$2`/`$N`. On shim-less
-channels (`Skill()`, natural language) nothing exports `$ARGUMENTS` —
+The `/adopt` command passes `$ARGUMENTS` to `bash -c` as a trailing argument —
+parse it in bash; never reference `$1`/`$2`/`$N`. On shim-less
+channels (`Skill()`, natural language),
 the argument arrives as a literal token in the invocation/request text; read
 it from there. The only argument
 is an optional project name, passed to `oss init`; when absent, ask before

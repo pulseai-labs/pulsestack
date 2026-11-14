@@ -7,6 +7,20 @@
 # 4 apply-failure, 5 drift, 6 schema, 7 unknown-ref OR an ambiguous one (a
 # duplicate key: two rows for one ADR ref or gate name), 8 git/worktree.
 
+# Signatures are the literal guard arguments in our own functions (skill-first
+# question 2). Zero-minimum calls can annotate lib-enforced required arguments;
+# acceptance is unchanged. Help reads the same usage string; no second table.
+_oss_signature() { # $1=verb
+  declare -f "oss_cmd_$1" | awk -v verb="$1" '
+    /^[[:space:]]*_oss_need(_exact)? [0-9]+ [a-z_]+ "/ {
+      split($0, q, "\""); usage=q[2]; n++
+    }
+    END {
+      if (n != 1) { print "oss: expected one signature for " verb > "/dev/stderr"; exit 2 }
+      print "oss " verb (usage == "" ? "" : " " usage)
+    }'
+}
+
 # Arity guard. `bin/oss` runs `set -euo pipefail`, so a wrapper that expands
 # `"$1"` when the caller passed nothing dies with bash's raw `unbound variable`
 # at rc 1 - not the taxonomy's rc 2 = usage, and with no hint of what was
@@ -22,7 +36,7 @@
 _oss_need() { # $1=count $2=verb $3=usage ; then "$@" from the caller
   local want="$1" verb="$2" usage="$3"; shift 3
   [ "$#" -ge "$want" ] || {
-    echo "oss: $verb needs $want argument(s) - usage: oss $verb $usage" >&2; return 2; }
+    echo "oss: $verb needs $want argument(s) - usage: oss $verb${usage:+ $usage}" >&2; return 2; }
 }
 
 # Exact-arity guard (#530). `_oss_need` counts with `-ge`, which is right for the
@@ -35,10 +49,10 @@ _oss_need() { # $1=count $2=verb $3=usage ; then "$@" from the caller
 _oss_need_exact() { # $1=count $2=verb $3=usage ; then "$@" from the caller
   local want="$1" verb="$2" usage="$3"; shift 3
   if [ "$#" -lt "$want" ]; then
-    echo "oss: $verb needs $want argument(s) - usage: oss $verb $usage" >&2; return 2
+    echo "oss: $verb needs $want argument(s) - usage: oss $verb${usage:+ $usage}" >&2; return 2
   fi
   [ "$#" -eq "$want" ] || {
-    echo "oss: $verb takes exactly $want argument(s) - usage: oss $verb $usage; a list is ONE comma-separated argument, and spaces split it into several" >&2; return 2; }
+    echo "oss: $verb takes exactly $want argument(s) - usage: oss $verb${usage:+ $usage}; a list is ONE comma-separated argument, and spaces split it into several" >&2; return 2; }
 }
 
 oss_cmd_init() { # $1=project-name
@@ -121,12 +135,13 @@ oss_cmd_fake_add() { # $1=boundary $2=channel $3=reason $4=trigger $5=expiry-rel
 oss_cmd_feature_add() { # $1=name $2=value $3=class-guess $4=source [$5=intake-issue]
   _oss_need 4 feature_add "<name> <value> <class-guess> <source> [intake-issue]" "$@" || return 2;
   [ "$#" -le 5 ] || {
-    echo "oss: feature_add takes at most 5 arguments - usage: oss feature_add <name> <value> <class-guess> <source> [intake-issue]; quote a value that contains spaces" >&2; return 2; }
+    echo "oss: feature_add takes at most 5 arguments - usage: $(_oss_signature feature_add); quote a value that contains spaces" >&2; return 2; }
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_add_feature "$sf" "$1" "$2" "$3" "$4" "${5:-}"
 }
 # The state could not be found, so nothing was checked: rc 2, whatever the resolver
 # returned. Its refusal is rc 1, and rc 1 here means "clean" (#872).
 oss_cmd_touch_check() { # $@=paths
+  _oss_need 0 touch_check "<path>..." "$@" || return 2
   local sf; sf="$(_oss_resolve_state)" || return 2; oss_reg_touch_check "$sf" "$@"
 }
 oss_cmd_ledger_add_auto() { # $1=spine $2=text $3=command $4=expected [$5=planned|active]
@@ -179,7 +194,7 @@ oss_cmd_get() { # $1=jq-expr [$2=state-file]
   oss_state_read "$sf" "$1"
 }
 
-oss_cmd_state_restore()  { local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?; oss_state_restore "$sf"; }
+oss_cmd_state_restore()  { _oss_need 0 state_restore "[state-file]" "$@" || return 2; local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?; oss_state_restore "$sf"; }
 # `oss_cmd_manifest_get` was REMOVED in v0.2.0. Every manifest field already has
 # a dedicated resolver that this raw accessor bypassed: roots via `repo_root`,
 # and `well_known_paths.project_state` via `oss_manifest_state_path`.
@@ -190,7 +205,7 @@ oss_cmd_state_restore()  { local sf; sf="$(_oss_resolve_state "${1:-}")" || retu
 # unresolved token string. Zero prose consumers plus a wrong answer for the only
 # fields left to ask about. The LIB function `oss_manifest_get` stays - it is
 # what `_oss_repo_root` is built on.
-oss_cmd_manifest_require(){ oss_manifest_require; }
+oss_cmd_manifest_require(){ _oss_need 0 manifest_require "" "$@" || return 2; oss_manifest_require; }
 # The release's docs directory, ABSOLUTE. Prose consumers are readers who are
 # not standing in a known directory, which is why this resolves the root rather
 # than returning `oss_id_release_dir`'s relative half.
@@ -206,9 +221,9 @@ oss_cmd_branch_name()    { _oss_need 2 branch_name "<spine> <slug>" "$@" || retu
 # through the dispatcher - oss_id_parse has no wrapper today, and skill prose
 # cannot reach a bare lib function (bin/oss dispatches only oss_cmd_*).
 oss_cmd_id_parse()       { _oss_need 1 id_parse "<id>" "$@" || return 2; oss_id_parse "$1"; }
-oss_cmd_feature_list()      { local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" '[.feature_map[]]'; }
-oss_cmd_spine_list()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" '[.spines[]]'; }
-oss_cmd_ledger_active_auto(){ local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_active_auto "$sf"; }
+oss_cmd_feature_list()      { _oss_need 0 feature_list "" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" '[.feature_map[]]'; }
+oss_cmd_spine_list()        { _oss_need 0 spine_list "" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" '[.spines[]]'; }
+oss_cmd_ledger_active_auto(){ _oss_need 0 ledger_active_auto "" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_active_auto "$sf"; }
 oss_cmd_work_item_add() { # $1=spine $2=title [$3=target_repo]
   _oss_need 2 work_item_add "<spine> <title> [target_repo]" "$@" || return 2;
   local sf tr; sf="$(_oss_resolve_state)" || return $?
@@ -233,7 +248,7 @@ oss_cmd_release_status()   { _oss_need 2 release_status "<release> <status>" "$@
 # value is kept. `$#` decides "given", so an empty 5th argument is refused, not skipped.
 oss_cmd_work_item_exec() {
   _oss_need 4 work_item_exec "<wi-id> <branch> <worktree> <base-sha> [spec-oid]" "$@" || return 2
-  [ "$#" -le 5 ] || { echo "oss: work_item_exec takes at most 5 argument(s) - usage: oss work_item_exec <wi-id> <branch> <worktree> <base-sha> [spec-oid]" >&2; return 2; }
+  [ "$#" -le 5 ] || { echo "oss: work_item_exec takes at most 5 argument(s) - usage: $(_oss_signature work_item_exec)" >&2; return 2; }
   local sf; sf="$(_oss_resolve_state)" || return $?
   if [ "$#" -eq 5 ]; then oss_entity_set_work_item_exec "$sf" "$1" "$2" "$3" "$4" "$5"
   else oss_entity_set_work_item_exec "$sf" "$1" "$2" "$3" "$4"; fi
@@ -253,6 +268,7 @@ oss_cmd_spine_inventory() { _oss_need 1 spine_inventory "<spine-id>" "$@" || ret
 # than rewriting the file in place, so `$sf.base.json` stays v1 and replay still
 # rebuilds live from base+journal across the version boundary.
 oss_cmd_migrate() { # [$1=state-file]
+  _oss_need 0 migrate "[state-file]" "$@" || return 2
   local sf v; sf="$(_oss_resolve_state "${1:-}")" || return $?
   v="$(jq -r '.schema_version // empty' "$sf" 2>/dev/null)" || v=""
   case "$v" in ''|*[!0-9]*) echo "oss: state schema missing/invalid - cannot migrate" >&2; return 6 ;; esac
@@ -290,6 +306,7 @@ oss_cmd_migrate() { # [$1=state-file]
 # previous form returned on the first hit and globbed only critiquing-spec, so a
 # stale v0.2 directory won over a newer v0.3 install and v0.3 was unreportable.
 oss_cmd_critic_detect() {
+  _oss_need 0 critic_detect "" "$@" || return 2
   local cache skill_md found="absent"
   # `${HOME:-}`, not `${HOME}`: under the dispatcher's `set -u` an unset HOME is a
   # fatal parameter-expansion error raised BEFORE the loop body runs, so none of
@@ -326,6 +343,7 @@ oss_cmd_report_cross_check()  { _oss_need 2 report_cross_check "<report-path> <s
 # sole-repo default rule (#272/#310 Task 4). Thin dispatcher wrappers, no
 # judgment logic.
 oss_cmd_repo_root() {
+  _oss_need 0 repo_root "[repo-key]" "$@" || return 2
   local key
   if [ -z "${1:-}" ]; then key="$(_oss_default_repo_key)" || return $?; else key="$1"; fi
   _oss_repo_root "$key"
@@ -344,6 +362,7 @@ oss_cmd_worktree_reattach() { _oss_need 3 worktree_reattach "<repo-key> <wi-id> 
 # not the listing. The retired verb stays retired: `test-worktree.sh` asserts it
 # is still an unknown subcommand (rc 2).
 oss_cmd_worktree_orphans() {
+  _oss_need 0 worktree_orphans "[repo-key] [state-file]" "$@" || return 2
   local key
   if [ -z "${1:-}" ]; then key="$(_oss_default_repo_key)" || return $?; else key="$1"; fi
   oss_worktree_orphans "$key" "${2:-}"
@@ -353,6 +372,7 @@ oss_cmd_worktree_orphans() {
 # wrappers, no judgment logic - resolution (workdir, composition root) lives in
 # lib/demo.sh; the vacuous-green guard lives in lib/verify.sh.
 oss_cmd_demo_run() { # [$1=state-file] [$2=workdir]
+  _oss_need 0 demo_run "[state-file] [workdir]" "$@" || return 2
   local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?
   oss_demo_run_auto "$sf" "${2:-}"
 }
@@ -363,10 +383,11 @@ oss_cmd_demo_run() { # [$1=state-file] [$2=workdir]
 # resolver is the fix rather than restating its tier rules in prose, which would
 # drift from them the first time they changed.
 oss_cmd_demo_workdir() { # [$1=state-file] [$2=explicit-workdir]
+  _oss_need 0 demo_workdir "[state-file] [explicit-workdir]" "$@" || return 2
   local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?
   oss_demo_workdir "$sf" "${2:-}"
 }
-oss_cmd_demo_user_lines() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_user_lines "$sf" "${1:-}"; }
+oss_cmd_demo_user_lines() { _oss_need 0 demo_user_lines "[spine]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_user_lines "$sf" "${1:-}"; }
 oss_cmd_demo_record()     { _oss_need 4 demo_record "<work_item|spine|release> <id> <true|false> <line-count> [notes]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }
 
 # Machine-checkable rules (spec §9.1, `doctor`'s third surface) have NO verbs

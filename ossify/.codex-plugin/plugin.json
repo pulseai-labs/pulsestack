@@ -1,6 +1,6 @@
 {
   "name": "ossify",
-  "version": "1.39.0",
+  "version": "1.40.0",
   "description": "Skeleton-first lifecycle from Release 0 through MVP and v1. workspace-init is optional - /ossify:start and /ossify:adopt author the topology declaration themselves. Since 1.8.0 /ossify:run-spine accepts an optional --external-executor flag handing the work items of a round to a caller-supplied, provider-neutral in-session procedure; the no-flag command is unchanged. Since 1.14.0 /ossify:run-spine re-enters a started spine on its own, at a round barrier or mid-round, printing a reconcile read-out and halting before any mutation on state it cannot reconcile. Since 1.16.0 a demo line starts planned until its spine builds it, and a spine's own user line can be deferred to a release or closed under a declared escape. Since 1.17.0 an AC can name both halves (`exit <n> and output contains <str>`), an output check never passes a command that cannot run, and every prose snippet calls `oss` by name. Since 1.28.0 work-item close runs its pattern, lens and mutation checks in a fresh verifier subagent. Since 1.31.0 `/ossify:start` and `/ossify:adopt` seed the reviewer's project home in the AI workspace. Since 1.35.0 `/ossify:adopt` also takes a plain existing-source repo with no scaffold-dev legacy stack, run from an AI workspace the operator makes, and refuses at gate A6, before any state, when the operator names no working step (a C2 that then finds none shipped halts with state written).",
   "author": {
     "name": "Pras"
