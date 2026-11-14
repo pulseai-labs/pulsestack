@@ -378,9 +378,8 @@ layers' findings under one tag. Five tags, spelled exactly as above.
 
 ## 6. The recovery menu
 
-Surfaced on any halt, **never auto-selected**. For tagged halts, present all three
-with their real consequences and stop; untagged halts use the routes below.
-For any other untagged halt, fix the named input and re-run `/close`.
+Surfaced on any halt, **never auto-selected**. Present all three with their real
+consequences and stop, except the untagged stale-verdict and fingerprint halts below.
 
 1. **Re-dispatch the implementer with the failure.** The default when the code is
    wrong. The failure detail goes into the handoff as a clarification, because a
@@ -421,7 +420,7 @@ A stale-verdict halt under `--verdict` (the identity no longer matches the workt
 needs a fresh verdict, so re-run the caller's verifier and close again, or close without `--verdict`. The three options above do not apply.
 
 For `close: verifier left $wt changed - halt`, show `git -C "$wt" status --short`
-and `git -C "$wt" diff --stat`; restore each mutated file from its returned `copy`
+and `git -C "$wt" diff --stat`; restore each mutated file from its recorded `copy`
 or by hand, remove generated files, then re-run `/close`.
 The close never restores by itself. The three options above do not apply.
 
