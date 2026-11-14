@@ -75,7 +75,7 @@ if probe="$(oss state_path 2>&1)"; then
   printf '%s\n' "topology: resolved - author nothing, proceed to the journey map"
 else
   printf '%s\n' "$probe"   # the verb's OWN diagnostic, never swallowed
-  printf '%s\n' "ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
+  printf '%s\n' "ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. In a paired canonical repo, run from the AI workspace: (cd <ai-workspace> && oss …). On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
 fi
 ```
 

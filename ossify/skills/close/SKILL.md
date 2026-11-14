@@ -165,14 +165,14 @@ ai_root="$(oss repo_root ai_workspace)"
    staleness rule — the close mutates, and the merge at spine step 2 precedes
    the first mutation, so a leaked lock lands the irreversible merge and then
    kills the ceremony at rc 3.
-3. **Resolve every path to an absolute one up front, and never `cd`.** The
-   manifest walk starts at `$PWD` and the dispatcher re-runs it on every call that
-   takes no explicit state path, so a `cd` mid-ceremony silently re-points the
-   state file rather than failing. Probe once with `oss state_path` and
-   `oss repo_root <key>`, carry the results as absolute paths, and reach every
-   repo with `git -C "<abs>"`. Do **not** work around this by exporting
-   `OSS_STATE_FILE`: that changes resolution precedence for every nested call and
-   is not what the other lanes do.
+3. **Resolve paths to absolute ones up front; never change the session directory.**
+   In a paired canonical repo, use a subshell `(cd <ai-workspace> && oss …)` for
+   every `oss` call; keep the session directory unchanged.
+   State resolution walks from `$PWD` when no explicit state path or override
+   applies, so changing directory can silently re-point state. Probe once with
+   `oss state_path` and `oss repo_root <key>`, carry absolute paths, and reach each
+   repo with `git -C "<abs>"`. Do **not** export `OSS_STATE_FILE`: it changes
+   resolution precedence for every nested call and is not what other lanes do.
 
 ---
 
@@ -416,7 +416,7 @@ A versioned patch — a shipped defect or a can't-fake request — is
   depth on a bone's (§5).
 - **Closing a scope whose children are not closed** — a spine with an unfinished
   work item, a release with an open spine (§5, §6).
-- **`cd`-ing mid-ceremony**, or exporting `OSS_STATE_FILE` to compensate (§3).
+- **Changing the session directory mid-ceremony**, or exporting `OSS_STATE_FILE` to compensate (§3).
 - **Authoring or editing a demo line, a spec, or an AC to make a gate pass.** You
   run them. A criterion that is genuinely wrong goes back through `/plan-spine`,
   recorded, with the close halted meanwhile.

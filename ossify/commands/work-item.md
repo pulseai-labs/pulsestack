@@ -4,15 +4,15 @@ argument-hint: "<absolute-handoff-path>"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Skill
 ---
 
-Parse args from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`/`$N`),
+Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
 then load the `ossify:work-item` skill body, which owns work-item execution.
 
 ```bash
-ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
+bash -c '
   set -u
-  ARGS="${ARGS_FROM_CLAUDE:-}"
+  ARGS="${*:-}"
   echo "work-item: ARGS=${ARGS:-<none>}"
-'
+' _ "$ARGUMENTS"
 ```
 
 Now load the skill body and follow it:

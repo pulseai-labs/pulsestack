@@ -2,6 +2,12 @@
 
 All notable changes to the `crew` plugin.
 
+## 0.13.1
+
+**The command bridge stays inside its existing Bash grant.** Part of #406.
+
+`orchestrate` passes `$ARGUMENTS` as a trailing argument to `bash -c`, read with `${*:-}`, instead of a prefixed environment assignment. Its `Bash(bash:*)` grant and objective handling are unchanged.
+
 ## 0.13.0
 
 **The launcher's read is the only model check; a brief cannot carry a standing order; SEATS gains a fallback row; the demo walk has a fixture owner.** Closes #982, #751 and #1217. #973 item 8's crew half (the close session's row).

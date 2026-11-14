@@ -6,9 +6,20 @@ for _lib in "$OSS_ROOT"/lib/*.sh; do
   [ -e "$_lib" ] && . "$_lib"
 done
 oss_cmd_help() {
+  _oss_need 0 help "[verb]" "$@" || return 2
+  if [ -n "${1:-}" ]; then
+    declare -F "oss_cmd_$1" >/dev/null 2>&1 || {
+      echo "oss: unknown subcommand '$1'" >&2; return 2; }
+    _oss_signature "$1"
+    return $?
+  fi
   echo "ossify dispatcher (oss) - skeleton-first lifecycle plugin"
   echo "subcommands:"
-  declare -F | awk '{print $3}' | { grep '^oss_cmd_' || true; } | sed 's/^oss_cmd_/  /'
+  local verb signature
+  while IFS= read -r verb; do
+    signature="$(_oss_signature "$verb")" || return $?
+    printf '  %s\n' "$signature"
+  done < <(declare -F | awk '$3 ~ /^oss_cmd_/ {sub(/^oss_cmd_/, "", $3); print $3}')
 }
 main() {
   local cmd="${1:-help}"; shift || true

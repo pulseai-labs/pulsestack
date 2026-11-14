@@ -74,7 +74,7 @@ libs break. Use `oss help` for discovery.
 
 ```bash
 if ! sp="$(oss state_path 2>/dev/null)"; then
-  printf '%s\n' "ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
+  printf '%s\n' "ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. In a paired canonical repo, run from the AI workspace: (cd <ai-workspace> && oss …). On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
   exit 0
 fi
 # Later bare verbs resolve state alone and would honor this override —

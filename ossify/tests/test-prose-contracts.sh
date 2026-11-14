@@ -62,6 +62,13 @@ pin "$WI/references/handoff-contract.md" 'git_policy: STAGE-not-commit' \
 # ---------------------------------------------------------------------------
 CLOSE="$HERE/../skills/close"
 
+# #717: pin the operative exception, regardless of line wrapping.
+_close_flat="$(mktemp)"
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$CLOSE/SKILL.md" > "$_close_flat"
+pin "$_close_flat" 'In a paired canonical repo, use a subshell `(cd <ai-workspace> && oss …)` for every `oss` call; keep the session directory unchanged.' \
+  'close sanctions a workspace subshell without changing the session directory (#717)'
+rm -f "$_close_flat"
+
 # The §9 heading is matched by EXACT STRING at harvest time. If the contract
 # that pins it and the ceremony that greps it ever disagree, every report reads
 # as "no suggestions" and the harvest is silently empty at "wrote 0".

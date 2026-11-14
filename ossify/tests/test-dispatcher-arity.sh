@@ -42,7 +42,7 @@ bash "$OSS" init arity-demo >/dev/null 2>&1
 t_capture bash "$OSS" doctor
 t_assert_rc 0 "setup: the fixture is a REAL initialized project (doctor green) - without this every assertion below is vacuous"
 
-VERBS="$(bash "$OSS" help 2>&1 | sed -n 's/^  //p')"
+VERBS="$(bash "$OSS" help 2>&1 | awk '$1 == "oss" {print $2}')"
 t_assert_ge_local() { if [ "$2" -ge "$1" ]; then T_PASS=$((T_PASS+1)); else T_FAIL=$((T_FAIL+1)); echo "FAIL: $3 (wanted >= $1, got $2)"; fi; }
 t_assert_ge_local 55 "$(printf '%s\n' "$VERBS" | grep -c .)" "setup: the verb list is live and populated (not an empty glob)"
 

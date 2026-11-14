@@ -146,15 +146,15 @@ O	skills/work-item/references/round-orchestration.md	arm=	tests/test-close.sh	Ol
 O	skills/work-item/references/round-orchestration.md	spine_inventory "<spine-id>" >	tests/test-spine-inventory.sh	B1: the re-entry read-out prints the inventory and halts on any halt row having changed nothing
 O	skills/work-item/references/round-orchestration.md	awk -F	tests/test-spine-inventory.sh	B2: cuts and checks out the spine branch from the RECORDED base in a repo a crashed PASS 2 never reached
 D	skills/work-item/references/round-orchestration.md	4	#138	spine-dir resolution, per-item spec path derivation, target_repo worktree spawn, and the dirty-worktree halt
-D	commands/adopt.md	1	#267	the $ARGUMENTS env-var bridge
-D	commands/challenge.md	1	#267	the $ARGUMENTS env-var bridge
-D	commands/close.md	1	#138	the $ARGUMENTS env-var bridge - a positional-substitution regression here silently drops every argument
-D	commands/doctor.md	1	#138	the $ARGUMENTS env-var bridge
-D	commands/plan-release.md	1	#138	the $ARGUMENTS env-var bridge
-D	commands/plan-spine.md	1	#138	the $ARGUMENTS env-var bridge
-D	commands/run-spine.md	1	#138	the $ARGUMENTS env-var bridge
-D	commands/start.md	1	#138	the $ARGUMENTS env-var bridge
-D	commands/work-item.md	1	#138	the $ARGUMENTS env-var bridge
+D	commands/adopt.md	1	#267	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
+D	commands/challenge.md	1	#267	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
+D	commands/close.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
+D	commands/doctor.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
+D	commands/plan-release.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
+D	commands/plan-spine.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
+D	commands/run-spine.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
+D	commands/start.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
+D	commands/work-item.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
 I	skills/doctor/SKILL.md	2	a single doctor call (interop_check's block went with its verb - §7 is performed by reading; rules_types' block went the same way - §6's type table is the reference's §3 prose now) and the surface-token placeholder assignment (the broken $ARGS parse became the family's prose-placeholder form - there is no parse logic left to cover; §12 owns $ARGUMENTS)
 O	skills/doctor/references/state-inspection.md	ls-files -z	tests/test-prose-contracts.sh	the §5 touch-surface sweep (#523): each declared repo's tracked-path corpus is fed to touch_check, whose OUTPUT is the finding - a surface that matches no tracked file is an ABSENCE from the accumulated hits, and every failure that would FAKE that absence (an unreadable repo, an unreadable registry, an empty corpus) is reported as itself instead Since 1.13.4 it also refuses a run whose state is not this directory's manifest-routed one (the gate §4 documents; #561), reads each surface's KIND from its roster so the re-point verb is determined rather than guessed, and removes its temp file (#558).
 I	skills/doctor/references/state-inspection.md	3	the reads the agent-performed half works from, now that doctor emits only its four gate lines: the four advisory counts, the `| type` guard that must precede them (jq's length answers on strings too, so a corrupt field returns a plausible number at rc 0), and the worktree_orphans call shapes one per repo key (#156). Each is a single read whose OUTPUT the prose interprets - the judgement is the prose
@@ -217,14 +217,14 @@ D	skills/wayfinder/references/tracker.md	3	#138	the tracker-reachability probe (
 D	skills/wayfinder/references/charting.md	3	#138	the wayfinder:* label bootstrap loop (idempotent gh label create per type with || true, followed by a gh label list end-state verify that stops before the first issue mutation, because || true cannot tell already-exists from a transient failure), the map-plus-ticket creation pair (gh issue create with the body on stdin via --body-file -, the ticket parented by --parent AND wired to already-created blockers by --blocked-by in the same call, shown twice because a ticket with no blocker drops the flag rather than passing an empty value, and each issue number captured out of the URL gh prints because every later call needs it), and the second-pass blocking wiring (gh issue edit --add-blocked-by, needed only for a FORWARD reference to a sibling the map has not created yet) - gh tracker mutations the agent runs once per chart, covered by no suite; a wrong label or a wrong relationship flag fails loudly against the live API
 D	skills/wayfinder/references/working.md	1	#138	the resolve cycle: load the map's body, labels and state (gh issue view, whose labels and state fields are the only sources for the wayfinder:map check and the closed-map refusal), claim before any work (gh issue edit --add-assignee @me), then record and close in order (gh issue comment with the resolution on stdin via --body-file -, gh issue close), then the MAP-BODY write that records the decision (gh issue view --json body re-read after the resolve, a build_map_update shell function that first counts the named heading and refuses anything but exactly one - zero leaves no section to append to, two would append the entry to both copies and split the record - wrapping an awk that takes $HEADING and $ENTRY through ENVIRON rather than -v, because -v expands escape sequences and a resolution containing a backslash-n would SPLIT the recorded line that appends the entry as the last line of the named heading and drops that section's trailing blanks, returning non-zero on an unchanged body because a no-op write looks exactly like a recorded decision; it is called TWICE - once as a dry run before the comment and close so a moved heading fails while everything is still recoverable, once for real against a fresh read - then gh issue edit --body-file - because gh cannot append to an issue body) - gh tracker mutations the agent runs once per resolved ticket, covered by no suite; the ordering is the contract (claim precedes work, comment precedes close, close precedes the map write) and a wrong shape fails loudly at the API. The map write's lost-update window is closed by ticket-types.md §3 making the dispatcher the sole writer, not by the command
 D	skills/wayfinder/references/preflight.md	1	#138	the wayfinder:map count query (gh issue list --label wayfinder:map --state all --limit 500, the limit raised off gh's default 30 because this count BRANCHES and a truncated page changes which row fires) both start and plan-release branch their pre-flight on - a gh tracker read the agent runs once per ceremony, covered by no suite; an empty result IS the zero-map answer, and a malformed flag fails loudly at the API rather than returning a silently wrong count
-H	commands/adopt.md	3550582653-140
-H	commands/challenge.md	2670379828-144
-H	commands/close.md	1986596502-140
-H	commands/plan-release.md	3197413462-147
-H	commands/plan-spine.md	3747955391-145
-H	commands/run-spine.md	2545938813-144
-H	commands/start.md	3557017349-140
-H	commands/work-item.md	2378584622-144
+H	commands/adopt.md	4111467881-110
+H	commands/challenge.md	3102241493-114
+H	commands/close.md	254563907-110
+H	commands/plan-release.md	3044743350-117
+H	commands/plan-spine.md	3437399901-115
+H	commands/run-spine.md	3744169237-114
+H	commands/start.md	4114525697-110
+H	commands/work-item.md	2041771454-114
 H	skills/adopt/SKILL.md	3508802419-191
 H	skills/challenge/references/adversaries.md	2508579132-1265
 H	skills/close/SKILL.md	1410923543-370
@@ -239,13 +239,13 @@ H	skills/close/references/retrospective.md	3602587869-249
 H	skills/close/references/routing.md	261804248-259
 H	skills/close/references/spine-close.md	2050628757-51338
 H	skills/close/references/work-item-close.md	2707041157-12982
-H	commands/doctor.md	729179949-141
+H	commands/doctor.md	3524299347-111
 H	skills/doctor/SKILL.md	630905567-126
 H	skills/doctor/references/budget-check.md	4087089281-1058
 H	skills/doctor/references/interop-check.md	1003299360-1052
 H	skills/doctor/references/spec-validation.md	3469818852-7018
 H	skills/doctor/references/state-inspection.md	2907377792-5955
-H	skills/plan-release/SKILL.md	3181279616-2320
+H	skills/plan-release/SKILL.md	622412771-2407
 H	skills/plan-release/references/bone-touch-judge.md	1103797533-1229
 H	skills/plan-release/references/class-declaration.md	119880498-302
 H	skills/plan-release/references/critic-veto.md	179374432-460
@@ -254,7 +254,7 @@ H	skills/plan-release/references/real-use-findings.md	2699050376-489
 H	skills/plan-release/references/release-md-emission.md	3198314590-173
 H	skills/plan-release/references/rolling-wave.md	767614811-211
 H	skills/plan-release/references/spine-sequencing-dag.md	3469132072-141
-H	skills/plan-spine/SKILL.md	1955748934-2547
+H	skills/plan-spine/SKILL.md	971121003-2634
 H	skills/plan-spine/references/citation-foldin.md	3602525984-347
 H	skills/plan-spine/references/cross-repo.md	760526739-899
 H	skills/plan-spine/references/decomposition.md	904324617-642
@@ -263,7 +263,7 @@ H	skills/plan-spine/references/demo-authoring.md	1720411663-1884
 H	skills/plan-spine/references/fake-ledger-discipline.md	3569334562-372
 H	skills/plan-spine/references/intake-and-ledger.md	3936310853-289
 H	skills/patch/SKILL.md	2505586866-556
-H	skills/start/SKILL.md	2296906047-1003
+H	skills/start/SKILL.md	4252912604-1090
 H	skills/start/references/bones-registry.md	2398899294-3272
 H	skills/start/references/journey-map.md	3044115941-97
 H	skills/start/references/posture-block.md	3185799305-572
