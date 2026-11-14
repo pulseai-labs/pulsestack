@@ -2603,7 +2603,7 @@ pin_prose "$_WC951" 'A retry replaces the old findings; code-review.md reads the
 pin_prose "$_WC951" 'Overwriting also clears the rejection record, so only a re-verified result reads as recovered.' 'B13-R1-M12: overwrite clears the rejection record'
 pin_prose "$_WC951" 'Inline records each mutation'"'"'s `file` and `copy` as it saves the copy in §4c; its fingerprint halt names those pairs.' 'B13-R1-C4: inline pass records its own recovery pairs'
 pin_prose "$_981_CR" 'A `[mutation]` line is a finding; untagged `mutation:` lines (`red`, `undetermined`) are evidence, not findings.' 'B13-R1-C5: mutation success or uncertainty is not a finding'
-pin_prose "$HERE/../../omp-roles/agents/implementer.md" 'Write only in the item worktree, except for the sanity-check copy.' 'B13-R1-C6: OMP implementer may save its sanity-check copy'
+pin_prose "$HERE/../../omp-roles/agents/implementer.md" 'Write only in the item worktree, except for the sanity-check copy, saved in a SEAT_MODS_ALLOW directory outside it.' 'B13-R1-C6: OMP implementer may save its sanity-check copy'
 pin "$SKILLS/work-item/SKILL.md" '`GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 oss verify_step "<worktree-abs>" "<command>" "<expectation>"`' \
   "#946 work-item: a test that runs git also runs with no host identity"
 pin "$SKILLS/work-item/SKILL.md" 'the command cannot run here yet (it exits 126 or 127' \
