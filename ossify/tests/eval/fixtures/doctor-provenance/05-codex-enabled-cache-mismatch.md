@@ -26,6 +26,7 @@ enabled = false
 `/opt/codex/plugins/cache/pulsestack-codex/ossify/` contains exactly one version
 directory, `1.40.0/`. Its readable `.codex-plugin/plugin.json` says `1.39.0`,
 and its readable `.claude-plugin/plugin.json` also says `1.39.0`.
+The directory was renamed to `1.40.0/` by hand.
 The disabled pre-rename marketplace also has a cache directory with manifests
 at `1.40.0`.
 

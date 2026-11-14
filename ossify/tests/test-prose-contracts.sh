@@ -2220,6 +2220,7 @@ _PRA="$_OSSR/skills/doctor/references/rule-authoring.md"
 _r=1; grep -Fq 'Never look inside a declared repo' "$_IC" \
   && grep -Fq 'Only the two in-workspace `CLAUDE.md` paths enter §5' "$_IC" && _r=0
 _pin "$_r" "claude_md probes a declared repo or lets non-repairable findings into §5 (D1, #840)"
+# D1's SKILL.md scope half is pinned wrap-proof by B12-X1 below.
 # D2: the offer must not wait for an otherwise-clean read-out; the no-AGENTS.md
 # shape branch 1 exists for is exactly the one the old gate excluded.
 _r=1; ! grep -Fq 'the only problem is a leftover' "$_IC" \
@@ -2887,6 +2888,13 @@ pin "$_b12_interop" 'every `InstructionsLoaded` hook in Claude Code settings thi
 pin "$_b12_interop" 'Claude Code reads `AGENTS.md` only when none of these three names exists in the workspace or its ancestors, excluding the user file above.' 'B12-I9 states the probed fallback rule without a setting claim'
 pin "$_b12_interop" 'ok: claude_md - no suppressing instruction file in the AI workspace or its ancestors' 'B12-I10 reports ok only across the expanded scope'
 pin "$_b12_interop" 'For each repairable `CLAUDE.md` in the plan, in the order §5.2 fixes:' 'B12-I11 keeps report-only files out of the actual repair loop'
+pin "$_b12_interop" 'and one ancestor file; only the first two enter §5'"'"'s repair.' 'B12-X3 keeps the output sample repair limited to its first two paths'
+pin "$_b12_interop" 'When either repairable `claude_md` path failed, offer §5 for that pair only,' 'B12-X4 keeps the repair offer limited to the workspace pair'
+pin "$_b12_interop" 'ancestor file suppresses AGENTS.md for this workspace; doctor only names it, never moves or edits it` | operator handles it outside this workspace |' 'B12-X7 keeps the ancestor remedy outside the repair'
+pin "$_b12_interop" 'personal file; move its rules into AGENTS.md, or delete it; doctor only names it` | operator'"'"'s choice, never doctor'"'"'s write |' 'B12-X8 keeps the personal-file remedy with the operator'
+pin "$_b12_interop" 'read it; Claude Code reads it only absent §3'"'"'s `claude_md` suppressors, including ancestors (not the user file).' 'B12-X9 keeps agents_md fallback aware of all suppressors'
+pin "$_b12_interop" 'any workspace `CLAUDE.local.md` or ancestor suppressor that remains: Claude Code will still not read `AGENTS.md`, so moved rules stop loading for Claude until the remaining files are handled.' 'B12-R1 discloses lost Claude-loaded rules in the pre-yes plan'
+pin "$_b12_interop" 'A leftover workspace root or `.claude/` `CLAUDE.md` is §5'"'"'s business whatever else' 'B12-R2 limits the agents_md repair routing to workspace files'
 pin "$_b12_provenance" 'On Codex only, when no checkout arm applies, read `${CODEX_HOME:-~/.codex}/config.toml`.' 'B12-P1 resolves Codex config only after checkout'
 pin "$_b12_provenance" 'Exactly one `[plugins."ossify@<marketplace>"]` table with `enabled = true` must exist; otherwise expected is unavailable.' 'B12-P2 selects exactly one enabled ossify entry'
 pin "$_b12_provenance" 'Use only that marketplace, not a directory-discovered choice' 'B12-P3 refuses disabled or stale directory-discovered marketplaces'
@@ -2895,12 +2903,16 @@ pin "$_b12_provenance" 'Read its `.codex-plugin/plugin.json` version as identity
 pin "$_b12_provenance" 'Its `.claude-plugin/plugin.json` must carry the same version; either manifest unreadable, invalid, or disagreeing makes expected unavailable.' 'B12-P6 requires manifest agreement'
 _r=0; if grep -Fq 'no installed-reference arm' "$_b12_provenance"; then _r=1; fi
 _pin "$_r" 'B12-P7 removes the obsolete no-installed-reference-arm claim'
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_DS" > "$_b12_provenance"
+pin "$_b12_provenance" 'Never probe inside a declared repo;' 'B12-X1 restores D1 scope protection in the doctor summary'
+pin "$_b12_provenance" 'Offer §5 for failed workspace root `CLAUDE.md` or `.claude/CLAUDE.md`,' 'B12-X2 keeps the summary repair offer limited to the workspace pair'
 _b12_fixtures="$_OSSR/tests/eval/fixtures"
 pin "$_b12_fixtures/doctor-instruction-file/08-local-ancestor-and-hook.md" 'expected_outcome: repair-merge-asks' 'B12-F1 adds the local/ancestor/hook repair fixture'
 pin "$_b12_fixtures/doctor-instruction-file/08-local-ancestor-and-hook.md" 'three `fail: claude_md` lines' 'B12-F2 expects all three suppressors, not three repairs'
 pin "$_b12_fixtures/doctor-provenance/05-codex-enabled-cache-mismatch.md" 'expected_outcome: warn' 'B12-F3 adds a Codex mismatch fixture'
-pin "$_b12_fixtures/doctor-provenance/03-unsupported-host-and-nonpath-binary-partial.md" 'No enabled ossify plugin entry exists in `${CODEX_HOME:-~/.codex}/config.toml`' 'B12-F4 keeps the Codex partial fixture unresolved for the right reason'
-# Adjacent control: no enabled entry and an unidentified binary remain partial.
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_b12_fixtures/doctor-provenance/03-unsupported-host-and-nonpath-binary-partial.md" > "$_b12_provenance"
+pin "$_b12_provenance" '[plugins."ossify@pulsestack-codex"] enabled = true [plugins."ossify@claude-agent-scaffolding-codex"] enabled = true' 'B12-F4 states the two enabled Codex tables as input facts'
+# Adjacent control: an ambiguous reference and unidentified binary remain partial.
 # This outcome already exists on 5602772a; F4 above pins its new authority facts.
 pin "$_b12_fixtures/doctor-provenance/03-unsupported-host-and-nonpath-binary-partial.md" 'expected_outcome: partial' 'B12-F5 preserves the unresolved-role partial control'
 rm -f "$_b12_interop" "$_b12_provenance"

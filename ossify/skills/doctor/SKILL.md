@@ -304,7 +304,7 @@ resolving to real directories, with each declared repo — never
 git **work tree** (a bare repository or a `.git` directory is not
 one and fails), the state path resolving and not silently
 overridden, **`AGENTS.md` existing and naming ossify**, and no suppressing file
-at that workspace or in its ancestors (`claude_md`, §3's three names and user-file
+at that workspace or in its ancestors (`claude_md`, interop-check §3's three names and user-file
 exclusion). Claude Code reads `AGENTS.md` only without those files. Never probe
 inside a declared repo; an ancestor is reported, never repaired.
 
@@ -316,7 +316,8 @@ lacking the previous stack's furniture.
 
 **Check first, repair on a yes.** Offer §5 for failed workspace root `CLAUDE.md`
 or `.claude/CLAUDE.md`, whatever else the read-out found — after it, never mid-sweep.
-Whole plan shown first, explicit yes before writes, never commits; other paths only named.
+Show the whole plan, including rules Claude will stop loading; explicit yes before
+writes, never commits; other paths only named.
 
 Full detail — each check with what it protects, why an unrouted manifest is
 deliberately not a finding, and the remedy per failing line — is in

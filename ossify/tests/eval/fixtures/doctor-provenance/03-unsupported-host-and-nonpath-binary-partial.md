@@ -1,7 +1,7 @@
 ---
 scenario_id: 03-unsupported-host-and-nonpath-binary-partial
 expected_outcome: partial
-expected_reason: "Loaded doctor resolves to 1.7.0, while a non-path command result cannot identify the binary and Codex config has no enabled ossify entry; available facts remain visible without substitution."
+expected_reason: "Loaded doctor resolves to 1.7.0, while a non-path command result cannot identify the binary and Codex config has two enabled ossify tables, making its reference ambiguous; available facts remain visible without substitution."
 ---
 
 Codex is running in `/home/dev/consumer`, an ordinary git worktree whose
@@ -15,14 +15,17 @@ not an absolute filesystem path, so no executable, symlink target, plugin root,
 or binary manifest has been established.
 
 The host supplied
-`/home/dev/.codex/plugins/cache/claude-agent-scaffolding-codex/ossify/1.7.0/skills/doctor`
+`/home/dev/.codex/plugins/cache/pulsestack-codex/ossify/1.7.0/skills/doctor`
 as the loaded skill base directory. Its readable owning manifest says `1.7.0`.
 
 There is no ossify checkout in the current worktree and no Claude
 `installed_plugins.json`. `CODEX_HOME` is unset.
-No enabled ossify plugin entry exists in `${CODEX_HOME:-~/.codex}/config.toml`:
+`${CODEX_HOME:-~/.codex}/config.toml` contains exactly:
 
 ```toml
 [plugins."ossify@pulsestack-codex"]
-enabled = false
+enabled = true
+
+[plugins."ossify@claude-agent-scaffolding-codex"]
+enabled = true
 ```

@@ -64,6 +64,9 @@ silent about it — or reported the clean line — the same convention
    have shown what it would change, including every `InstructionsLoaded` hook
    in user, project and local settings the workspace reads, naming its file and
    hook and the loss of firing for moved instructions; settings are never edited.
+   If a workspace `CLAUDE.local.md` or ancestor suppressor remains, the plan must
+   say Claude Code still will not read `AGENTS.md`, so moved rules stop loading
+   for Claude until the remaining files are handled.
    Only the original two workspace paths may be repaired: personal local and
    ancestor files are named, never moved, edited or deleted. With a no, the
    tree must be untouched. **On a hold

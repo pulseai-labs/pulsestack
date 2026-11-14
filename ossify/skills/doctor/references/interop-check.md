@@ -316,8 +316,8 @@ If the `ai_workspace` root did not resolve, you cannot look for the file: report
 root` and stop there.
 
 Do not author `AGENTS.md` from nothing here — its content is the project's. A
-leftover `CLAUDE.md` is §5's business whatever else this read-out found: the
-repair runs on its own failing line, not on the workspace being otherwise clean.
+leftover workspace root or `.claude/` `CLAUDE.md` is §5's business whatever else
+this read-out found: the repair runs on its own failing line, not on an otherwise clean workspace.
 
 ### `claude_md`
 
@@ -376,6 +376,9 @@ Build one plan for the whole workspace, not per file, and show every change firs
 - every `InstructionsLoaded` hook in Claude Code settings this workspace reads
   (user, project, local), naming its settings file and hook; it will stop firing
   for the moved instructions. Never edit settings.
+- any workspace `CLAUDE.local.md` or ancestor suppressor that remains: Claude
+  Code will still not read `AGENTS.md`, so moved rules stop loading for Claude
+  until the remaining files are handled.
 
 An import that cannot be kept is shown as such, with the reason, and the operator
 decides before the yes — not discovered after the write.
