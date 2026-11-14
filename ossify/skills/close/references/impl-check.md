@@ -15,20 +15,17 @@ terminal: no commit, no merge, no status write.
 ## 1. Why this one halts when the implementer's did not
 
 The implementer runs every verification command **without** halting on the first
-failure, deliberately (`work-item/SKILL.md` §6). This gate does the opposite, and
-for the opposite reason:
+failure, deliberately (`work-item/SKILL.md` §6). Layers 1 and 2 stop early;
+the verifier pass surfaces every halting verdict:
 
 | | Implementer | This gate |
 |---|---|---|
-| On first failure | keep going | **halt** |
-| Why | nobody is listening; a partial picture forces a second dispatch that costs more than the failed commands did | there *is* a human to route to, and the recovery choice does not improve with more failures attached |
+| On failure | keep going | **halt on first Layer 1/2 failure; surface every halting verdict from the verifier pass** |
+| Why | nobody is listening; a partial picture forces a second dispatch that costs more than the failed commands did | early failures route recovery; the verifier has already run, so dropping verdicts saves nothing |
 
-So the two are not inconsistent, and neither is a bug to be "aligned" with the
-other. If you are tempted to run the verifier past a Layer 1 or 2 failure: that
-failure is what the recovery menu acts on, and the pass burns time and buries
-it. The verifier pass is the exception, because it has already run when its
-verdicts arrive: dropping one saves nothing and sends the re-dispatch to fix
-half the item.
+Do not run the verifier past a Layer 1 or 2 failure: that failure routes the
+recovery menu. Once the verifier returns, dropping a verdict saves nothing
+and sends the re-dispatch to fix half the item.
 
 ---
 
@@ -382,7 +379,7 @@ layers' findings under one tag. Five tags, spelled exactly as above.
 ## 6. The recovery menu
 
 Surfaced on any halt, **never auto-selected**. Present all three with their real
-consequences and stop:
+consequences and stop, except the untagged stale-verdict and fingerprint halts below.
 
 1. **Re-dispatch the implementer with the failure.** The default when the code is
    wrong. The failure detail goes into the handoff as a clarification, because a
@@ -421,6 +418,11 @@ consequences and stop:
 A stale-verdict halt under `--verdict` (the identity no longer matches the worktree,
 `work-item-close.md` §2) carries no tag and needs no criterion fix: a corrected item
 needs a fresh verdict, so re-run the caller's verifier and close again, or close without `--verdict`. The three options above do not apply.
+
+For `close: verifier left $wt changed - halt`, show `git -C "$wt" status --short`
+and `git -C "$wt" diff --stat`; restore each mutated file from its recorded `copy`
+or by hand, remove generated files, then re-run `/close`.
+The close never restores by itself. The three options above do not apply.
 
 The user picks. This is not a disposition row and the auto-apply policy does not
 reach it (`work-item-close.md` §5).

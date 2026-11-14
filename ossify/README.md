@@ -139,7 +139,7 @@ three. What differs is who builds a work item and who verifies it.
   `skill://<name>`. OMP does not put a plugin's `bin/` on `PATH`, so install the loader extension in
   the root README's OMP section; without it `oss` is not found. With
   [omp-roles](../omp-roles/), `run-spine` dispatches each item to its `implementer` agent (omp-roles
-  0.2.0 or later), and work-item close dispatches its `verifier` agent (0.10.0 or later). Without those agents, `run-spine` with no
+  0.2.0 or later), and work-item close dispatches its `verifier` agent (0.11.1 or later). Without those agents, `run-spine` with no
   flag refuses as it does on Codex, and close runs the verifier's checks itself.
 
 **An external executor.** `/ossify:run-spine <spine-id> --external-executor` hands the round's work

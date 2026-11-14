@@ -105,10 +105,10 @@ the report**, and both need the same sanity check first.
    passes on first run because the production code already handled the case (a
    library default, a framework behaviour).
 
-**The sanity check, in both cases:** break the production code once, watch the
-new test go red, restore. A test that passes both with and without the
-behaviour is testing nothing, and a vacuous green here is worse than a failure —
-it ships as evidence.
+**The sanity check, in both cases:** save a copy outside the worktree, break
+the production code once, watch the new test go red, restore from that copy, never from git.
+A test that passes with and without the behaviour tests nothing; vacuous green
+is worse than a failure — it ships as evidence.
 
 Anything else that goes green on the first run is a third case, and it is not
 legitimate — but **"the work item was already done" is usually the wrong
@@ -121,8 +121,9 @@ causes actually fit:
 - **The test is misaimed or tautological.** It asserts something that was always
   true — it imports the module and checks it imports, it asserts on a fixture it
   built itself, it matches a substring present in the error message too. This is
-  §3's pitfall territory and it is the common case. Break the production code,
-  re-run, and if the test still passes you have found it.
+  §3's pitfall territory and it is the common case. Save a copy outside the worktree,
+  break the production code, re-run, and if the test still passes you have found it;
+  restore from that copy, never from git.
 - **The gate probe and the new test disagree.** The probe ran a different command,
   a different working directory, or a different fixture state than your test. Read
   both side by side; the difference is the finding.

@@ -105,17 +105,19 @@ against the merge base, so you see what the spine *added*; two dots also shows
 everything that landed on the base branch meanwhile, which is not this spine's
 work and not yours to review.
 
-### Reading Layer 4's advisories
+### Reading the verifier's advisories
 
-Layer 4's findings are additional input to the two axes below, not a third
+Verifier findings and mutation results are input to the two axes below, not a third
 axis — but they carry the same rationalization risk §2's axis order exists to
 prevent, so read them in **two passes, not one**. Each spine work item's
 `<work-item-dir>/verify.md`, if one exists, is resolved the way
 `work-item-close.md` §1 Route B does (the spine dir, glob-recovered, then
 `work-<wi>/`); every item has already closed by the time you run, so Route B's
 reconstruction is always the one in scope here, never Route A's return
-payload. Every verifier pass writes one, with zero findings too; read only its
-findings, not its `verifier:` and layer-result lines. Absent is not a gap: a
+payload. Every verifier pass writes one, with zero findings too; read only findings and
+untagged `mutation:` evidence, not its `verifier:` or layer-result lines, including
+`layer mutation:`. A `[mutation]` line is a finding; untagged `mutation:` lines
+(`red`, `undetermined`) are evidence, not findings. Absent is not a gap: a
 close before ossify 1.29.1 wrote one only on findings.
 
 **Walk the non-`abandoned` items only — the same set `hosting_repos` read
@@ -125,28 +127,24 @@ deliberately never implemented. Folding either one in reports a planning decisio
 back as a gap in the work, and the disposition loop then churns on work the plan
 withdrew. Axis B reads the same set (§4).
 
-**Before Axis A:** read only each file's `pattern`-tagged findings and fold
-them into your Axis A findings. Leave the rest of the file unread.
+**Before Axis A:** read each file's `pattern` and `[mutation]` findings and untagged
+`mutation:` evidence; fold only the findings into Axis A.
 
 **Before Axis B, once Axis A is written down:** go back to the same files and
 read the `absence` and declared-`fidelity` findings you skipped — spec
 material, exactly what §2 says not to hold in mind while judging Axis A. Fold
 each into your Axis B findings.
 
-Either pass: do not re-print Layer 4's text verbatim as if it were your own
-reading, and do not re-judge whether Layer 4 was right — that already happened
-at work-item close; this pass reads it as evidence, not as something to
-re-litigate.
+Either pass: read findings and mutation lines as evidence, not your own judgment;
+do not re-print them verbatim or re-judge whether the verifier was right.
 
-**Before folding either pass's findings in, revalidate against the final
-tree.** A `verify.md` finding is evidence about the work item's own staged
-diff, frozen at that item's own close time; by spine close every item has
-already merged, and a later item may have reshaped or already fixed the code
-a finding cites. Check only whether the finding's cited evidence still holds
-in the spine diff resolved above (`base...spine_branch`) — a mechanical
-citation check, not a second read of whether Layer 4 was right. If the cited
-evidence no longer holds in that form, mark the finding **superseded** and do
-not fold it into either axis as current.
+**Before folding either pass's findings or mutation lines in, revalidate against the
+final tree.** Each entry is evidence about the work item's own staged diff, frozen
+at its close; by spine close every item has merged, and a later item may have
+reshaped or fixed the code it cites. Check only whether its cited evidence still
+holds in the spine diff resolved above (`base...spine_branch`) — a mechanical
+citation check, not a second judgment. If it no longer holds in that form, mark
+the entry **superseded** and do not fold it into either axis as current.
 
 **This check is deliberately citation-level, on purpose, not an oversight.**
 A later item can also moot a finding's underlying claim through a different

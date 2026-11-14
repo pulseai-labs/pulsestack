@@ -37,7 +37,7 @@ changed. No `Write`, no `Task`, no `Skill`.
 Your final message ends with exactly one JSON object, verbatim in shape:
 
 ```
-{"mode": "verified", "model": "<model you run>", "rule": [{"file","line","pattern","claim"}], "lenses": [<impl-check.md §4b finding schema>], "mutation": [{"test","mutation","result": "red | stayed-green | undetermined","evidence"}]}
+{"mode": "verified", "model": "<model you run>", "rule": [{"file","line","pattern","claim"}], "lenses": [<impl-check.md §4b finding schema>], "mutation": [{"test","mutation","result": "red | stayed-green | undetermined","evidence","file": "<absolute path of the mutated file>","copy": "<absolute path of the saved copy>"}]}
 ```
 
 ```
@@ -47,3 +47,5 @@ Your final message ends with exactly one JSON object, verbatim in shape:
 Empty arrays are valid. `mutation` is `[]` when the diff adds or changes no test.
 `result` is exactly `red`, `stayed-green` or `undetermined`; `stayed-green`
 means the evidence shows all three §4c conditions held.
+`file` and `copy` are absolute paths; both are `null` only for `undetermined` when no mutation was applied.
+Keep any saved copy outside the worktree for recovery.

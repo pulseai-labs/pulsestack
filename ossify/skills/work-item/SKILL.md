@@ -320,8 +320,8 @@ Then classify, for the return's `stage_status`:
   edits at all — say so in the report's blockers-and-advisories section rather
   than returning a clean-looking `complete`.
 
-The commit boundary is the orchestrator's. You stage and return; that is the whole
-of your write authority outside the worktree's files and your own `report.md`.
+The commit boundary is the orchestrator's. You stage and return; outside the worktree's files,
+your own `report.md` and §5's temporary saved copy, that is your whole write authority.
 
 ---
 
