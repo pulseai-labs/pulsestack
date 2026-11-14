@@ -16,6 +16,14 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/lib/pin.sh"
 WI="$HERE/../skills/work-item"
 
+# Obsolete bridge descriptions must not survive, even across line wraps.
+t_capture find "$HERE/../skills" -type f -name '*.md' -exec awk '
+  { text[FILENAME] = text[FILENAME] " " tolower($0) }
+  END { for (f in text) if (text[f] ~ /env(-|[[:space:]]+)var[[:space:]]+bridge/) print f }
+' {} +
+t_assert_rc 0 'the obsolete-bridge scan reads the skills tree'
+t_assert_eq "" "$T_OUT" 'ossify skills contain no obsolete bridge descriptions'
+
 # The TEMPLATE line, not the worked example: both files also carry a filled-in
 # example of each shape, and those legitimately differ. The templates are the
 # ones still holding `<placeholder>` markers.

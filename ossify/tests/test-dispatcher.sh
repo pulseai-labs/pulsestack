@@ -54,6 +54,22 @@ for verb in $verbs; do
 done
 t_capture "$OSS" help definitely-not-a-command
 t_assert_rc 2 'unknown help target is a usage error'
+t_assert_contains "$T_OUT" 'unknown subcommand' 'unknown help target names the dispatch error'
+
+# The reader must reject both missing and duplicate source signatures.
+for fixture in duplicate_fixture missing_fixture; do
+  t_capture bash -c '
+    . "$1/lib/commands.sh"
+    oss_cmd_duplicate_fixture() {
+      _oss_need 0 duplicate_fixture "" "$@"
+      _oss_need_exact 0 duplicate_fixture "[stale]" "$@"
+    }
+    oss_cmd_missing_fixture() { :; }
+    _oss_signature "$2"
+  ' _ "$HERE/.." "$fixture"
+  t_assert_rc 2 "$fixture rejects an invalid signature count"
+  t_assert_contains "$T_OUT" 'expected one signature' "$fixture names the signature-count error"
+done
 
 # #406: every bash argument bridge stays inside its Bash(bash:*) grant and
 # avoids Claude's positional rendering. Execute empty and multiword controls.

@@ -412,8 +412,8 @@ missing, so a row is a promise — are `spec-authoring.md` §1 and `close/refere
 
 ## 10. Slash-command interaction
 
-The `/plan-spine` slash command (`commands/plan-spine.md`) exports the raw
-argument string as `$ARGUMENTS` via an env-var bridge; on shim-less channels
+The `/plan-spine` slash command (`commands/plan-spine.md`) passes
+`$ARGUMENTS` to `bash -c` as a trailing argument; on shim-less channels
 (`Skill()`, natural language) the spine id arrives as a literal token in
 the request. **Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` / `$N`** —
 Claude Code substitutes positional tokens in command bodies at template-render

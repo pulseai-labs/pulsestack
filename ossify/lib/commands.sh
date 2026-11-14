@@ -8,8 +8,8 @@
 # duplicate key: two rows for one ADR ref or gate name), 8 git/worktree.
 
 # Signatures are the literal guard arguments in our own functions (skill-first
-# question 2). Zero-minimum calls annotate optional/no-arg verbs without changing
-# acceptance. Help reads the same string as usage errors; no second table.
+# question 2). Zero-minimum calls can annotate lib-enforced required arguments;
+# acceptance is unchanged. Help reads the same usage string; no second table.
 _oss_signature() { # $1=verb
   declare -f "oss_cmd_$1" | awk -v verb="$1" '
     /^[[:space:]]*_oss_need(_exact)? [0-9]+ [a-z_]+ "/ {

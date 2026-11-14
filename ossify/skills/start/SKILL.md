@@ -40,7 +40,7 @@ no work item — `plan-release` owns those.
 
 **Trigger phrases (description-match):**
 
-- `/start` (slash command — see §14 for the `$ARGUMENTS` env-var bridge)
+- `/start` (slash command — see §14 for the `$ARGUMENTS` trailing argument)
 - "start a new project", "onboard this project into ossify", "kick off a
   skeleton-first build", "let's spec this out before we build"
 
@@ -435,9 +435,9 @@ the skeleton spine pre-seeded from the cut.
 
 ## 14. Slash-command interaction
 
-The `/start` slash command (`commands/start.md`) exports the raw argument as
-`$ARGUMENTS` via an env-var bridge — on shim-less channels (`Skill()`,
-natural language) nothing exports it; read the name from the invocation text.
+The `/start` slash command (`commands/start.md`) passes `$ARGUMENTS` to `bash -c`
+as a trailing argument — on shim-less channels (`Skill()`,
+natural language), read the name from the invocation text.
 **Parse `$ARGUMENTS` in bash; never reference `$1`/`$2`/`$N`** — Claude Code
 substitutes positionals at render time and corrupts them.
 

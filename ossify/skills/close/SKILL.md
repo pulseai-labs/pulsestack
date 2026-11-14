@@ -465,8 +465,8 @@ A versioned patch — a shipped defect or a can't-fake request — is
 
 ## 9. Slash-command interaction
 
-`/close <id>` (`commands/close.md`) exports the raw argument string as
-`$ARGUMENTS` through an env-var bridge — on shim-less channels (`Skill()`, natural language) nothing exports it; the id arrives as a literal
+`/close <id>` (`commands/close.md`) passes `$ARGUMENTS` to `bash -c` as a trailing
+argument — on shim-less channels (`Skill()`, natural language), the id arrives as a literal
 token in the invocation/request text. **Parse `$ARGUMENTS` in bash; never
 reference `$1` / `$2` / `$N`** — Claude Code substitutes positional tokens in
 command bodies at template-render time and silently corrupts them.

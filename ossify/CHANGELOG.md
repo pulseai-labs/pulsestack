@@ -11,7 +11,7 @@ they cover.
 
 ## 1.40.0
 
-Since 1.40.0, command bridges pass `$ARGUMENTS` as a trailing argument under their existing `Bash(bash:*)` grant. The missing-topology refusal and close's directory rule direct paired canonical sessions to `(cd <ai-workspace> && oss …)`, without changing the session directory or guessing workspace roots. `oss help` lists every verb's signature, and `oss help <verb>` prints just that signature, including stdin where read. Help reads the same literal guard argument as usage errors; zero-minimum guards annotate optional/no-argument verbs without changing accepted arguments. Closes #406, #717 and #495.
+Since 1.40.0, command bridges pass `$ARGUMENTS` as a trailing argument under their existing `Bash(bash:*)` grant. The missing-topology refusal and close's directory rule direct paired canonical sessions to `(cd <ai-workspace> && oss …)`, without changing the session directory or guessing workspace roots. `oss help` lists every verb's signature, and `oss help <verb>` prints just that signature, including stdin where read; `oss help <unknown verb>` now exits 2 instead of listing verbs at rc 0. Help reads the same literal guard argument as usage errors; zero-minimum annotations leave argument enforcement unchanged. Closes #406, #717 and #495.
 
 ## 1.39.0
 
