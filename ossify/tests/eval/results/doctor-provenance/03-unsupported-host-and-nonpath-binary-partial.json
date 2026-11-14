@@ -1,1 +1,1 @@
-{"scores":{"routing_and_roles":5,"status":5,"targeted_impact":5,"diagnostic_boundary":4},"pass":true,"notes":"diagnostic_boundary is 4 because the output says the binary remedy is PATH repair and names the unresolved roles, but it adds the unrequested 'no plugin update plus fresh session is indicated' line and a loose 'would let it resolve' suggestion; all other scores are 5."}
+{"scores":{"routing_and_roles":5,"status":5,"targeted_impact":5,"diagnostic_boundary":5},"pass":true,"notes":"All scores are 5, so none are below 5."}

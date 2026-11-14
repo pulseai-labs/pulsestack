@@ -2903,6 +2903,7 @@ pin "$_b12_provenance" 'Read its `.codex-plugin/plugin.json` version as identity
 pin "$_b12_provenance" 'Its `.claude-plugin/plugin.json` must carry the same version; either manifest unreadable, invalid, or disagreeing makes expected unavailable.' 'B12-P6 requires manifest agreement'
 _r=0; if grep -Fq 'no installed-reference arm' "$_b12_provenance"; then _r=1; fi
 _pin "$_r" 'B12-P7 removes the obsolete no-installed-reference-arm claim'
+pin "$_b12_provenance" 'When expected is unavailable, name only the failed condition: do not judge which candidate is stale or prescribe a fix. Never tell the operator to rerun doctor.' 'B12-P8 keeps an unavailable reference diagnostic'
 awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_DS" > "$_b12_provenance"
 pin "$_b12_provenance" 'Never probe inside a declared repo;' 'B12-X1 restores D1 scope protection in the doctor summary'
 pin "$_b12_provenance" 'Offer §5 for failed workspace root `CLAUDE.md` or `.claude/CLAUDE.md`,' 'B12-X2 keeps the summary repair offer limited to the workspace pair'

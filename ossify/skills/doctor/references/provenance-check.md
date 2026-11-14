@@ -85,6 +85,9 @@ downgrades a detected warning.
 Do not update a plugin, alter PATH, restart a session, mutate project state,
 certify completed work, or order a rerun. Name PATH repair when the binary is
 wrong. Name plugin update plus a fresh session when the loaded body is stale.
+When expected is unavailable, name only the failed condition: do not judge
+which candidate is stale or prescribe a fix. Never tell the operator to rerun
+doctor.
 The operator judges completed work from the exposed verbs and targeted prose
 deltas.
 
