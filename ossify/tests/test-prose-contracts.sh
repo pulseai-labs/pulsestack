@@ -2912,7 +2912,7 @@ pin "$_b12_fixtures/doctor-instruction-file/08-local-ancestor-and-hook.md" 'expe
 pin "$_b12_fixtures/doctor-instruction-file/08-local-ancestor-and-hook.md" 'three `fail: claude_md` lines' 'B12-F2 expects all three suppressors, not three repairs'
 pin "$_b12_fixtures/doctor-provenance/05-codex-enabled-cache-mismatch.md" 'expected_outcome: warn' 'B12-F3 adds a Codex mismatch fixture'
 awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_b12_fixtures/doctor-provenance/03-unsupported-host-and-nonpath-binary-partial.md" > "$_b12_provenance"
-pin "$_b12_provenance" '[plugins."ossify@pulsestack-codex"] enabled = true [plugins."ossify@claude-agent-scaffolding-codex"] enabled = true' 'B12-F4 states the two enabled Codex tables as input facts'
+pin "$_b12_provenance" '[plugins."ossify@pulsestack-codex"] enabled = true [plugins."ossify@claude-agent-scaffolding-codex"] enabled = true' 'B12-F4 states the two enabled Codex tables (one pre-rename) as input facts'
 # Adjacent control: an ambiguous reference and unidentified binary remain partial.
 # This outcome already exists on 5602772a; F4 above pins its new authority facts.
 pin "$_b12_fixtures/doctor-provenance/03-unsupported-host-and-nonpath-binary-partial.md" 'expected_outcome: partial' 'B12-F5 preserves the unresolved-role partial control'
