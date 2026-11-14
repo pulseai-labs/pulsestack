@@ -12,13 +12,10 @@ manifest.
 
 _Call the `oss` dispatcher by name. The plugin loader puts `bin/` on `$PATH` on Claude Code, Codex and OMP, so `oss` resolves in every Bash call; a variable set in one call is gone in the next._
 
-**You perform this check by reading. There is no dispatcher verb for it** — the
-`interop_check` subcommand was removed. It was 175 lines of bash that opened
-files and described what it found, which is work a model does directly and
-better. What remains deterministic is *path resolution* (`oss repo_root`,
-`oss state_path`), because every mutating verb routes through it and two
-spellings of one path is a real defect class. Deciding whether what you read is
-healthy is yours.
+**You perform this check by reading; there is no dispatcher verb.** The removed
+`interop_check` described files in 175 lines of bash. Judgment is yours; *path
+resolution* stays deterministic (`oss repo_root`, `oss state_path`), because
+every mutating verb routes through it and two spellings of one path is a defect.
 
 ---
 
@@ -40,10 +37,13 @@ ok: manifest - /path/to/.workspace/pairing.json
 fail: agents_md - no AGENTS.md at /path/AGENTS.md; a Codex session gets no project instructions at all
 fail: claude_md - /path/CLAUDE.md exists; Claude Code loads it and ignores AGENTS.md
 fail: claude_md - /path/.claude/CLAUDE.md exists; Claude Code loads it and ignores AGENTS.md
+fail: claude_md - /path/CLAUDE.local.md exists; personal file; move its rules into AGENTS.md, or delete it; doctor only names it
+fail: claude_md - /CLAUDE.md exists; ancestor file suppresses AGENTS.md for this workspace; doctor only names it, never moves or edits it
 ```
 
-`claude_md` emits one line per path it found, in the order root then `.claude/`
-(§3) — the sample above is a workspace holding both.
+`claude_md` emits one line per path found: root, `.claude/`, `CLAUDE.local.md`,
+then ancestors nearest first (§3). The sample holds all three workspace files
+and one ancestor file; only the first two enter §5's repair.
 
 Check names, in this order: `manifest`, `ai_workspace`, one `ok:`/`fail:`
 line per declared repo — named by its own key, `canonical` for a project that
@@ -57,21 +57,13 @@ first, except where §3 says to stop.
 ## 2. What was absorbed: the question, not the checklist
 
 The scaffold-onboard original requires ten `.routing.*` keys including
-`roadmap`, `sprint_specs` and `implementation_handoffs`, plus a
-`.workspace/locks` directory.
-
-**Every one of those is an artifact this stack retired.** `ROADMAP.md` is
-replaced by the feature map plus `RELEASE.md`; sprint specs by spine specs;
-`PROJECT_PLAN.md` outright. ossify's lock is a `<state>.lock` directory beside
-the state file, not a workspace-wide one.
-
-Porting that key set would make `doctor` report a correctly-configured ossify
-project as broken for not having the previous stack's furniture — a check whose
-failures are all false is worse than no check, because someone will eventually
-"fix" a healthy project to satisfy it.
-
-**If you are ever tempted to add a key here, the test is: does an ossify
-ceremony read it?** If nothing reads it, its absence is not a finding.
+`roadmap`, `sprint_specs` and `implementation_handoffs`, plus `.workspace/locks`.
+**All are retired:** the feature map plus `RELEASE.md` replaces `ROADMAP.md`,
+spine specs replace sprint specs, and `PROJECT_PLAN.md` is gone. ossify's lock
+is a `<state>.lock` directory beside state, not workspace-wide.
+Porting those requirements falsely fails healthy projects and invites bad fixes.
+**Before adding a key, ask: does an ossify ceremony read it?** If not, its
+absence is not a finding.
 
 ---
 
@@ -305,12 +297,11 @@ do not grow a normalizer here either.
 
 The check that every non-Claude agent depends on.
 
-`AGENTS.md` in the AI workspace must exist **and name ossify**. It is the one
-instruction file: Codex and OMP read only it, and Claude Code reads it whenever no
-`CLAUDE.md` exists: a workspace whose `AGENTS.md` never mentions ossify has a
-Codex session driving the project with none of its ceremonies — no spine
-planning, no close gates, no demo ledger — while the state file goes on
-recording a lifecycle nobody is following.
+`AGENTS.md` in the AI workspace must exist **and name ossify**. Codex and OMP
+read it; Claude Code reads it only absent §3's `claude_md` suppressors, including
+ancestors (not the user file). Without an ossify mention, a Codex session drives
+the project with none of its ceremonies — no spine planning, close gates or demo
+ledger — while state records a lifecycle nobody is following.
 
 Read `<ai_workspace.root>/AGENTS.md` and look for `ossify`, case-insensitively,
 anywhere in the file — a `## Ossify` heading satisfies it.
@@ -325,43 +316,45 @@ If the `ai_workspace` root did not resolve, you cannot look for the file: report
 root` and stop there.
 
 Do not author `AGENTS.md` from nothing here — its content is the project's. A
-leftover `CLAUDE.md` is §5's business whatever else this read-out found: the
-repair runs on its own failing line, not on the workspace being otherwise clean.
+leftover workspace root or `.claude/` `CLAUDE.md` is §5's business whatever else
+this read-out found: the repair runs on its own failing line, not on an otherwise clean workspace.
 
 ### `claude_md`
 
 The check that keeps Claude Code on the same file as everyone else.
 
-**Scope: the AI workspace, and only the AI workspace.** Look for `CLAUDE.md` at
-the `ai_workspace` root **and** at `<ai_workspace.root>/.claude/CLAUDE.md`.
-Never look inside a declared repo: a canonical's own `CLAUDE.md` is its
-business, its sessions are Claude's either way, and moving canonical
-instructions into the AI workspace would be a worse bug than the one this check
-reports. `ai_workspace` here is the resolved root, the same value the
-`agents_md` check reads.
+Look for `<ai_workspace.root>/CLAUDE.md`, `.claude/CLAUDE.md` under that root,
+then `<ai_workspace.root>/CLAUDE.local.md`. Use the resolved `ai_workspace`
+root, as `agents_md` does. Walk every ancestor directory up to `/`, nearest
+first, probing `CLAUDE.md`, `.claude/CLAUDE.md`, then `CLAUDE.local.md` in each,
+whether git or not. Skip `~/.claude/CLAUDE.md`: this user file does not suppress
+`AGENTS.md`. Never look inside a declared repo: its instructions are its business;
+if it is an ancestor, report its suppressing file only by the ancestor rule.
 
-Either path makes Claude Code load that file and ignore `AGENTS.md` (its default
-`instructionFiles` setting loads `AGENTS.md` only when no `CLAUDE.md` exists), so
+Under the default project-instructions setting (`claude-md-or-agents-md`), Claude
+Code reads `AGENTS.md` only when none of these three names exists in the
+workspace or its ancestors, excluding the user file above. A suppressor makes
 Claude sessions and every other agent follow different instructions.
-**Emit one `fail:` line per path found** — both files present is two failures
-with two remedies, not one failure with one:
+`.claude/rules/*.md` loads beside `AGENTS.md` and is not a finding (Claude Code 2.1.325).
+**Emit one `fail:` line per path found**, in the probe order above:
 
 | Line | Remedy |
 |---|---|
-| `ok: claude_md - no CLAUDE.md in the AI workspace` | — |
-| `fail: claude_md - <path> exists; Claude Code loads it and ignores AGENTS.md` | offer §5's repair — one such line per path found, both when both exist |
+| `ok: claude_md - no suppressing instruction file in the AI workspace or its ancestors` | — |
+| `fail: claude_md - <path> exists; Claude Code loads it and ignores AGENTS.md` | §5, only for workspace root `CLAUDE.md` and `.claude/CLAUDE.md` |
+| `fail: claude_md - <path> exists; personal file; move its rules into AGENTS.md, or delete it; doctor only names it` | operator's choice, never doctor's write |
+| `fail: claude_md - <path> exists; ancestor file suppresses AGENTS.md for this workspace; doctor only names it, never moves or edits it` | operator handles it outside this workspace |
 
-A declared repo's own `CLAUDE.md` is not this check's business: canonical repos
-keep theirs, and the loop above never probes them.
+Only the two in-workspace `CLAUDE.md` paths enter §5; never move, edit or delete
+a workspace `CLAUDE.local.md` or any ancestor file.
 
 ---
 
 ## 5. The repair — only on the operator's explicit yes
 
-When `claude_md` failed, offer to repair it. **Offer it whatever else the
-read-out found** — the repair answers `claude_md`'s own failing lines, and a
-workspace usually has more than one problem; gating the offer on an otherwise
-clean read-out strands the no-`AGENTS.md` shape branch 1 exists for.
+When either repairable `claude_md` path failed, offer §5 for that pair only,
+**whatever else the read-out found**. Other findings stay report-only; an
+otherwise dirty workspace must not strand the no-`AGENTS.md` shape of branch 1.
 
 **In a full sweep, offer it after the sweep's read-out, never mid-sweep.** §3
 forbids a mid-sweep prompt (the sweep's rule verdict is an inspection, and a
@@ -380,7 +373,13 @@ Build one plan for the whole workspace, not per file, and show every change firs
 - every **`@` import** in the result and whether it resolves from the new
   location, plus every import **rewrite** the move forces;
 - every file that will be **removed**;
-- any rule where the two files disagree, with **both** versions quoted.
+- any rule where the two files disagree, with **both** versions quoted;
+- every `InstructionsLoaded` hook in Claude Code settings this workspace reads
+  (user, project, local), naming its settings file and hook; it will stop firing
+  for the moved instructions. Never edit settings.
+- any workspace `CLAUDE.local.md` or ancestor suppressor that remains: Claude
+  Code will still not read `AGENTS.md`, so moved rules stop loading for Claude
+  until the remaining files are handled.
 
 An import that cannot be kept is shown as such, with the reason, and the operator
 decides before the yes — not discovered after the write.
@@ -410,7 +409,7 @@ and `AGENTS.md` (or its absence). If any differs from what the plan was built
 from, write nothing — rebuild the plan and show it again for a new yes. A plan
 approved against different bytes is not an approval.
 
-For each `CLAUDE.md` the check named, in the order §5.2 fixes:
+For each repairable `CLAUDE.md` in the plan, in the order §5.2 fixes:
 
 1. **No `AGENTS.md` at the root, and this is the file being placed.** Choose the
    command **first**, by the tracking test — never by trying one and falling back

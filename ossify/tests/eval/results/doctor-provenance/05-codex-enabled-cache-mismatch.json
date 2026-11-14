@@ -1,0 +1,1 @@
+{"scores":{"routing_and_roles":5,"status":5,"targeted_impact":5,"diagnostic_boundary":5},"pass":true,"notes":"No score is below 5: the three roles resolve independently from manifests, the status is warn as the fixture expects, the impact section names no verbs and no incomplete label because there was no prior use, and the output stays diagnostic."}

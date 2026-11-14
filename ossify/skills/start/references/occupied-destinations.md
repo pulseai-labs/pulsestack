@@ -77,8 +77,8 @@ differently, and carry what is there rather than the template's current text.
 **A leftover `CLAUDE.md` is not a destination.** `/start` never writes
 `CLAUDE.md`. When the AI workspace holds one (at its root or at
 `.claude/CLAUDE.md`), leave it untouched, and say in the §13 hand-off that
-Claude Code loads it in preference to `AGENTS.md` until it is migrated — run
-`ossify:doctor` (OMP: `skill://doctor`) and accept its interop repair.
+Claude Code loads it over `AGENTS.md` — run
+`ossify:doctor` (OMP: `skill://doctor`) for the repair and any remaining suppressors.
 
 ## 2. Stop and ask, per file
 

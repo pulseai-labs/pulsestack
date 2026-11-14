@@ -176,9 +176,8 @@ closes the items. The contract is
 
 `/ossify:doctor provenance` reports which `oss` binary answers, which doctor body is loaded, and
 which version was expected. It does not scan unused skills or decide reruns. Its guarantee begins
-after one plugin update and a fresh session. On
-Codex, finding the installed reference is still partial
-([#399](https://github.com/pulseai-labs/pulsestack/issues/399)).
+after one plugin update and a fresh session. On Codex, the enabled ossify config entry selects
+a single cache version directory; its Codex and Claude manifest versions must agree.
 
 ## Development
 

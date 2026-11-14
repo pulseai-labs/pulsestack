@@ -303,10 +303,10 @@ resolving to real directories, with each declared repo — never
 `ai_workspace`, which is legitimately allowed to be untracked — also being a
 git **work tree** (a bare repository or a `.git` directory is not
 one and fails), the state path resolving and not silently
-overridden, and **`AGENTS.md` existing and naming ossify**, and **no `CLAUDE.md`**
-at the AI workspace root or in its `.claude/` (`claude_md`) — that workspace
-only, never a declared repo, which keeps its own. `AGENTS.md` is the one
-instruction file every agent reads; a `CLAUDE.md` beside it shadows it for Claude.
+overridden, **`AGENTS.md` existing and naming ossify**, and no suppressing file
+at that workspace or in its ancestors (`claude_md`, interop-check §3's three names and user-file
+exclusion). Claude Code reads `AGENTS.md` only without those files. Never probe
+inside a declared repo; an ancestor is reported, never repaired.
 
 **What was absorbed is the question, not the checklist.** The scaffold-onboard
 original requires `routing.roadmap`, `routing.sprint_specs` and
@@ -314,9 +314,10 @@ original requires `routing.roadmap`, `routing.sprint_specs` and
 set over would report a correctly-configured ossify project as broken for
 lacking the previous stack's furniture.
 
-**Check first, repair on a yes.** When `claude_md` fails — whatever else the
-read-out found — offer §5's repair, after the read-out and never mid-sweep: whole
-plan shown first, writes only on the operator's explicit yes, never commits.
+**Check first, repair on a yes.** Offer §5 for failed workspace root `CLAUDE.md`
+or `.claude/CLAUDE.md`, whatever else the read-out found — after it, never mid-sweep.
+Show the whole plan, including rules Claude will stop loading; explicit yes before
+writes, never commits; other paths only named.
 
 Full detail — each check with what it protects, why an unrouted manifest is
 deliberately not a finding, and the remedy per failing line — is in

@@ -2217,10 +2217,10 @@ _PRA="$_OSSR/skills/doctor/references/rule-authoring.md"
 # D1: the check's scope is the AI workspace, and nothing about it reaches a
 # declared repo - read alone, an unscoped line fails every canonical that keeps
 # its own CLAUDE.md and offers to move canonical instructions into the workspace.
-_r=1; grep -Fq 'Scope: the AI workspace, and only the AI workspace' "$_IC" \
-  && grep -Fq 'Never look inside a declared repo' "$_IC" \
-  && grep -Fq 'that workspace' "$_DS" && grep -Fq 'never a declared repo' "$_DS" && _r=0
-_pin "$_r" "claude_md's scope is unstated or reaches a declared repo - a canonical's own CLAUDE.md reads as a failure of the AI workspace (D1)"
+_r=1; grep -Fq 'Never look inside a declared repo' "$_IC" \
+  && grep -Fq 'Only the two in-workspace `CLAUDE.md` paths enter §5' "$_IC" && _r=0
+_pin "$_r" "claude_md probes a declared repo or lets non-repairable findings into §5 (D1, #840)"
+# D1's SKILL.md scope half is pinned wrap-proof by B12-X1 below.
 # D2: the offer must not wait for an otherwise-clean read-out; the no-AGENTS.md
 # shape branch 1 exists for is exactly the one the old gate excluded.
 _r=1; ! grep -Fq 'the only problem is a leftover' "$_IC" \
@@ -2871,5 +2871,65 @@ pin "$_SK/close/references/release-close.md" 'line per finding — except that a
   "release-close.md's deferral gate prose does not name the fifth column (#761)"
 pin "$_SK/close/references/release-close.md" 'its `<spine>` is the row'"'"'s column 5.' \
   "release-close.md's re-defer bullet does not point at column 5 for the owning spine (#761)"
+
+# 1.41.0 (#840, #399): operative prose, flattened so wrapping is irrelevant.
+# These are requested prose pins, not substitutes for the session-driven evals.
+_b12_interop="$(mktemp)"; _b12_provenance="$(mktemp)"
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_IC" > "$_b12_interop"
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_OSSR/skills/doctor/references/provenance-check.md" > "$_b12_provenance"
+pin "$_b12_interop" 'then `<ai_workspace.root>/CLAUDE.local.md`' 'B12-I1 probes workspace CLAUDE.local.md'
+pin "$_b12_interop" 'Walk every ancestor directory up to `/`, nearest first, probing `CLAUDE.md`, `.claude/CLAUDE.md`, then `CLAUDE.local.md` in each, whether git or not.' 'B12-I2 walks all ancestors for all three names'
+pin "$_b12_interop" 'Skip `~/.claude/CLAUDE.md`: this user file does not suppress `AGENTS.md`.' 'B12-I3 excludes the user instruction file'
+pin "$_b12_interop" 'Only the two in-workspace `CLAUDE.md` paths enter §5; never move, edit or delete a workspace `CLAUDE.local.md` or any ancestor file.' 'B12-I4 restricts repair to the original pair'
+pin "$_b12_interop" '<path> exists; personal file; move its rules into AGENTS.md, or delete it; doctor only names it' 'B12-I5 names personal-file remedy without moving it'
+pin "$_b12_interop" '<path> exists; ancestor file suppresses AGENTS.md for this workspace; doctor only names it, never moves or edits it' 'B12-I6 names ancestor suppression without repairing it'
+pin "$_b12_interop" '`.claude/rules/*.md` loads beside `AGENTS.md` and is not a finding (Claude Code 2.1.325).' 'B12-I7 leaves rules files alongside AGENTS.md'
+pin "$_b12_interop" 'every `InstructionsLoaded` hook in Claude Code settings this workspace reads (user, project, local), naming its settings file and hook; it will stop firing for the moved instructions. Never edit settings.' 'B12-I8 names affected hooks in the plan without editing settings'
+pin "$_b12_interop" 'Claude Code reads `AGENTS.md` only when none of these three names exists in the workspace or its ancestors, excluding the user file above.' 'B12-I9 states the probed fallback rule without a setting claim'
+pin "$_b12_interop" 'ok: claude_md - no suppressing instruction file in the AI workspace or its ancestors' 'B12-I10 reports ok only across the expanded scope'
+pin "$_b12_interop" 'For each repairable `CLAUDE.md` in the plan, in the order §5.2 fixes:' 'B12-I11 keeps report-only files out of the actual repair loop'
+pin "$_b12_interop" 'and one ancestor file; only the first two enter §5'"'"'s repair.' 'B12-X3 keeps the output sample repair limited to its first two paths'
+pin "$_b12_interop" 'When either repairable `claude_md` path failed, offer §5 for that pair only,' 'B12-X4 keeps the repair offer limited to the workspace pair'
+pin "$_b12_interop" 'ancestor file suppresses AGENTS.md for this workspace; doctor only names it, never moves or edits it` | operator handles it outside this workspace |' 'B12-X7 keeps the ancestor remedy outside the repair'
+pin "$_b12_interop" 'personal file; move its rules into AGENTS.md, or delete it; doctor only names it` | operator'"'"'s choice, never doctor'"'"'s write |' 'B12-X8 keeps the personal-file remedy with the operator'
+pin "$_b12_interop" 'read it; Claude Code reads it only absent §3'"'"'s `claude_md` suppressors, including ancestors (not the user file).' 'B12-X9 keeps agents_md fallback aware of all suppressors'
+pin "$_b12_interop" 'any workspace `CLAUDE.local.md` or ancestor suppressor that remains: Claude Code will still not read `AGENTS.md`, so moved rules stop loading for Claude until the remaining files are handled.' 'B12-R1 discloses lost Claude-loaded rules in the pre-yes plan'
+pin "$_b12_interop" 'A leftover workspace root or `.claude/` `CLAUDE.md` is §5'"'"'s business whatever else' 'B12-R2 limits the agents_md repair routing to workspace files'
+# PR #1223 round 1: pin the remaining operative sentences, not their neighbours.
+pin "$_b12_interop" 'if it is an ancestor, report its suppressing file only by the ancestor rule.' 'B12-Y5 reports declared-repo ancestor suppressors instead of skipping them'
+pin "$_b12_interop" 'then ancestors nearest first (§3).' 'B12-Y6 keeps the output grammar ancestor order nearest first'
+pin "$_b12_interop" '| §5, only for workspace root `CLAUDE.md` and `.claude/CLAUDE.md` |' 'B12-Y7 keeps the first remedy cell limited to the workspace pair'
+pin "$_b12_interop" 'Other findings stay report-only;' 'B12-Y8 keeps non-pair findings out of the repair offer'
+pin "$_b12_provenance" 'On Codex only, when no checkout arm applies, read `${CODEX_HOME:-~/.codex}/config.toml`.' 'B12-P1 resolves Codex config only after checkout'
+pin "$_b12_provenance" 'Exactly one `[plugins."ossify@<marketplace>"]` table with `enabled = true` must exist; otherwise expected is unavailable.' 'B12-P2 selects exactly one enabled ossify entry'
+pin "$_b12_provenance" 'Use only that marketplace, not a directory-discovered choice' 'B12-P3 refuses disabled or stale directory-discovered marketplaces'
+pin "$_b12_provenance" 'The reference root is the single version directory under `${CODEX_HOME:-~/.codex}/plugins/cache/<marketplace>/ossify/`; zero or several directories make expected unavailable.' 'B12-P4 requires one version directory'
+pin "$_b12_provenance" 'Read its `.codex-plugin/plugin.json` version as identity, never the directory name.' 'B12-P5 reads the authoritative Codex manifest version'
+pin "$_b12_provenance" 'Its `.claude-plugin/plugin.json` must carry the same version; either manifest unreadable, invalid, or disagreeing makes expected unavailable.' 'B12-P6 requires manifest agreement'
+_r=0; if grep -Fq 'no installed-reference arm' "$_b12_provenance"; then _r=1; fi
+_pin "$_r" 'B12-P7 removes the obsolete no-installed-reference-arm claim'
+pin "$_b12_interop" 'Under the default project-instructions setting (`claude-md-or-agents-md`), Claude Code reads `AGENTS.md` only when none' 'B12-S1 scopes the suppressor rule to the default setting'
+pin "$_b12_provenance" 'When expected is unavailable, name only the failed condition: do not judge which candidate is stale or prescribe a fix. Never tell the operator to rerun doctor.' 'B12-P8 keeps an unavailable reference diagnostic'
+pin "$_b12_provenance" 'Unreadable or invalid config makes expected unavailable.' 'B12-Y3 refuses invalid Codex config without a cache fallback'
+pin "$_b12_provenance" 'a stale pre-rename cache is not authority' 'B12-Y4 denies stale-cache fallback authority'
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_DS" > "$_b12_provenance"
+pin "$_b12_provenance" 'Never probe inside a declared repo;' 'B12-X1 restores D1 scope protection in the doctor summary'
+pin "$_b12_provenance" 'Offer §5 for failed workspace root `CLAUDE.md` or `.claude/CLAUDE.md`,' 'B12-X2 keeps the summary repair offer limited to the workspace pair'
+pin "$_b12_provenance" 'other paths only named.' 'B12-Y1 keeps the summary non-pair paths report-only'
+pin "$_b12_provenance" 'an ancestor is reported, never repaired.' 'B12-Y2 keeps the summary ancestor finding report-only'
+_b12_fixtures="$_OSSR/tests/eval/fixtures"
+pin "$_b12_fixtures/doctor-instruction-file/08-local-ancestor-and-hook.md" 'expected_outcome: repair-merge-asks' 'B12-F1 adds the local/ancestor/hook repair fixture'
+pin "$_b12_fixtures/doctor-instruction-file/08-local-ancestor-and-hook.md" 'three `fail: claude_md` lines' 'B12-F2 expects all three suppressors, not three repairs'
+pin "$_b12_fixtures/doctor-provenance/05-codex-enabled-cache-mismatch.md" 'expected_outcome: warn' 'B12-F3 adds a Codex mismatch fixture'
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_b12_fixtures/doctor-provenance/03-unsupported-host-and-nonpath-binary-partial.md" > "$_b12_provenance"
+pin "$_b12_provenance" '[plugins."ossify@pulsestack-codex"] enabled = true [plugins."ossify@claude-agent-scaffolding-codex"] enabled = true' 'B12-F4 states the two enabled Codex tables (one pre-rename) as input facts'
+# Adjacent control: an ambiguous reference and unidentified binary remain partial.
+# This outcome already exists on 5602772a; F4 above pins its new authority facts.
+pin "$_b12_fixtures/doctor-provenance/03-unsupported-host-and-nonpath-binary-partial.md" 'expected_outcome: partial' 'B12-F5 preserves the unresolved-role partial control'
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_OSSR/skills/start/references/memory-bank-brief.md" > "$_b12_provenance"
+pin "$_b12_provenance" 'Claude Code reads it only without `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` in the workspace or any ancestor (excluding `~/.claude/CLAUDE.md`).' 'B12-C1 keeps the authored AGENTS template fallback rule complete'
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_OSSR/skills/start/references/occupied-destinations.md" > "$_b12_provenance"
+pin "$_b12_provenance" 'for the repair and any remaining suppressors.' 'B12-Y9 keeps remaining suppressors in the start handoff'
+rm -f "$_b12_interop" "$_b12_provenance"
 
 t_summary

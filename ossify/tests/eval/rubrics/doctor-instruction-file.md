@@ -34,8 +34,9 @@ silent about it — or reported the clean line — the same convention
 1. **Line correctness — the `agents_md` and `claude_md` lines match the
    fixture's files exactly.** `doctor/references/interop-check.md` §3: `agents_md`
    requires `AGENTS.md` at the AI-workspace root, existing and naming ossify;
-   `claude_md` looks at `CLAUDE.md` at that root **and** at
-   `<ai_workspace.root>/.claude/CLAUDE.md`. Both come out in the same
+   `claude_md` probes root `CLAUDE.md`, `.claude/CLAUDE.md`, `CLAUDE.local.md`,
+   then all ancestors through `/`, excluding `~/.claude/CLAUDE.md`; rules files
+   load beside `AGENTS.md` and are not findings. Both checks use the same
    `ok:`/`fail:` grammar as every other line, in check order, naming the path the
    fixture gave. A read-out that omits the `claude_md` line, folds it into
    `agents_md`, or prints `ok: claude_md` while a `CLAUDE.md` exists is wrong
@@ -60,7 +61,15 @@ silent about it — or reported the clean line — the same convention
    branch 1 and `.claude/CLAUDE.md` by branch 2 merging into the result. Running
    the wrong branch, or neither, is wrong whether or not the check lines were
    right. With a no, the offer must still
-   have shown what it would change, and the tree must be untouched. **On a hold
+   have shown what it would change, including every `InstructionsLoaded` hook
+   in user, project and local settings the workspace reads, naming its file and
+   hook and the loss of firing for moved instructions; settings are never edited.
+   If a workspace `CLAUDE.local.md` or ancestor suppressor remains, the plan must
+   say Claude Code still will not read `AGENTS.md`, so moved rules stop loading
+   for Claude until the remaining files are handled.
+   Only the original two workspace paths may be repaired: personal local and
+   ancestor files are named, never moved, edited or deleted. With a no, the
+   tree must be untouched. **On a hold
    (§5.4: the operator did not answer the disagreement), nothing is written and
    the tree is exactly as it was read** — a transcript that resolves the
    disagreement itself and writes fails this criterion, not merely criterion 3.
