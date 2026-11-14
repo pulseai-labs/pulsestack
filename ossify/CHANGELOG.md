@@ -9,6 +9,10 @@ The 1.24.0 entry's parenthesis about adopt and a marked stub, added in 1.35.0, s
 Some versions have no entry. The GitHub releases tagged `ossify-v*` carry notes for the versions
 they cover.
 
+## 1.42.0
+
+Since 1.42.0, each verifier mutation return carries its saved-copy path, and close checks it. A fingerprint halt names the copies and routes to operator-owned restoration; inline mutation uses the same fingerprint, whose untracked-content and ignored-file limits are explicit. Verifier model selection treats empty as unset, distinguishes model refusal from unavailable dispatch, and prints the returned model plus any passed value. Every mutation result reaches `verify.md`, only halting results carry `[mutation]`, and spine review reads mutation evidence with its existing advisories. The gate table distinguishes early-layer stops from the complete verifier pass; TDD probes restore from saved copies, never git. Operative prose pins are wrap-proof. Part of #973 (items 3–6 and the #992 review row; item 7 remains).
+
 ## 1.41.0
 
 Since 1.41.0, doctor's interop check reports workspace `CLAUDE.local.md` and suppressing instruction files in every ancestor, excluding the user `~/.claude/CLAUDE.md`; `.claude/rules/*.md` loads beside `AGENTS.md` and is not a finding. Only workspace root `CLAUDE.md` and `.claude/CLAUDE.md` enter the yes-gated repair; its plan names affected `InstructionsLoaded` hooks without editing settings. On Codex, provenance selects the single enabled ossify config entry and its single cache version directory, reading identity from the Codex manifest and requiring the Claude manifest to agree, never taking a version from a directory name. Closes #840 and #399.

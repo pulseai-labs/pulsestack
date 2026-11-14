@@ -262,6 +262,12 @@ t_assert_rc 1 "verifier identity: an edit to an already partly-staged file halts
 cp "$TMP/vi-g" "$VI_WT/g"; : > "$VI_WT/stray"; _vi_run
 t_assert_rc 1 "verifier identity: a stray file left in the worktree halts"
 rm -f "$VI_WT/stray"
+# #973.3f: a real non-repository reaches the cannot-fingerprint arm.
+VI_NOT_GIT="$TMP/vi-not-git"; mkdir -p "$VI_NOT_GIT"
+t_capture bash -c "set -euo pipefail; wt='$VI_NOT_GIT'; . '$VI_BLOCK'"
+t_assert_rc 1 "B13-F: cannot fingerprint a non-git worktree halts"
+t_assert_contains "$T_OUT" "close: cannot fingerprint $VI_NOT_GIT for the verifier - halt" \
+  "B13-F: cannot fingerprint names the worktree"
 
 # #993: with --verdict the close recomputes the identity and compares it to the
 # verdict's. Executed from the shipped block: a verdict written for this exact

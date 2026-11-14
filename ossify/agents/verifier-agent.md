@@ -1,6 +1,6 @@
 ---
 name: verifier-agent
-description: 'Judge one ossify work item at close, in a context that did not build it: Layer 3 (documented patterns), Layer 4 (fidelity, pattern, absence) and the mutation check, per `skills/close/references/impl-check.md` §4, §4b and §4c under the ossify plugin root. Dispatched by work-item close only. Returns one JSON object; never writes verify.md, never stages, never commits.'
+description: 'Judge one ossify work item at close in a context that did not build it. Layer 3 (documented patterns), Layer 4 (fidelity, pattern, absence) and the mutation check follow `skills/close/references/impl-check.md` §4, §4b and §4c under the ossify plugin root. Dispatched by work-item close only. Returns one JSON object; never writes verify.md, never stages, never commits.'
 tools: Bash, Read, Edit, Glob, Grep
 model: inherit
 ---
@@ -37,7 +37,7 @@ changed. No `Write`, no `Task`, no `Skill`.
 Your final message ends with exactly one JSON object, verbatim in shape:
 
 ```
-{"mode": "verified", "model": "<model you run>", "rule": [{"file","line","pattern","claim"}], "lenses": [<impl-check.md §4b finding schema>], "mutation": [{"test","mutation","result": "red | stayed-green | undetermined","evidence"}]}
+{"mode": "verified", "model": "<model you run>", "rule": [{"file","line","pattern","claim"}], "lenses": [<impl-check.md §4b finding schema>], "mutation": [{"test","mutation","result": "red | stayed-green | undetermined","evidence","copy": "<absolute path of the saved copy>"}]}
 ```
 
 ```
@@ -47,3 +47,4 @@ Your final message ends with exactly one JSON object, verbatim in shape:
 Empty arrays are valid. `mutation` is `[]` when the diff adds or changes no test.
 `result` is exactly `red`, `stayed-green` or `undetermined`; `stayed-green`
 means the evidence shows all three §4c conditions held.
+Identify the mutated file in `mutation`; keep its saved `copy` outside the worktree for recovery.

@@ -105,17 +105,17 @@ against the merge base, so you see what the spine *added*; two dots also shows
 everything that landed on the base branch meanwhile, which is not this spine's
 work and not yours to review.
 
-### Reading Layer 4's advisories
+### Reading the verifier’s advisories
 
-Layer 4's findings are additional input to the two axes below, not a third
+Verifier findings and mutation results are input to the two axes below, not a third
 axis — but they carry the same rationalization risk §2's axis order exists to
 prevent, so read them in **two passes, not one**. Each spine work item's
 `<work-item-dir>/verify.md`, if one exists, is resolved the way
 `work-item-close.md` §1 Route B does (the spine dir, glob-recovered, then
 `work-<wi>/`); every item has already closed by the time you run, so Route B's
 reconstruction is always the one in scope here, never Route A's return
-payload. Every verifier pass writes one, with zero findings too; read only its
-findings, not its `verifier:` and layer-result lines. Absent is not a gap: a
+payload. Every verifier pass writes one, with zero findings too; read only its findings
+and mutation lines, not its `verifier:` and layer-result lines. Absent is not a gap: a
 close before ossify 1.29.1 wrote one only on findings.
 
 **Walk the non-`abandoned` items only — the same set `hosting_repos` read
@@ -125,8 +125,8 @@ deliberately never implemented. Folding either one in reports a planning decisio
 back as a gap in the work, and the disposition loop then churns on work the plan
 withdrew. Axis B reads the same set (§4).
 
-**Before Axis A:** read only each file's `pattern`-tagged findings and fold
-them into your Axis A findings. Leave the rest of the file unread.
+**Before Axis A:** read only each file’s `pattern`-tagged findings and mutation lines
+and fold them into your Axis A findings.
 
 **Before Axis B, once Axis A is written down:** go back to the same files and
 read the `absence` and declared-`fidelity` findings you skipped — spec

@@ -14,6 +14,14 @@
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
 . "$HERE/lib/pin.sh"
+# Use the suite's whitespace-flattening convention before unique prose pins.
+pin_prose() {
+  local flat
+  flat="$(mktemp)"
+  awk '{sub(/^> ?/, ""); s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$1" > "$flat"
+  pin "$flat" "$2" "$3"
+  rm -f "$flat"
+}
 WI="$HERE/../skills/work-item"
 
 # Obsolete bridge descriptions must not survive, even across line wraps.
@@ -1837,6 +1845,10 @@ for f in work-item/SKILL.md patch/SKILL.md close/references/harvest.md adopt/SKI
 done
 # D5, moved by #951: the implementer no longer verifies its own tests. No
 # self-verification text survives in the work-item tree or its registration.
+for _f in "$WI/SKILL.md" "$WI/references/tdd-loop.md" "$HERE/../agents/implementer-agent.md"; do
+  t_assert_eq nonempty "$(if [ -s "$_f" ]; then echo nonempty; fi)" \
+    "B13-N: self-verification absence has a nonempty input: $_f"
+done
 t_assert_eq "" "$(grep -rn -e 'Can each test fail' -e 'verification-before-completion' -e 'whether it can fail' "$WI" "$HERE/../agents/implementer-agent.md")" \
   "work-item and implementer-agent carry no self-verification step (#951)"
 # #951: the check moved to close, run by a fresh verifier (impl-check §4c).
@@ -1854,11 +1866,11 @@ t_assert_eq 1 "$(awk '/^tools: /{n++} END{print n+0}' "$_VA951")" "verifier-agen
 t_assert_eq "tools: Bash, Read, Edit, Glob, Grep" "$(awk '/^tools: /{print; exit}' "$_VA951")" "verifier-agent's tools line is exact (#951 D4)"
 pin "$_VA951" 'model: inherit' "verifier-agent inherits its model unless close passes one (#951 D6)"
 pin "$_VA951" '§4, §4b and §4c, and follow them.' "verifier-agent points at impl-check §4, §4b and §4c (#951 D2)"
-pin "$_VA951" '{"mode": "verified", "model": "<model you run>", "rule": [{"file","line","pattern","claim"}], "lenses": [<impl-check.md §4b finding schema>], "mutation": [{"test","mutation","result": "red | stayed-green | undetermined","evidence"}]}' \
+pin "$_VA951" '{"mode": "verified", "model": "<model you run>", "rule": [{"file","line","pattern","claim"}], "lenses": [<impl-check.md §4b finding schema>], "mutation": [{"test","mutation","result": "red | stayed-green | undetermined","evidence","copy": "<absolute path of the saved copy>"}]}' \
   "verifier-agent restates the verified return shape (#951 D4)"
 pin "$_VA951" '{"mode": "refused", "reason": "<the input you could not read>"}' "verifier-agent restates the refused return (#951 D4)"
-pin "$_WC951" 'When `OSSIFY_VERIFIER_MODEL` is set' "work-item-close §2 reads OSSIFY_VERIFIER_MODEL (#951 D6)"
-pin "$_WC951" '`model: inherit` applies; print `verifier model: inherited (same as this' "work-item-close §2 prints the inherited-model notice (#951 D6)"
+pin_prose "$_WC951" 'When `OSSIFY_VERIFIER_MODEL` is non-empty (for example in a `settings.json` env block), pass it as the tool’s `model`; set-but-empty is the same as unset.' "B13-M1: empty model equals unset"
+pin_prose "$_WC951" 'Unset or empty, the registration’s `model: inherit` applies; print `verifier model: inherited (same as this session) — set OSSIFY_VERIFIER_MODEL to separate it`.' "B13-M2: empty model inherits with the notice"
 pin "$_WC951" '`verifier: inline — <host or why>`' "work-item-close §2 names the inline fallback line (#951 D7)"
 pin "$_WC951" '`verifier: ossify:verifier-agent on <model>`' "work-item-close §2 names the dispatched-verifier summary line (#951 D4)"
 pin "$_WC951" '`agent: "verifier"` (omp-roles 0.10.0+), not the default `task` agent.' "work-item-close §2 dispatches the OMP verifier by agent name (#970)"
@@ -2515,42 +2527,55 @@ absent_981() {
     T_FAIL=$((T_FAIL+1)); echo "FAIL: $3 (still in ${1##*/}: $2)"
   else T_PASS=$((T_PASS+1)); fi
 }
-pin "$_981_IC" '**every halting verdict that pass returns is surfaced,' \
+pin_prose "$_981_IC" 'Layers 3, 4 and §4c are one verifier pass, so **every halting verdict that pass returns is surfaced, recorded in `verify.md`, and named by the halt** — none hides another.' \
   "#981 impl-check: every halting verdict of one pass is surfaced"
-pin "$_981_IC" 'the `[mutation]` row applies, with the fidelity claim attached' \
+pin_prose "$_981_IC" 'When `[fidelity]` and `[mutation]` name the same test, the `[mutation]` row applies, with the fidelity claim attached: declaring the deviation in §7 does not clear it, since the test still cannot fail.' \
   "#981 impl-check §6: [fidelity] and [mutation] on one test take the [mutation] row"
-pin "$_981_IC" 'verdict included — `[rule]`, `[fidelity]`, `[mutation]`.' \
+pin_prose "$_981_IC" '**A halting run'"'"'s finding set is written to `verify.md` too, every halting verdict included — `[rule]`, `[fidelity]`, `[mutation]`.' \
   "#981 impl-check §4b: verify.md records every halting verdict"
-pin "$_981_IC" 'verdicts and dropping the rest.** §1.' \
+pin_prose "$_981_IC" '- **Running the verifier past a Layer 1 or 2 failure, or halting on one of its verdicts and dropping the rest.** §1.' \
   "#973.1 impl-check §7: the anti-pattern is dropping a verdict, not gathering them"
 absent_981 "$_981_IC" 'Gathering all failures before halting' "#973.1 impl-check: the gather-nothing anti-pattern is gone"
 absent_981 "$_981_IC" 'first failure in any layer' "#973.1 impl-check: the halt-on-first-in-any-layer sentence is gone"
 absent_981 "$_981_IC" 'deleted at zero findings' "#980 impl-check: verify.md is no longer deleted at zero findings"
-pin "$_981_WC" 'any one halts, and the halt names all' \
+pin_prose "$_981_WC" 'Apply every verdict the pass returns — `[rule]` (Layer 3), `[fidelity]` (§4b), `[mutation]` (§4c): any one halts, and the halt names all of them.' \
   "#981 work-item-close §2: the halt names every verdict"
 absent_981 "$_981_WC" 'Apply the verdicts in order' "#981 work-item-close §2: in-order verdicts are gone"
-pin "$_981_WC" '`[rule]` included, the whole set is' \
+pin_prose "$_981_WC" 'When the pass halts, on any tag, `[rule]` included, the whole set is written with every halting verdict in it.' \
   "#973.1 work-item-close §2: a [rule] halt still records Layer 4 and mutation"
-pin "$_981_WC" '`[report cross-check]`, `[rule]`, `[fidelity]`, `[mutation]` (`impl-check.md`).' \
+pin_prose "$_981_WC" '1. Surface every error with its **source tag** — `[AC]`, `[report cross-check]`, `[rule]`, `[fidelity]`, `[mutation]` (`impl-check.md`).' \
   "#973.2 work-item-close §5: the halt step lists all five tags"
-pin "$_981_WC" '**Every completed verifier pass writes' \
-  "#980 work-item-close §2: every completed pass writes verify.md"
-pin "$_981_WC" 'line per layer (L1, L2, L3, L4, mutation; `not run` in an `--external-executor`' \
-  "#980 work-item-close §2: verify.md carries each layer's result, external lane included"
-pin "$_981_WC" 'Each halting verdict is one line that begins with its tag, or with `- `' \
-  "#981 C2 work-item-close §2: names the line shape _oss_inv_rejection anchors on"
-pin "$_981_WC" 'is tagged `[fidelity]`, a declared one is written as `fidelity`.' \
-  "#980 work-item-close §2: [fidelity] marks only a halting finding (the rejection record)"
+pin_prose "$_981_WC" '**Every completed verifier pass writes `<work-item-dir>/verify.md`** — `$(dirname "$report")` on Route A, `$wi_dir` on Route B — and echoes it in the close summary: the `verifier:` line, one result line per layer (L1, L2, L3, L4, mutation; `not run` in an `--external-executor` lane), then `$spec_note` from §1 when it is non-empty (a line of its own, so it is never read as a finding and never begins with a verdict tag), then the findings and every mutation result.' \
+  "#980 work-item-close §2: every completed pass writes the complete gate record"
+pin_prose "$_981_WC" 'Each halting verdict is one line that begins with its tag, or with `- ` and then the tag (`[fidelity] <file>:<line> - <claim>`); only a halting finding is tagged `[fidelity]`, a declared one is written as `fidelity`.' \
+  "#981 C2 work-item-close §2: halting line shape and declared-fidelity control"
 absent_981 "$_981_WC" 'delete the file rather than' "#980 work-item-close §2: zero findings no longer deletes verify.md"
-pin "$_981_CR" '**ossify dispatches no spine review to another agent**' \
+pin_prose "$_981_CR" '**ossify dispatches no spine review to another agent** — its workers are `implementer-agent` and work-item close'"'"'s `verifier-agent`, and neither reviews a spine (`work-item-close.md` §2).' \
   "#973.1 code-review: the no-dispatch sentence is scoped to spine review"
 absent_981 "$_981_CR" 'Absent is a clean signal' "#980 code-review: absent verify.md is no longer read as clean-by-design"
-pin "$_981_RT" 'Give each item its `verifier:` line, copied from its' \
-  "#980 retrospective bone §2: each item's verifier line"
-pin "$_981_RT" 'and its `verifier:` line, as the bone set'"'"'s §2.' \
-  "#980 retrospective flesh §1: each item's verifier line"
-pin "$SKILLS/close/SKILL.md" '`report.md`, `verify.md` and the state' \
+pin_prose "$_981_RT" 'Give each item its `verifier:` line, copied from its `verify.md` (`work-item-close.md` §2), or say it has none.' \
+  "#980 retrospective bone §2: each item’s verifier line"
+pin_prose "$_981_RT" 'Spine id, release, and the work items by id and title with what each delivered and its `verifier:` line, as the bone set'"'"'s §2.' \
+  "#980 retrospective flesh §1: each item’s verifier line"
+pin_prose "$SKILLS/close/SKILL.md" 'The durable records are `retrospective.md`, `report.md`, `verify.md` and the state writes; the summary is how a human reads the run without opening them.' \
   "#980 close SKILL.md §10: verify.md is a durable record"
+
+# 1.42.0 (#973 items 3–6 and #992): operative rules, not nearby mentions.
+pin_prose "$_981_IC" 'For `close: verifier left $wt changed - halt`, show `git -C "$wt" status --short` and `git -C "$wt" diff --stat`; restore each mutated file from its returned `copy` or by hand, remove generated files, then re-run `/close`.' 'B13-R: fingerprint halt has a recovery route'
+pin_prose "$_981_IC" 'The close never restores by itself.' 'B13-R2: recovery is operator-owned'
+pin_prose "$_WC951" 'Each mutation entry must have `test`, `mutation`, `result`, `evidence` and an absolute `copy` path; a missing key or non-absolute `copy` halts, naming it.' 'B13-C: close enforces the saved-copy return shape'
+pin_prose "$_WC951" 'On a fingerprint halt, name every returned `copy` → file pair (the file mutated by that entry) and point to `git -C "$wt" status --short`, including files generated by the test run.' 'B13-H: halt names recovery copies and generated files'
+pin_prose "$_WC951" 'For an inline §4c pass, run the same fingerprint block immediately before §4c and after restoration, with the same halt.' 'B13-I: inline mutation is fingerprinted'
+pin_prose "$_WC951" 'The fingerprint sees untracked paths but not their content, and does not see ignored files.' 'B13-U: fingerprint states its limits'
+pin_prose "$_WC951" 'The value is whatever the host’s agent tool accepts as `model` (on Claude Code, an alias such as `sonnet` or a full model id, not a closed list).' 'B13-M3: model values follow the host tool'
+pin_prose "$_WC951" 'A tool refusal naming the model halts and names the value; a dispatch refused for lack of a `Task` grant or in a subagent context goes inline, not a model fallback.' 'B13-M4: model refusal and dispatch refusal differ'
+pin_prose "$_WC951" 'Print `verifier: ossify:verifier-agent on <model>` using the return’s `model`; when a non-empty `OSSIFY_VERIFIER_MODEL` was passed, also print that passed value.' 'B13-M5: summary distinguishes returned and passed model'
+pin_prose "$_WC951" 'An evidenced halting `stayed-green` line begins `[mutation]`; `red` and `undetermined` are untagged `mutation: <result> <test> - <mutation>` lines.' 'B13-V: only halting mutation results are tagged'
+pin_prose "$_981_CR" 'read only its findings and mutation lines, not its `verifier:` and layer-result lines.' 'B13-A: code review reads mutation evidence'
+pin_prose "$_981_CR" '**Before Axis A:** read only each file’s `pattern`-tagged findings and mutation lines and fold them into your Axis A findings.' 'B13-A2: mutation evidence follows the existing Axis A rule'
+pin_prose "$_981_IC" '| On failure | keep going | **halt on first Layer 1/2 failure; surface every halting verdict from the verifier pass** |' 'B13-T: table distinguishes early layers from the verifier pass'
+pin_prose "$WI/references/tdd-loop.md" '**The sanity check, in both cases:** break the production code once, watch the new test go red, restore from a copy saved outside the worktree, never from git.' 'B13-S1: first-run green restores from saved copy'
+pin_prose "$WI/references/tdd-loop.md" 'Break the production code, re-run, and if the test still passes you have found it; restore from a copy saved outside the worktree, never from git.' 'B13-S2: misaimed-test probe restores from saved copy'
 pin "$SKILLS/work-item/SKILL.md" '`GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 oss verify_step "<worktree-abs>" "<command>" "<expectation>"`' \
   "#946 work-item: a test that runs git also runs with no host identity"
 pin "$SKILLS/work-item/SKILL.md" 'the command cannot run here yet (it exits 126 or 127' \
