@@ -76,6 +76,11 @@ awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$CLOSE/SKILL.md"
 pin "$_close_flat" 'In a paired canonical repo, use a subshell `(cd <ai-workspace> && oss …)` for every `oss` call; keep the session directory unchanged.' \
   'close sanctions a workspace subshell without changing the session directory (#717)'
 rm -f "$_close_flat"
+_doctor_flat="$(mktemp)"
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$HERE/../skills/doctor/SKILL.md" > "$_doctor_flat"
+pin "$_doctor_flat" 'from a paired canonical repo, `(cd <ai-workspace> && oss …)` is a subshell, not a session `cd`.' \
+  'doctor names the workspace subshell as no session cd (#717)'
+rm -f "$_doctor_flat"
 
 # The §9 heading is matched by EXACT STRING at harvest time. If the contract
 # that pins it and the ceremony that greps it ever disagree, every report reads
