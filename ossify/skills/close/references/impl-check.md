@@ -379,7 +379,8 @@ layers' findings under one tag. Five tags, spelled exactly as above.
 ## 6. The recovery menu
 
 Surfaced on any halt, **never auto-selected**. For tagged halts, present all three
-with their real consequences and stop; untagged halts use the routes below:
+with their real consequences and stop; untagged halts use the routes below.
+For any other untagged halt, fix the named input and re-run `/close`.
 
 1. **Re-dispatch the implementer with the failure.** The default when the code is
    wrong. The failure detail goes into the handoff as a clarification, because a

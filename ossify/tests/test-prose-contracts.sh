@@ -1866,14 +1866,14 @@ t_assert_eq 1 "$(awk '/^tools: /{n++} END{print n+0}' "$_VA951")" "verifier-agen
 t_assert_eq "tools: Bash, Read, Edit, Glob, Grep" "$(awk '/^tools: /{print; exit}' "$_VA951")" "verifier-agent's tools line is exact (#951 D4)"
 pin "$_VA951" 'model: inherit' "verifier-agent inherits its model unless close passes one (#951 D6)"
 pin "$_VA951" '§4, §4b and §4c, and follow them.' "verifier-agent points at impl-check §4, §4b and §4c (#951 D2)"
-pin "$_VA951" '{"mode": "verified", "model": "<model you run>", "rule": [{"file","line","pattern","claim"}], "lenses": [<impl-check.md §4b finding schema>], "mutation": [{"test","mutation","result": "red | stayed-green | undetermined","evidence","copy": "<absolute path of the saved copy>"}]}' \
+pin "$_VA951" '{"mode": "verified", "model": "<model you run>", "rule": [{"file","line","pattern","claim"}], "lenses": [<impl-check.md §4b finding schema>], "mutation": [{"test","mutation","result": "red | stayed-green | undetermined","evidence","file": "<absolute path of the mutated file>","copy": "<absolute path of the saved copy>"}]}' \
   "verifier-agent restates the verified return shape (#951 D4)"
 pin "$_VA951" '{"mode": "refused", "reason": "<the input you could not read>"}' "verifier-agent restates the refused return (#951 D4)"
-pin_prose "$_WC951" 'When `OSSIFY_VERIFIER_MODEL` is non-empty (for example in a `settings.json` env block), pass it as the tool’s `model`; set-but-empty is the same as unset.' "B13-M1: empty model equals unset"
-pin_prose "$_WC951" 'Unset or empty, the registration’s `model: inherit` applies; print `verifier model: inherited (same as this session) — set OSSIFY_VERIFIER_MODEL to separate it`.' "B13-M2: empty model inherits with the notice"
+pin_prose "$_WC951" 'When `OSSIFY_VERIFIER_MODEL` is non-empty (for example in a `settings.json` env block), pass it as the tool'"'"'s `model`; set-but-empty is the same as unset.' "B13-M1: empty model equals unset"
+pin_prose "$_WC951" 'Unset or empty, the registration'"'"'s `model: inherit` applies; print `verifier model: inherited (same as this session) — set OSSIFY_VERIFIER_MODEL to separate it`.' "B13-M2: empty model inherits with the notice"
 pin "$_WC951" '`verifier: inline — <host or why>`' "work-item-close §2 names the inline fallback line (#951 D7)"
 pin "$_WC951" '`verifier: ossify:verifier-agent on <model>`' "work-item-close §2 names the dispatched-verifier summary line (#951 D4)"
-pin "$_WC951" '`agent: "verifier"` (omp-roles 0.10.0+), not the default `task` agent.' "work-item-close §2 dispatches the OMP verifier by agent name (#970)"
+pin_prose "$_WC951" '`agent: "verifier"` (omp-roles 0.11.1+), not the default `task` agent.' "B13-F3a: close requires the compatible OMP verifier"
 pin "$_WC951" 'OMP with no `verifier` in `task`'"'"'s agent list' "work-item-close §2 keeps the inline route for an OMP without the agent (#970)"
 pin "$_WC951" '`task.agentModelOverrides.verifier`, else the session' "work-item-close §2 names OMP's model source (#970)"
 t_assert_eq 1 "$(awk '/^allowed-tools:/ && /, Task$/ {n++} END{print n+0}' "$HERE/../commands/close.md")" \
@@ -2554,28 +2554,46 @@ pin_prose "$_981_CR" '**ossify dispatches no spine review to another agent** —
   "#973.1 code-review: the no-dispatch sentence is scoped to spine review"
 absent_981 "$_981_CR" 'Absent is a clean signal' "#980 code-review: absent verify.md is no longer read as clean-by-design"
 pin_prose "$_981_RT" 'Give each item its `verifier:` line, copied from its `verify.md` (`work-item-close.md` §2), or say it has none.' \
-  "#980 retrospective bone §2: each item’s verifier line"
+  "#980 retrospective bone §2: each item's verifier line"
 pin_prose "$_981_RT" 'Spine id, release, and the work items by id and title with what each delivered and its `verifier:` line, as the bone set'"'"'s §2.' \
-  "#980 retrospective flesh §1: each item’s verifier line"
+  "#980 retrospective flesh §1: each item's verifier line"
 pin_prose "$SKILLS/close/SKILL.md" 'The durable records are `retrospective.md`, `report.md`, `verify.md` and the state writes; the summary is how a human reads the run without opening them.' \
   "#980 close SKILL.md §10: verify.md is a durable record"
 
 # 1.42.0 (#973 items 3–6 and #992): operative rules, not nearby mentions.
 pin_prose "$_981_IC" 'For `close: verifier left $wt changed - halt`, show `git -C "$wt" status --short` and `git -C "$wt" diff --stat`; restore each mutated file from its returned `copy` or by hand, remove generated files, then re-run `/close`.' 'B13-R: fingerprint halt has a recovery route'
 pin_prose "$_981_IC" 'The close never restores by itself.' 'B13-R2: recovery is operator-owned'
-pin_prose "$_WC951" 'Each mutation entry must have `test`, `mutation`, `result`, `evidence` and an absolute `copy` path; a missing key or non-absolute `copy` halts, naming it.' 'B13-C: close enforces the saved-copy return shape'
-pin_prose "$_WC951" 'On a fingerprint halt, name every returned `copy` → file pair (the file mutated by that entry) and point to `git -C "$wt" status --short`, including files generated by the test run.' 'B13-H: halt names recovery copies and generated files'
+pin_prose "$_WC951" 'Each mutation entry must have `test`, `mutation`, `result`, `evidence`, `file` and `copy`; a missing key halts, naming it.' 'B13-C: close enforces both structured path keys'
+pin_prose "$_WC951" 'On a fingerprint halt, name every non-null `copy` → `file` pair from those keys and point to `git -C "$wt" status --short`, including files generated by the test run.' 'B13-H: halt names structured path pairs and generated files'
 pin_prose "$_WC951" 'For an inline §4c pass, run the same fingerprint block immediately before §4c and after restoration, with the same halt.' 'B13-I: inline mutation is fingerprinted'
 pin_prose "$_WC951" 'The fingerprint sees untracked paths but not their content, and does not see ignored files.' 'B13-U: fingerprint states its limits'
-pin_prose "$_WC951" 'The value is whatever the host’s agent tool accepts as `model` (on Claude Code, an alias such as `sonnet` or a full model id, not a closed list).' 'B13-M3: model values follow the host tool'
+pin_prose "$_WC951" 'The value is whatever the host'"'"'s agent tool accepts as `model` (on Claude Code, an alias such as `sonnet` or a full model id, not a closed list).' 'B13-M3: model values follow the host tool'
 pin_prose "$_WC951" 'A tool refusal naming the model halts and names the value; a dispatch refused for lack of a `Task` grant or in a subagent context goes inline, not a model fallback.' 'B13-M4: model refusal and dispatch refusal differ'
-pin_prose "$_WC951" 'Print `verifier: ossify:verifier-agent on <model>` using the return’s `model`; when a non-empty `OSSIFY_VERIFIER_MODEL` was passed, also print that passed value.' 'B13-M5: summary distinguishes returned and passed model'
+pin_prose "$_WC951" 'Print `verifier: ossify:verifier-agent on <model>` using the return'"'"'s `model`; when a non-empty `OSSIFY_VERIFIER_MODEL` was passed, also print that passed value.' 'B13-M5: summary distinguishes returned and passed model'
 pin_prose "$_WC951" 'An evidenced halting `stayed-green` line begins `[mutation]`; `red` and `undetermined` are untagged `mutation: <result> <test> - <mutation>` lines.' 'B13-V: only halting mutation results are tagged'
 pin_prose "$_981_CR" 'read only its findings and mutation lines, not its `verifier:` and layer-result lines.' 'B13-A: code review reads mutation evidence'
-pin_prose "$_981_CR" '**Before Axis A:** read only each file’s `pattern`-tagged findings and mutation lines and fold them into your Axis A findings.' 'B13-A2: mutation evidence follows the existing Axis A rule'
+pin_prose "$_981_CR" '**Before Axis A:** read only each file'"'"'s `pattern`-tagged findings and mutation lines and fold them into your Axis A findings.' 'B13-A2: mutation evidence follows the existing Axis A rule'
 pin_prose "$_981_IC" '| On failure | keep going | **halt on first Layer 1/2 failure; surface every halting verdict from the verifier pass** |' 'B13-T: table distinguishes early layers from the verifier pass'
-pin_prose "$WI/references/tdd-loop.md" '**The sanity check, in both cases:** break the production code once, watch the new test go red, restore from a copy saved outside the worktree, never from git.' 'B13-S1: first-run green restores from saved copy'
-pin_prose "$WI/references/tdd-loop.md" 'Break the production code, re-run, and if the test still passes you have found it; restore from a copy saved outside the worktree, never from git.' 'B13-S2: misaimed-test probe restores from saved copy'
+pin_prose "$WI/references/tdd-loop.md" '**The sanity check, in both cases:** save a copy outside the worktree, break the production code once, watch the new test go red, restore from that copy, never from git.' 'B13-S1: first-run green saves before breaking and restores its copy'
+pin_prose "$WI/references/tdd-loop.md" 'Save a copy outside the worktree, break the production code, re-run, and if the test still passes you have found it; restore from that copy, never from git.' 'B13-S2: misaimed-test probe saves before breaking and restores its copy'
+# Fix round 1: structured paths, no-mutation exception, and recovery ownership.
+pin_prose "$_WC951" '`file` and `copy` must both be absolute paths, or both `null` only for `undetermined` when no mutation was applied; otherwise halt naming the invalid key.' 'B13-F2: null paths require undetermined with no applied mutation'
+for _f in "$_VA951" "$HERE/../../omp-roles/agents/verifier.md"; do
+  pin_prose "$_f" '`file` and `copy` are absolute paths; both are `null` only for `undetermined` when no mutation was applied.' "B13-F1: shared agent paths and null exception in $_f"
+  pin_prose "$_f" 'Keep any saved copy outside the worktree for recovery.' "B13-F1b: shared agent retains recovery copy in $_f"
+done
+pin_prose "$_WC951" 'OMP with no `verifier` in `task`'"'"'s agent list or with omp-roles older than 0.11.1, a subagent context, a refused `Task` grant.' 'B13-F3b: an older OMP verifier goes inline'
+pin_prose "$HERE/../README.md" 'work-item close dispatches its `verifier` agent (0.11.1 or later).' 'B13-F3c: ossify README states the compatible verifier floor'
+pin_prose "$HERE/../../omp-roles/README.md" 'A close that cannot dispatch it (omp-roles older than 0.11.1, a subagent context) stays on the inline route.' 'B13-F3d: role README states the compatible inline fallback'
+pin_prose "$HERE/../../omp-roles/README.md" 'The `verifier` (0.11.1+) judges one work item at close in a context that did not build it:' 'B13-F3e: role README states the compatible verifier floor'
+pin_prose "$_981_IC" 'For any other untagged halt, fix the named input and re-run `/close`.' 'B13-F4: every other untagged halt has a recovery route'
+pin_prose "$_WC951" 'Inline uses the same `file`/`copy` entries; recovery is `impl-check.md` §6, never automatic.' 'B13-F5: inline recovery never restores automatically'
+pin_prose "$WI/SKILL.md" 'You stage and return; outside the worktree'"'"'s files, your own `report.md` and §5'"'"'s temporary saved copy, that is your whole write authority.' 'B13-F6: implementer may write its temporary saved copy'
+pin_prose "$_WC951" 'This `file`/`copy` check applies only to dispatched or inline returns; `--verdict` is unchanged.' 'B13-FN1: structured path validation does not extend the verdict schema'
+pin_prose "$_WC951" 'and say so if `OSSIFY_VERIFIER_MODEL` is non-empty, since it does not apply there.' 'B13-FN2: OMP ignores an empty model setting without a notice'
+pin_prose "$_WC951" 'The mutation layer-result line is `layer mutation: <summary>`.' 'B13-FN3: mutation layer summary cannot be mistaken for an entry'
+pin_prose "$_981_CR" 'Either pass: read findings and mutation lines as evidence, not your own judgment; do not re-print them verbatim or re-judge whether the verifier was right.' 'B13-FN5a: evidence rule covers mutation lines'
+pin_prose "$_981_CR" '**Before folding either pass'"'"'s findings or mutation lines in, revalidate against the final tree.**' 'B13-FN5b: citation revalidation covers mutation lines'
 pin "$SKILLS/work-item/SKILL.md" '`GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 oss verify_step "<worktree-abs>" "<command>" "<expectation>"`' \
   "#946 work-item: a test that runs git also runs with no host identity"
 pin "$SKILLS/work-item/SKILL.md" 'the command cannot run here yet (it exits 126 or 127' \
