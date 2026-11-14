@@ -2217,10 +2217,9 @@ _PRA="$_OSSR/skills/doctor/references/rule-authoring.md"
 # D1: the check's scope is the AI workspace, and nothing about it reaches a
 # declared repo - read alone, an unscoped line fails every canonical that keeps
 # its own CLAUDE.md and offers to move canonical instructions into the workspace.
-_r=1; grep -Fq 'Scope: the AI workspace, and only the AI workspace' "$_IC" \
-  && grep -Fq 'Never look inside a declared repo' "$_IC" \
-  && grep -Fq 'that workspace' "$_DS" && grep -Fq 'never a declared repo' "$_DS" && _r=0
-_pin "$_r" "claude_md's scope is unstated or reaches a declared repo - a canonical's own CLAUDE.md reads as a failure of the AI workspace (D1)"
+_r=1; grep -Fq 'Never look inside a declared repo' "$_IC" \
+  && grep -Fq 'Only the two in-workspace `CLAUDE.md` paths enter §5' "$_IC" && _r=0
+_pin "$_r" "claude_md probes a declared repo or lets non-repairable findings into §5 (D1, #840)"
 # D2: the offer must not wait for an otherwise-clean read-out; the no-AGENTS.md
 # shape branch 1 exists for is exactly the one the old gate excluded.
 _r=1; ! grep -Fq 'the only problem is a leftover' "$_IC" \
@@ -2871,5 +2870,39 @@ pin "$_SK/close/references/release-close.md" 'line per finding — except that a
   "release-close.md's deferral gate prose does not name the fifth column (#761)"
 pin "$_SK/close/references/release-close.md" 'its `<spine>` is the row'"'"'s column 5.' \
   "release-close.md's re-defer bullet does not point at column 5 for the owning spine (#761)"
+
+# 1.41.0 (#840, #399): operative prose, flattened so wrapping is irrelevant.
+# These are requested prose pins, not substitutes for the session-driven evals.
+_b12_interop="$(mktemp)"; _b12_provenance="$(mktemp)"
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_IC" > "$_b12_interop"
+awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_OSSR/skills/doctor/references/provenance-check.md" > "$_b12_provenance"
+pin "$_b12_interop" 'then `<ai_workspace.root>/CLAUDE.local.md`' 'B12-I1 probes workspace CLAUDE.local.md'
+pin "$_b12_interop" 'Walk every ancestor directory up to `/`, nearest first, probing `CLAUDE.md`, `.claude/CLAUDE.md`, then `CLAUDE.local.md` in each, whether git or not.' 'B12-I2 walks all ancestors for all three names'
+pin "$_b12_interop" 'Skip `~/.claude/CLAUDE.md`: this user file does not suppress `AGENTS.md`.' 'B12-I3 excludes the user instruction file'
+pin "$_b12_interop" 'Only the two in-workspace `CLAUDE.md` paths enter §5; never move, edit or delete a workspace `CLAUDE.local.md` or any ancestor file.' 'B12-I4 restricts repair to the original pair'
+pin "$_b12_interop" '<path> exists; personal file; move its rules into AGENTS.md, or delete it; doctor only names it' 'B12-I5 names personal-file remedy without moving it'
+pin "$_b12_interop" '<path> exists; ancestor file suppresses AGENTS.md for this workspace; doctor only names it, never moves or edits it' 'B12-I6 names ancestor suppression without repairing it'
+pin "$_b12_interop" '`.claude/rules/*.md` loads beside `AGENTS.md` and is not a finding (Claude Code 2.1.325).' 'B12-I7 leaves rules files alongside AGENTS.md'
+pin "$_b12_interop" 'every `InstructionsLoaded` hook in Claude Code settings this workspace reads (user, project, local), naming its settings file and hook; it will stop firing for the moved instructions. Never edit settings.' 'B12-I8 names affected hooks in the plan without editing settings'
+pin "$_b12_interop" 'Claude Code reads `AGENTS.md` only when none of these three names exists in the workspace or its ancestors, excluding the user file above.' 'B12-I9 states the probed fallback rule without a setting claim'
+pin "$_b12_interop" 'ok: claude_md - no suppressing instruction file in the AI workspace or its ancestors' 'B12-I10 reports ok only across the expanded scope'
+pin "$_b12_interop" 'For each repairable `CLAUDE.md` in the plan, in the order §5.2 fixes:' 'B12-I11 keeps report-only files out of the actual repair loop'
+pin "$_b12_provenance" 'On Codex only, when no checkout arm applies, read `${CODEX_HOME:-~/.codex}/config.toml`.' 'B12-P1 resolves Codex config only after checkout'
+pin "$_b12_provenance" 'Exactly one `[plugins."ossify@<marketplace>"]` table with `enabled = true` must exist; otherwise expected is unavailable.' 'B12-P2 selects exactly one enabled ossify entry'
+pin "$_b12_provenance" 'Use only that marketplace, not a directory-discovered choice' 'B12-P3 refuses disabled or stale directory-discovered marketplaces'
+pin "$_b12_provenance" 'The reference root is the single version directory under `${CODEX_HOME:-~/.codex}/plugins/cache/<marketplace>/ossify/`; zero or several directories make expected unavailable.' 'B12-P4 requires one version directory'
+pin "$_b12_provenance" 'Read its `.codex-plugin/plugin.json` version as identity, never the directory name.' 'B12-P5 reads the authoritative Codex manifest version'
+pin "$_b12_provenance" 'Its `.claude-plugin/plugin.json` must carry the same version; either manifest unreadable, invalid, or disagreeing makes expected unavailable.' 'B12-P6 requires manifest agreement'
+_r=0; if grep -Fq 'no installed-reference arm' "$_b12_provenance"; then _r=1; fi
+_pin "$_r" 'B12-P7 removes the obsolete no-installed-reference-arm claim'
+_b12_fixtures="$_OSSR/tests/eval/fixtures"
+pin "$_b12_fixtures/doctor-instruction-file/08-local-ancestor-and-hook.md" 'expected_outcome: repair-merge-asks' 'B12-F1 adds the local/ancestor/hook repair fixture'
+pin "$_b12_fixtures/doctor-instruction-file/08-local-ancestor-and-hook.md" 'three `fail: claude_md` lines' 'B12-F2 expects all three suppressors, not three repairs'
+pin "$_b12_fixtures/doctor-provenance/05-codex-enabled-cache-mismatch.md" 'expected_outcome: warn' 'B12-F3 adds a Codex mismatch fixture'
+pin "$_b12_fixtures/doctor-provenance/03-unsupported-host-and-nonpath-binary-partial.md" 'No enabled ossify plugin entry exists in `${CODEX_HOME:-~/.codex}/config.toml`' 'B12-F4 keeps the Codex partial fixture unresolved for the right reason'
+# Adjacent control: no enabled entry and an unidentified binary remain partial.
+# This outcome already exists on 5602772a; F4 above pins its new authority facts.
+pin "$_b12_fixtures/doctor-provenance/03-unsupported-host-and-nonpath-binary-partial.md" 'expected_outcome: partial' 'B12-F5 preserves the unresolved-role partial control'
+rm -f "$_b12_interop" "$_b12_provenance"
 
 t_summary

@@ -9,6 +9,10 @@ The 1.24.0 entry's parenthesis about adopt and a marked stub, added in 1.35.0, s
 Some versions have no entry. The GitHub releases tagged `ossify-v*` carry notes for the versions
 they cover.
 
+## 1.41.0
+
+Since 1.41.0, doctor's interop check reports workspace `CLAUDE.local.md` and suppressing instruction files in every ancestor, excluding the user `~/.claude/CLAUDE.md`; `.claude/rules/*.md` loads beside `AGENTS.md` and is not a finding. Only workspace root `CLAUDE.md` and `.claude/CLAUDE.md` enter the yes-gated repair; its plan names affected `InstructionsLoaded` hooks without editing settings. On Codex, provenance selects the single enabled ossify config entry and its single cache version directory, reading identity from the Codex manifest and requiring the Claude manifest to agree, never taking a version from a directory name. Closes #840 and #399.
+
 ## 1.40.0
 
 Since 1.40.0, command bridges pass `$ARGUMENTS` as a trailing argument under their existing `Bash(bash:*)` grant. The missing-topology refusal and close's directory rule direct paired canonical sessions to `(cd <ai-workspace> && oss …)`, without changing the session directory or guessing workspace roots. `oss help` lists every verb's signature, and `oss help <verb>` prints just that signature, including stdin where read; `oss help <unknown verb>` now exits 2 instead of listing verbs at rc 0. Help reads the same literal guard argument as usage errors; zero-minimum annotations leave argument enforcement unchanged. Closes #406, #717 and #495.

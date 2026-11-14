@@ -1,0 +1,1 @@
+{"scores":{"routing_and_roles":5,"status":5,"targeted_impact":4,"diagnostic_boundary":5},"pass":true,"notes":"targeted_impact is 4 because the output says the mismatch triggers prior-use inspection and then adds several unneeded statements about coverage and unscanned content, even though no impact scan is expected when no prior use exists."}

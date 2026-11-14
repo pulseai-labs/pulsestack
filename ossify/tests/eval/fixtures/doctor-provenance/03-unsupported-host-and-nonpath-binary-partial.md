@@ -1,7 +1,7 @@
 ---
 scenario_id: 03-unsupported-host-and-nonpath-binary-partial
 expected_outcome: partial
-expected_reason: "Loaded doctor resolves to 1.7.0, while a non-path command result cannot identify the binary and Codex supplies neither an ossify checkout nor the supported Claude installed authority; available facts remain visible without substitution."
+expected_reason: "Loaded doctor resolves to 1.7.0, while a non-path command result cannot identify the binary and Codex config has no enabled ossify entry; available facts remain visible without substitution."
 ---
 
 Codex is running in `/home/dev/consumer`, an ordinary git worktree whose
@@ -19,5 +19,10 @@ The host supplied
 as the loaded skill base directory. Its readable owning manifest says `1.7.0`.
 
 There is no ossify checkout in the current worktree and no Claude
-`installed_plugins.json`. This release defines no Codex installed reference
-arm.
+`installed_plugins.json`. `CODEX_HOME` is unset.
+No enabled ossify plugin entry exists in `${CODEX_HOME:-~/.codex}/config.toml`:
+
+```toml
+[plugins."ossify@pulsestack-codex"]
+enabled = false
+```

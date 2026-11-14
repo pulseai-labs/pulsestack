@@ -34,7 +34,20 @@ record is applicable; a project/local record is applicable only when its
 record must remain. It must supply `version` and a readable `installPath`, and
 that root's manifest version must agree with the record. No candidate, multiple
 candidates, an unreadable root, or record/manifest disagreement makes expected
-unavailable. Codex has no installed-reference arm in this release.
+unavailable.
+
+On Codex only, when no checkout arm applies, read
+`${CODEX_HOME:-~/.codex}/config.toml`. Unreadable or invalid config makes expected
+unavailable. Exactly one `[plugins."ossify@<marketplace>"]` table with
+`enabled = true` must exist; otherwise expected is unavailable. Use only that
+marketplace, not a directory-discovered choice (currently `pulsestack-codex`;
+a stale pre-rename cache is not authority). The reference root is the single
+version directory under
+`${CODEX_HOME:-~/.codex}/plugins/cache/<marketplace>/ossify/`; zero or several
+directories make expected unavailable. Read its `.codex-plugin/plugin.json`
+version as identity, never the directory name. Its `.claude-plugin/plugin.json`
+must carry the same version; either manifest unreadable, invalid, or disagreeing
+makes expected unavailable.
 
 Print one line per role. A resolved line carries role, version, and path; an
 unresolved line names the failed condition.
