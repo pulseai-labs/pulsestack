@@ -331,7 +331,8 @@ whether git or not. Skip `~/.claude/CLAUDE.md`: this user file does not suppress
 `AGENTS.md`. Never look inside a declared repo: its instructions are its business;
 if it is an ancestor, report its suppressing file only by the ancestor rule.
 
-Claude Code reads `AGENTS.md` only when none of these three names exists in the
+Under the default project-instructions setting (`claude-md-or-agents-md`), Claude
+Code reads `AGENTS.md` only when none of these three names exists in the
 workspace or its ancestors, excluding the user file above. A suppressor makes
 Claude sessions and every other agent follow different instructions.
 `.claude/rules/*.md` loads beside `AGENTS.md` and is not a finding (Claude Code 2.1.325).
