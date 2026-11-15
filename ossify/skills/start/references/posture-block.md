@@ -289,7 +289,7 @@ Accepted disclosures row above, not a row in this table.
 |---|---|---|---|
 
 The last column names the moat table's `Moat item` cells the semantic half asked
-about, or `none` when empty.
+about, or `none` when empty, never read as an item name.
 
 **Commit and moat-item currency are the audit's rules, not this file's** —
 `close/references/boundary-audit.md` **§3** states which repos owe a pass, what a

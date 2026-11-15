@@ -469,9 +469,9 @@ re-runs §3; the `auto:` half always re-runs (`oss demo_run`). Its `user:` half
 may cite the prior walk only if the retrospective records the walked commit for
 every repo the walk exercised, the full per-repo list of paths changed from that
 commit to the closing ref is shown (for example,
-`git -C "<root>" diff --name-only "<walked>" "<closing ref>"`), together with every
-path the fix changed outside a commit (an untracked or ignored file added or
-removed), and the demo-walk
+`git -C "<root>" diff --name-only --no-renames "<walked>" "<closing ref>"`), together with every
+path the fix changed outside a commit (an untracked or ignored file added,
+removed or edited), and the demo-walk
 holder (`cumulative-demo.md` §3: the operator, or the role a standing order gives
 the walk) rules that no listed path touches the surface any `user:` line exercises.
 Record the ruling, full lists and both commits per repo in the retrospective's

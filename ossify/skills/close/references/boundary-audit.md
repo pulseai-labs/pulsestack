@@ -632,7 +632,7 @@ also owed a pass. Removing an item expires nothing; a renamed item reads as new
 and only adds a stop. A row with no `Moat items reviewed` value predates the
 column: every current moat item is unasked.
 Use item names, not a file date or hash: the audit writes its own rows into
-this file, moving its date and content on every close that records one, and a
+the inventory, moving its date and content on every close that records one, and a
 filesystem-only AI workspace has no history to date a change against.
 
 **That commit comparison covers one ref; the rest is §9's scope cut.** A row
@@ -670,7 +670,7 @@ because
 boundary audit, and every release that closed before this step shipped closed
 without one — so "is this the first?" is undeterminable exactly where it matters
 most, on an adopted-forward project with a deleted `docs/planning/` tree in its
-history. Absent-or-outrun is determinable, and it fails safe.
+history. Absent, outrun or unasked is determinable, and it fails safe.
 
 ### The working-tree pass — uncommitted modifications to tracked files
 
@@ -985,7 +985,8 @@ unblocks, both real work:
   the product reads (a resynthesized
   fixture, a deleted config, a rewritten doc a demo line opens). Recording the
   release closed on a walkthrough of the pre-fix tree certifies a product
-  state that no longer exists. A fix confined to the AI workspace, or to an
+  state that no longer exists, unless the holder cleared every changed path
+  under `release-close.md` §8. A fix confined to the AI workspace, or to an
   untracked file nothing loads, touches no gate's inputs — but it still
   re-enters through the §1 re-close, because the halt was terminal and no
   gate is skipped by shortcut. Any fix may cite the prior walk only under
