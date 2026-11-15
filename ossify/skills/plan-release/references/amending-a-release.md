@@ -18,5 +18,5 @@ Add one spine to that release; repeat this arm for more.
    §7c critic veto. Do not re-judge already planned spines. §7c renders the current
    release draft as usual; scope its judgment to the new spine.
 7. Re-render `RELEASE.md` from state (`release-md-emission.md` §4), never hand-edit it.
-   Record the amendment's exit-criterion accounting there.
+   An amendment that adds no criterion says so to the user; `RELEASE.md` renders only state.
 8. Then `/ossify:plan-spine <new id>` plans it as usual.

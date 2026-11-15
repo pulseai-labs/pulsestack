@@ -118,8 +118,10 @@ A feature-map entry is ready to be a spine when it passes all four:
 Before selection, ask of any candidate adding a separately deployed service:
 what measured pressure requires it? This covers moving existing work or creating
 new work there (`class-declaration.md` rung 3). Without evidence, do not select
-or mint it; leave it on the feature map with the admission condition in its
-`value` (`plan-spine/references/codebase-design.md` §3).
+or mint it; leave it on the feature map and record the admission condition with
+`oss feature_add` in `codebase-design.md` §3's value form, unless its entry already
+carries one (the map is append-only). An in-process cut of the same journey may
+still be selected (`plan-spine/references/codebase-design.md` §3).
 
 **Splitting a too-large candidate**: cut it along the *journey*, not along the
 *stack*. "Users can save and reload a strategy" splits into "save one strategy and

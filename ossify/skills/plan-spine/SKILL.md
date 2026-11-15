@@ -44,7 +44,7 @@ implementer dispatch, verification, and merge belong to the execution engine
   class, no DAG position, and no ledger budget to author against. Selecting
   spines, phrasing exit criteria, and declaring a class all live there too; you
   **read** the class here and never re-derive it.
-- **An unplanned spine for an open release** — add it via
+- **A spine not yet declared in an open release** — add it via
   `plan-release/references/amending-a-release.md`, then return here.
 - The project was never onboarded — that is `/start`.
 - The user wants to close a spine or run the cumulative demo — that is `close`.
@@ -410,6 +410,7 @@ ADR bones this spine **creates**, one table row each (an ADR the plan only *cite
 or the single line `None.` when it creates none. The columns, in `oss bone_add`'s order, and the
 rule that close registers these rows before its touch check — halting on a row whose ADR file is
 missing, so a row is a promise — are `spec-authoring.md` §1 and `close/references/spine-close.md` §5b.
+With `SPINE.md` finished, §6's optional adversarial pass may run.
 
 ---
 
