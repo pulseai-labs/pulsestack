@@ -19,7 +19,7 @@ files, and the enumeration that established this completed untruncated.
 `gitleaks` is installed and reports nothing. The posture in state is
 `fully-private`; the private boundary inventory exists in the AI workspace and
 lists no moat items (explicitly empty); its **History passes** table records a
-review of the canonical through commit `4b1c2d3`, and that commit is the
+review of the canonical through commit `4b1c2d3` (its `Moat items reviewed`: none), and that commit is the
 canonical's current tip on every ref. The canonical's tracked doc set, swept per the semantic pass against the empty inventory plus the "Never here" rules, names nothing — clean.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere

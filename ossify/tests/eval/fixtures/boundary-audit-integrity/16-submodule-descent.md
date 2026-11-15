@@ -60,7 +60,7 @@ reports nothing as hygiene notes. Neither repo carries a `.gitleaks.toml` of
 its own, and neither does either pinned submodule. The private boundary inventory exists there
 with one moat row ("ranking/decay intelligence — channel `private-package` —
 the public repo holds the ranking port, the private crate implements it"), and
-its **History passes** table records the canonical through commit `e5f6a7b`,
+its **History passes** table records the canonical through commit `e5f6a7b` (its `Moat items reviewed`: ranking/decay intelligence),
 which is the current tip of `main` and of every other ref the canonical has.
 The canonical's tracked doc set, swept against that inventory per the semantic
 pass, names nothing — clean throughout.

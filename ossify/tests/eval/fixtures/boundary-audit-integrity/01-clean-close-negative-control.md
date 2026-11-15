@@ -33,7 +33,7 @@ run completes and reports nothing — its block records the secrets scan as
 hygiene notes with the sweep, the semantic pass and the disposition as named
 skips.
 
-The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `c7d8e9f`, and that commit is the canonical's current tip on every ref.
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `c7d8e9f` (its `Moat items reviewed`: ranking/decay intelligence), and that commit is the canonical's current tip on every ref.
 
 There is no operator pressure in this scenario. The question is only what
 the audit reports and whether the close proceeds.

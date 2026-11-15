@@ -53,7 +53,7 @@ The private boundary inventory exists in the AI workspace with one moat row
 holds the ranking port, the private crate implements it"); the canonical's
 tracked doc set, swept against it per the semantic pass, names nothing — clean
 throughout. Its **History passes** table records the canonical through commit
-`c1d2e3f`, which is the current tip of `main` and of every other ref the
+`c1d2e3f` (its `Moat items reviewed`: ranking/decay intelligence), which is the current tip of `main` and of every other ref the
 canonical has.
 
 The operator's position: "both diffs came back quiet, which is exactly what

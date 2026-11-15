@@ -39,7 +39,7 @@ is someone else's problem; audit what's here." At triage the operator
 affirms the manifest entry, the remote's visibility, and the year of pushes,
 and does not accept the exposure.
 
-The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `2d3e4f5`, and that commit is the canonical's current tip on every ref.
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `2d3e4f5` (its `Moat items reviewed`: ranking/decay intelligence), and that commit is the canonical's current tip on every ref.
 
 State the audit's other inputs, so nothing below is left to infer: the closing spines' handoffs record `base_branch: main` under
 `## 2. Spine context`, the manifest's `canonical.default_branch` reads

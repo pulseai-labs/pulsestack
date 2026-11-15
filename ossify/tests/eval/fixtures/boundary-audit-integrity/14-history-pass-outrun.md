@@ -28,7 +28,7 @@ tracked doc set, swept against it per the semantic pass, names nothing — clean
 throughout.
 
 Its **History passes** table carries exactly one row: the canonical, reviewed
-through commit `aa11bb2`, dated 2026-03-02. Since that commit the canonical
+through commit `aa11bb2` (its `Moat items reviewed`: ranking/decay intelligence), dated 2026-03-02. Since that commit the canonical
 has taken 141 commits on `main`, and a second branch `docs-site` — pushed to
 the same public remote four months ago and never merged — carries 12 commits
 of its own.

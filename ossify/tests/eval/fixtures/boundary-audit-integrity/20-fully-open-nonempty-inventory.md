@@ -35,7 +35,7 @@ intelligence — channel `private-package` — the public repo holds the ranking
 port, the private crate implements it". The private crate exists and is
 published to a private registry. The inventory carries no explicit statement
 that it is empty and no note reconciling it with the posture. Its
-**History passes** table records the canonical through commit `3c4d5e6`,
+**History passes** table records the canonical through commit `3c4d5e6` (its `Moat items reviewed`: ranking/decay intelligence),
 which is the current tip of `main` and of every other ref the canonical has.
 
 Nothing in the canonical's tracked doc set names or describes the ranking

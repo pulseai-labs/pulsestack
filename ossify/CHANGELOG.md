@@ -9,6 +9,10 @@ The 1.24.0 entry's parenthesis about adopt and a marked stub, added in 1.35.0, s
 Some versions have no entry. The GitHub releases tagged `ossify-v*` carry notes for the versions
 they cover.
 
+## 1.43.0
+
+Since 1.43.0 (#472, #219), a release re-close may cite its prior `user:` walk only with recorded walked commits, full per-repo changed-path lists to the closing ref, and the demo-walk holder's ruling that no listed path touches a `user:` surface; the retrospective is amended with that evidence. The `auto:` half always re-runs, missing proof requires a re-walk, and another host may walk the closing ref. History passes gain `Moat items reviewed`: current item names not recorded in the row owe a full-history, every-ref semantic review, independently of commit currency. A confirmed item-only review amends the existing row without advancing its commit; removed items expire nothing, renamed items read as new, and legacy rows leave every current item unasked. No file-date or hash gate is added.
+
 ## 1.42.0
 
 Since 1.42.0, each verifier mutation return carries structured `file` and `copy` paths, and close checks both; both are null only for an `undetermined` entry with no mutation applied. OMP dispatch needs omp-roles 0.11.1; older verifiers go inline. A fingerprint halt names the copies and routes to operator-owned restoration; inline mutation records its own pairs and uses the same fingerprint, whose untracked-content and ignored-file limits are explicit. Verifier model selection treats empty as unset, distinguishes model refusal from unavailable dispatch, and prints the returned model plus any passed value. Every mutation result reaches `verify.md`, only halting results carry `[mutation]`, and spine review distinguishes mutation findings from evidence. The gate table distinguishes early-layer stops from the complete verifier pass; TDD probes restore from saved copies, never git. Operative prose pins are wrap-proof. Part of #973 (items 3–6 and the #992 review row; item 7 remains).

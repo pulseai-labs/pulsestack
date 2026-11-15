@@ -45,7 +45,7 @@ accepted-disclosure override, ships with its record and its bounds — §6.)
 **A halt here is not free, and saying so is part of the step.** The re-close is
 not free and steps 1-6 are not free to repeat — `release-close.md` §8 owns that
 accounting (the unconditional `feature_add`, the stored `next_sketch`, the
-amended-not-re-authored retro, the re-run walkthrough); read it before you halt.
+amended-not-re-authored retro, the §8 walkthrough or walk-equivalence citation); read it before you halt.
 
 ---
 
@@ -584,14 +584,13 @@ a repo's history for documents the rules ban and prose that describes a moat ite
 is a human-scale review, not something this step performs mid-close. **The review
 covers both corpora** — §3's `never-tracked:` rules and §5's S1/S2/S3 judgment —
 over history and every ref. A review that covered only one of them is not a
-pass and gets no row — the table has three columns and no field to say which
-half was read, and a half-read row that looked whole is worse than an absent
-one.
+pass and gets no row. An item-scoped §5 review below amends an existing row,
+never creates one.
 The record is a **History passes** row in
 the private boundary inventory (`start/references/posture-block.md` §7): the
-repo, the **commit it reviewed through**, and the date — written when the user
-confirms the review this finding asked for, which is a full-history review the
-first time and the range since the recorded commit on every refresh.
+repo, the **commit it reviewed through**, the date, and the **moat items reviewed** —
+written when the user confirms the review: full history the first time;
+commit refreshes need only the range since the recorded commit.
 
 **The pass is owed by every repo whose history could be public — read that off
 the exposure, not off the arm.** Any repo on a full public arm owes one (§2's
@@ -609,7 +608,7 @@ moat-holder roles (§2) — there are no document rules to run over history eith
 record the pass **degraded on the never-expected policy input**, riding the
 exposure finding that put the repo on that arm, never clean.
 
-**The reviewed commit is what makes a row expire.** A sensitive document
+**Commit currency.** A sensitive document
 committed to another public branch or tag leaves the audited tip untouched, and
 both the index rules and §5's sweep only ever read the release ref, so nothing
 else here would see it — which is why the review the row records covers the repo
@@ -622,9 +621,22 @@ reachable from the recorded commit:
 is not, commits have landed since and a further pass is owed — incremental is
 enough**, the range between the two.
 
-**That comparison covers one ref, and the rest is a scope cut with a row of its
-own.** A row is **current for the ref this close audited and is reported that
-way, never as "current for the repo"** — a document committed to another public
+**Moat currency is independent of commit currency.** Compare the current moat
+table's `Moat item` names with the row's `Moat items reviewed`: any current item
+the row does not name is unasked. For those items, §5's judgment is owed over
+the **full history and every ref, not an incremental range**, under the same
+corpus-completeness rule above. When the user confirms that review, add those
+items to the existing row's column; keep its commit unless the commit check
+also owed a pass. Removing an item expires nothing; a renamed item reads as new
+and only adds a stop. A row with no `Moat items reviewed` value predates the
+column: every current moat item is unasked.
+Use item names, not a file date or hash: the audit writes its own rows into
+this file, moving its date and content on every close that records one, and a
+filesystem-only AI workspace has no history to date a change against.
+
+**That commit comparison covers one ref; the rest is §9's scope cut.** A row
+passing both currency checks is **current for the ref this close audited,
+never "current for the repo"** — a document committed to another public
 branch, a tag, or a `refs/pull/N/head` *after* the recorded review leaves the
 audited ref an ancestor of the recorded commit, so this check stays quiet and
 **nothing here detects it**. That is not a scope note inside a passing check: it
@@ -645,9 +657,9 @@ section opens with, and no local read can reach it. There the pass is a
 **degradation riding that exposure finding**, never a clean skip — the same
 treatment, and for the same reason, as the moat-holder arm above.
 
-**An absent or outrun row is a finding.** It reaches triage like any other, and
+**An absent or outrun row, or an unasked moat item, is a finding.** It reaches triage like any other, and
 the two unblocks are §6's: **the fix** is the review itself — the user confirms
-it was done and the row is written for the commit it reached — and accepting the gap
+it was done and the row is written or amended for the review it asked for — and accepting the gap
 instead is an **override**, taking the override's record like any other
 acceptance. Nothing here is a third unblock.
 
@@ -975,8 +987,8 @@ unblocks, both real work:
   state that no longer exists. A fix confined to the AI workspace, or to an
   untracked file nothing loads, touches no gate's inputs — but it still
   re-enters through the §1 re-close, because the halt was terminal and no
-  gate is skipped by shortcut: what such a fix buys is that the re-run gates
-  re-verify an unchanged input, not that they are bypassed. The audit itself
+  gate is skipped by shortcut: what such a fix buys is `release-close.md` §8's
+  walk-equivalence option, not a bypass of the other gates. The audit itself
   always re-runs — a fix is verified by the audit that re-examines it.
 - **Accepted-disclosure override** — the user records, in so many words, that
   this specific disclosure is accepted, with the reason. The close proceeds
@@ -1189,8 +1201,8 @@ naming a moat item in a public artifact is itself the leak.
   staged or unstaged tracked changes, and name it. (The role repos' audited
   ref IS their checked-out branch, named as such — §9; the anti-pattern is
   auditing an unresolveable ref, not the role rule.)
-- **Reading a `History passes` row as permanent.** The commit it reviewed
-  through is what expires it, and commits land between releases (§3).
+- **Reading a `History passes` row as permanent.** The reviewed commit and
+  unasked moat items can expire it (§3).
 - **Expiring a history pass against the audited ref alone**, when another
   public branch or tag can carry what the release ref never saw (§3).
 - **Reading the secrets scan as covering the document rules across history.**
@@ -1214,7 +1226,7 @@ silently does nothing is indistinguishable from a missing one
 
 | Dimension | Status |
 |---|---|
-| **Public refs other than the audited one, after a recorded history pass** | **not shipped.** §3's recorded review covers the repo at the commit it reviewed through, and the currency check compares one ref — the one this close audits. A document committed to an unmerged branch, a tag, or a `refs/pull/N/head` after that commit leaves the audited ref untouched and raises nothing. The per-tip comparison that would catch it was tried and cut: no fetch brings PR-ref objects down by default (an explicit refspec does, which is one more thing to get right per repo) and fork or squash-merged heads are ancestors of nothing, so the check would read INCONCLUSIVE on every repo with a pull request in it, and a gate that can never read current is not a gate. The report names the refs it did not compare; the row leaves this table when a pass persists a reviewed tip **per ref** rather than one commit |
+| **Public refs other than the audited one, after a recorded history pass** | **not shipped.** §3's recorded review covers the repo at the commit it reviewed through, and the commit-currency check compares one ref — the one this close audits. A document committed to an unmerged branch, a tag, or a `refs/pull/N/head` after that commit leaves the audited ref untouched and raises nothing. The per-tip comparison that would catch it was tried and cut: no fetch brings PR-ref objects down by default (an explicit refspec does, which is one more thing to get right per repo) and fork or squash-merged heads are ancestors of nothing, so the check would read INCONCLUSIVE on every repo with a pull request in it, and a gate that can never read current is not a gate. The report names the refs it did not compare; the row leaves this table when a pass persists a reviewed tip **per ref** rather than one commit |
 | **Every submodule pin except the one the audited ref carries, and a non-manifest pinned submodule repository's own history and other refs** | **not shipped.** §2's descent reads the tree at **the pin the audited ref carries**, and no other. Two gaps follow and both are named here rather than left to read as executed. **Every other pin:** a pin the superproject has since advanced past, and a pin still live on another public ref — a branch or tag that carries a different gitlink today — publish trees nothing here reaches. The superproject's history pass sees gitlink values and does not descend; a manifest-listed submodule's own history pass runs under **that repository's** policy, which need not carry the rule the superproject forbids the path by; and the refs row above covers changes made to other refs *after* a recorded pass, not a pin that has sat on one since before it. So a path forbidden only by the superproject stays covered by neither, whether the pin carrying it was superseded or is current on a ref this close does not audit. **Non-manifest histories:** a document committed to a pinned repository the manifest does not name and later deleted, or living on another of its refs, is that repository's own exposure. Reading every pin the repository has published, on every live ref, under the publishing superproject's policy is what would close the first gap; it is not shipped, and the report names the pinned repositories and refs it did not read |
 | **Everything about the project that is not a git repo** | permanent scope, not a cut: issues, wiki, releases, Pages, Actions artifacts, published packages |
 

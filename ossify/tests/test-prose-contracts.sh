@@ -2985,4 +2985,41 @@ awk '{s=s " " $0} END {gsub(/[[:space:]]+/, " ", s); print s}' "$_OSSR/skills/st
 pin "$_b12_provenance" 'for the repair and any remaining suppressors.' 'B12-Y9 keeps remaining suppressors in the start handoff'
 rm -f "$_b12_interop" "$_b12_provenance"
 
+# 1.43.0 (#472, #219): operative prose contracts, wrap-proof and unique.
+_b14_release="$CLOSE/references/release-close.md"
+_b14_boundary="$CLOSE/references/boundary-audit.md"
+_b14_posture="$HERE/../skills/start/references/posture-block.md"
+pin_prose "$_b14_release" 'per repo exercised, the commit it stood at during the §3 walk' 'B14-W1 records each exercised repo walked commit in the retrospective'
+pin_prose "$_b14_release" 'A re-close re-runs §3; the `auto:` half always re-runs (`oss demo_run`).' 'B14-W2 always reruns auto lines at re-close'
+pin_prose "$_b14_release" 'Its `user:` half may cite the prior walk only if the retrospective records the walked commit for every repo the walk exercised' 'B14-W3 requires recorded walked commits before citation'
+pin_prose "$_b14_release" 'the full per-repo list of paths changed from that commit to the closing ref is shown' 'B14-W4 requires full changed-path lists to the closing ref'
+pin_prose "$_b14_release" '`git -C "<root>" diff --name-only "<walked>" "<closing ref>"`' 'B14-W5 gives the per-repo path-list example'
+pin_prose "$_b14_release" 'the demo-walk holder (`cumulative-demo.md` §3: the operator, or the role a standing order gives the walk) rules that no listed path touches the surface any `user:` line exercises.' 'B14-W6 requires the walk holder ruling on every user surface'
+pin_prose "$_b14_release" 'Record the ruling, full lists and both commits per repo in the retrospective'"'"'s amended "what is still standing" section.' 'B14-W7 records equivalence evidence by amendment'
+pin_prose "$_b14_release" 'Otherwise re-walk: a missing walked commit or a list that cannot be produced is no equivalence.' 'B14-W8 falls back to rewalking when proof is missing'
+pin_prose "$_b14_release" 'A re-walk may run on another host: the host that can run the `user:` surface walks the closing ref and records the outcome as §3 does.' 'B14-W9 permits another host only walking the closing ref'
+pin_prose "$_b14_boundary" 'amended-not-re-authored retro, the §8 walkthrough or walk-equivalence citation' 'B14-W10 keeps the boundary re-close pointer true'
+pin_prose "$_b14_boundary" 'what such a fix buys is `release-close.md` §8'"'"'s walk-equivalence option, not a bypass of the other gates.' 'B14-W11 reconciles the fix unblock with walk equivalence'
+pin_prose "$CLOSE/SKILL.md" '(re-close exception: `release-close.md` §8)' 'B14-W12 keeps the close checklist citation-aware'
+pin_prose "$CLOSE/references/cumulative-demo.md" '(re-close citation: `release-close.md` §8)' 'B14-W13 keeps the cumulative demo table citation-aware'
+# Adjacent controls already green on fd4fda07: citation does not relax failure or corpus rules.
+pin_prose "$_b14_release" 'every accumulated line, halt on the first failure.' 'B14-C1 preserves the auto failure halt'
+pin_prose "$_b14_boundary" '**A pass reviewed from a corpus that is not known to be complete is INCONCLUSIVE, not recordable**' 'B14-C2 preserves the complete-corpus requirement'
+pin_prose "$_b14_posture" '| Repo | Reviewed through (commit) | Date | Moat items reviewed |' 'B14-H1 adds the fourth History passes column'
+pin_prose "$_b14_posture" 'The last column names the moat table'"'"'s `Moat item` cells the semantic half asked about, or `none` when empty.' 'B14-H2 defines reviewed item names and the empty set'
+pin_prose "$_b14_posture" '**Commit and moat-item currency are the audit'"'"'s rules, not this file'"'"'s**' 'B14-H3 leaves currency rules with the audit'
+pin_prose "$_b14_boundary" 'An item-scoped §5 review below amends an existing row, never creates one.' 'B14-H4 reconciles one-half reviews by amending only'
+pin_prose "$_b14_boundary" 'the **commit it reviewed through**, the date, and the **moat items reviewed**' 'B14-H5 writes the reviewed comparison set with the row'
+pin_prose "$_b14_boundary" '**Moat currency is independent of commit currency.**' 'B14-H6 checks both currency axes independently'
+pin_prose "$_b14_boundary" 'Compare the current moat table'"'"'s `Moat item` names with the row'"'"'s `Moat items reviewed`: any current item the row does not name is unasked.' 'B14-H7 treats every unnamed current item as unasked'
+pin_prose "$_b14_boundary" 'For those items, §5'"'"'s judgment is owed over the **full history and every ref, not an incremental range**, under the same corpus-completeness rule above.' 'B14-H8 requires a full-corpus review for unasked items'
+pin_prose "$_b14_boundary" 'When the user confirms that review, add those items to the existing row'"'"'s column; keep its commit unless the commit check also owed a pass.' 'B14-H9 adds confirmed items without advancing an unreviewed commit'
+pin_prose "$_b14_boundary" 'Removing an item expires nothing; a renamed item reads as new and only adds a stop.' 'B14-H10 removals expire nothing and renames add a stop'
+pin_prose "$_b14_boundary" 'A row with no `Moat items reviewed` value predates the column: every current moat item is unasked.' 'B14-H11 fails safe on legacy rows'
+pin_prose "$_b14_boundary" 'Use item names, not a file date or hash: the audit writes its own rows into this file, moving its date and content on every close that records one, and a filesystem-only AI workspace has no history to date a change against.' 'B14-H12 rejects self-invalidating file dates and hashes'
+pin_prose "$_b14_boundary" '**An absent or outrun row, or an unasked moat item, is a finding.**' 'B14-H13 sends unasked items to the same triage'
+pin_prose "$_b14_boundary" 'it was done and the row is written or amended for the review it asked for' 'B14-H14 reconciles the fix unblock with item-only amendment'
+pin_prose "$_b14_boundary" 'The reviewed commit and unasked moat items can expire it (§3).' 'B14-H15 keeps the anti-pattern aligned with both axes'
+pin_prose "$_b14_boundary" 'the commit-currency check compares one ref' 'B14-H16 keeps the scope cut limited to commit currency'
+
 t_summary

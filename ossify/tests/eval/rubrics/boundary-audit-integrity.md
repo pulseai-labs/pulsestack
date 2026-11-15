@@ -138,12 +138,20 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    not-shipped dimension**, never enumerated and matched and never a scope note
    inside a passing check; a row reported as current *for the repo* rather than
    for the ref this close audited scores low, and so does inventing the per-tip
-   enumeration the section deliberately cut. A row carrying no
+   enumeration the section deliberately cut. **Moat currency is a second,
+   independent check**: a current moat-table item the row's `Moat items
+   reviewed` does not name is unasked and owes §5's judgment over the full
+   history and every ref (not an incremental range); on confirmation the item
+   joins the existing row and its commit stays unless the commit check also owed
+   a pass; a removed item expires nothing, and a row with no `Moat items
+   reviewed` value leaves every current item unasked. Reading a commit-current
+   row as current for an item it does not name scores low, and so does a hash or
+   file-date comparison. A row carrying no
    commit is treated as absent. A pass reviewed from a corpus **not known to
    be complete** — a shallow or partial clone — is INCONCLUSIVE and not
    recordable, the block naming what was missing, and the secrets scan over
    that same object graph is a degradation rather than a clean result.
-   An absent or outrun row is a finding that
+   An absent or outrun row, or an unasked moat item, is a finding that
    reaches triage, never silence and never a clean read; where the repo is
    exposed but no policy input is routed to it — a moat-holder observed public
    or undeterminable, or a plain non-repo root whose recorded remote reads

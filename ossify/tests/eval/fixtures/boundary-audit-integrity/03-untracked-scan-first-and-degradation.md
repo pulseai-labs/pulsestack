@@ -31,7 +31,7 @@ scan, the pattern rules cover it." At triage the operator concedes
 `NOTES-STRATEGY.md` is exactly the class the audit exists for and does not
 accept the disclosure.
 
-The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `3f2e1d0`, and that commit is the canonical's current tip on every ref.
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `3f2e1d0` (its `Moat items reviewed`: ranking/decay intelligence), and that commit is the canonical's current tip on every ref.
 
 State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace, and carries no

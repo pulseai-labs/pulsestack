@@ -27,7 +27,7 @@ the spec's, not an optimization:
 | | Spine close (§6.1) | Release close (§6.2) |
 |---|---|---|
 | `auto:` lines | all accumulated, every run | all accumulated |
-| `user:` lines | **this spine's own contribution only** | **every** accumulated line, grouped by feature |
+| `user:` lines | **this spine's own contribution only** | **every** accumulated line, grouped by feature (re-close citation: `release-close.md` §8) |
 | Who drives the `user:` half | the human, here, now, or yourself under a standing order that gives you the demo walk (§3) | the human, at the release gate, or yourself under that order (§3) |
 
 One verb serves both: `oss demo_user_lines` **with** a spine argument filters to
@@ -36,7 +36,7 @@ Passing no argument at spine close silently turns a spine gate into a release
 walkthrough — the run gets longer and longer, and the release gate stops being
 the first place anyone notices a regression in an older journey.
 
-Both halves run against **composition-root post-merge state**, which is why the
+A walk runs against **composition-root post-merge state**, which is why the
 demo is step 4 and the merge is step 2. The runner resolves its working directory itself:
 the declared composition root when the project has one, the sole declared
 repo's root otherwise — refusing rather than guessing under more than one

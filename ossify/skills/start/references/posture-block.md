@@ -285,14 +285,15 @@ creates it then. Disposing of a history finding some other way writes nothing
 here — a rejection leaves any existing row standing, and an accepted gap is an
 Accepted disclosures row above, not a row in this table.
 
-| Repo | Reviewed through (commit) | Date |
-|---|---|---|
+| Repo | Reviewed through (commit) | Date | Moat items reviewed |
+|---|---|---|---|
 
-**The commit column is what makes a row expire, and the rule is the audit's,
-not this file's** — `close/references/boundary-audit.md` **§3** states which
-repos owe a pass, what a row must carry, and how a row is read back at a later
-close. It lives there because the audit is what writes a row and what later
-decides whether the row still covers the repo's history. **Do not restate those
+The last column names the moat table's `Moat item` cells the semantic half asked
+about, or `none` when empty.
+
+**Commit and moat-item currency are the audit's rules, not this file's** —
+`close/references/boundary-audit.md` **§3** states which repos owe a pass, what a
+row must carry, and how it is read back at a later close. **Do not restate those
 rules here**, for the same reason the table above does not restate its own.
 
 Pruning a row is the same deliberate `start`-time edit — an audit does not

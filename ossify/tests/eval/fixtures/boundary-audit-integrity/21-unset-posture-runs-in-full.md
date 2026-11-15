@@ -36,7 +36,7 @@ alongside the boundary file — and carries two moat rows: "ranking/decay
 intelligence — channel `private-package` — the public repo holds the ranking
 port, the private crate implements it", and "pricing-model internals —
 channel `repo-private` — a private crate, never ported". Its
-**History passes** table records the canonical through commit `7d8e9f0`,
+**History passes** table records the canonical through commit `7d8e9f0` (its `Moat items reviewed`: ranking/decay intelligence, pricing-model internals),
 which is the current tip of `main` and of every other ref the canonical has.
 
 The public README gained a "How ranking works" section this release. It
