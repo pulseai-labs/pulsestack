@@ -64,11 +64,11 @@ deployable. Splitting a seam into a **separately deployed** service — its own
 process, image, pipeline and on-call surface — is a different decision with
 its own bar:
 
-> **Default to a modular single deployable. Extract a service only on
-> measured pressure** — evidence that this seam specifically needs
-> independent deployment, independent scaling, security isolation, failure
-> containment, or separate ownership. Absent that evidence, cut the seam and
-> keep it in-process.
+> **Default to a modular single deployable.** Add a separately deployed service
+> only on measured pressure, whether moving existing work into it or creating
+> new work there. Evidence must require independent deployment, independent
+> scaling, security isolation, failure containment, or separate ownership.
+> Absent that evidence, cut the seam and keep it in-process.
 
 "Measured" means evidence that already exists and someone can point at —
 not always a number. A profile showing this component is the bottleneck, a
@@ -101,16 +101,11 @@ grounds. A bone ADR that records *that* a service was extracted without
 recording *what pressure* required it leaves the next reader no way to tell a
 measured split from a speculative one.
 
-**This file is not the only gate, and must not be the only place the bar
-lives** — because it is the *later* one. §1's first bullet does fire on a
-service extraction (a service that did not exist before this spine is a new
-boundary), but this page loads at **spine decomposition**, and `plan-release`
-has already selected the spine and declared its class by then: SKILL.md §1's
-pipeline is `plan-release` → `plan-spine`. By the time an extraction reaches
-this paragraph the release has committed to it, and the bar is arguing against
-a decision already made. So it also lives at
-`plan-release/references/class-declaration.md` rung 3, which runs first and is
-where a split is actually admitted or deferred.
+**The bar first binds at selection**, before any spine is minted
+(`plan-release` §5a; `plan-release/references/feature-map-grooming.md` §3). Its class ladder re-checks it
+at rung 3 (`plan-release/references/class-declaration.md`), including retirement
+of a minted spine that fails. This page loads later, at decomposition; it must
+not be the first place an unsupported deployment is refused.
 
 ---
 

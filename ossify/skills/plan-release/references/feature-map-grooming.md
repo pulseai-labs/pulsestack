@@ -115,6 +115,12 @@ A feature-map entry is ready to be a spine when it passes all four:
    modules it touches, the bone-touch judge cannot run on it, and the class
    declaration would be a guess. Scope it further first.
 
+Before selection, ask of any candidate adding a separately deployed service:
+what measured pressure requires it? This covers moving existing work or creating
+new work there (`class-declaration.md` rung 3). Without evidence, do not select
+or mint it; leave it on the feature map with the admission condition in its
+`value` (`plan-spine/references/codebase-design.md` §3).
+
 **Splitting a too-large candidate**: cut it along the *journey*, not along the
 *stack*. "Users can save and reload a strategy" splits into "save one strategy and
 see it in the list" then "reload a saved strategy into the editor" — each usable

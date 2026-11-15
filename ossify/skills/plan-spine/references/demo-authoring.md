@@ -4,8 +4,8 @@ Depth for SKILL.md §8. This is the binding contract for what a spine contribute
 to the **cumulative product demo ledger**.
 
 The ledger is an **operated asset**, not a list. Every `auto:` line joins a suite
-re-run at *every* future spine close; every `user:` line joins a walkthrough a
-human performs at *every* release close. A line you add today is paid for
+re-run at *every* future spine close; every `user:` line joins a walkthrough at
+*every* release close by the demo-walk holder (`close/references/cumulative-demo.md` §3). A line you add today is paid for
 repeatedly by everyone who works on this product afterwards. That is why the floor
 is a floor and not a guideline.
 

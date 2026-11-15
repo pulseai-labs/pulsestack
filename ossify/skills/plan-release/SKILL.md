@@ -5,10 +5,9 @@ description: Use when the user wants to plan a release, groom the feature map, p
 
 # plan-release
 
-You are the conductor of ossify's **release planning** — the ceremony that turns
-a living feature map into a release: a promise phrased as *what a user can DO at
-close*, delivered by spines that each cross the whole product. You plan Release 0
-here too; there is no separate "skeleton mode".
+You conduct ossify's **release planning**: turn the living feature map into a
+release, a promise of *what a user can DO at close*, delivered by spines that
+cross the whole product. Release 0 uses this same ceremony, not a separate mode.
 
 Bash helpers behind the `oss` dispatcher do the bookkeeping (state CRUD, id
 minting, touch-surface matching, atomic writes). The judgment work — which spines
@@ -54,7 +53,7 @@ do **not** decompose spines into work items, author demo lines, or author specs 
 - The user wants to close a spine or a release — that is `close`. The feature-map
   re-groom at release close *offers* this skill; it does not replace it.
 - A release with open spines already exists and the user did not explicitly ask
-  for a new one. Ask first: *"Plan a new release, or amend the open one?"*
+  for a new one. Ask first: *"Plan a new release, or amend the open one?"* Amend via `references/amending-a-release.md`.
 
 ---
 
@@ -62,13 +61,11 @@ do **not** decompose spines into work items, author demo lines, or author specs 
 
 Call the `oss` dispatcher by name. The plugin loader puts `bin/` on `$PATH` on Claude Code, Codex and OMP, so `oss` resolves in every Bash call; a variable set in one call is gone in the next.
 
-All ossify lib calls go through the `oss` dispatcher (`ossify/bin/oss`, on `$PATH`
-because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash
-shebang forces a bash runtime under it regardless of the calling shell — required
-because Claude Code's Bash tool runs zsh by default on macOS). Call form:
-`oss <subcommand> [args...]` resolves to `oss_cmd_<subcommand>`. Never `source` the
-lib files directly from a skill body — under zsh `BASH_SOURCE` is unset and the
-libs break. Use `oss help` for discovery.
+All ossify lib calls go through `ossify/bin/oss` on `$PATH`; its bash shebang
+forces bash even under Claude Code's default zsh on macOS. Call form:
+`oss <subcommand> [args...]` resolves to `oss_cmd_<subcommand>`. Never `source`
+lib files from a skill body — under zsh `BASH_SOURCE` is unset and they break.
+Use `oss help` for discovery.
 
 **Two probes, both fail-fast.**
 
@@ -166,6 +163,9 @@ polish feels overdue. A candidate that is one architectural layer is not a spine
 — split it along a journey or leave it on the map. Full method in
 `references/feature-map-grooming.md`; after an adoption, Release 1 also reads
 `ADOPTION.md` first (its §8, #302).
+Before §5c mints any spine, ask whether each candidate adds a separately deployed
+service and what measured pressure requires it; without evidence, leave it on
+the feature map (§3 of that reference).
 
 **5b. Phrase the exit criteria as user journeys.** One line per criterion, in the
 form:

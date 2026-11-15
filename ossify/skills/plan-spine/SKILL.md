@@ -44,6 +44,8 @@ implementer dispatch, verification, and merge belong to the execution engine
   class, no DAG position, and no ledger budget to author against. Selecting
   spines, phrasing exit criteria, and declaring a class all live there too; you
   **read** the class here and never re-derive it.
+- **An unplanned spine for an open release** — add it via
+  `plan-release/references/amending-a-release.md`, then return here.
 - The project was never onboarded — that is `/start`.
 - The user wants to close a spine or run the cumulative demo — that is `close`.
 - The named spine already has work items and the user did not explicitly ask for
@@ -102,8 +104,10 @@ not paraphrase the refusal.
    reads the spine's class, its DAG position, and the release's ledger budget."*
    Author nothing, create no work item, stop.
 
-Then resolve the target spine and **fail loudly on an unknown id** — do not guess
-the user's intent from a name:
+With no id, list planned spines (`oss spine_list`) and ask which one (§10).
+Resolve a supplied id and **fail loudly on an unknown id** — do not guess from a name.
+For a spine not yet declared in an open release, use
+`plan-release/references/amending-a-release.md` before returning; otherwise correct the id.
 
 ```bash
 spine="<spine-id from $ARGUMENTS>"
@@ -251,11 +255,9 @@ prior releases' increments; Release 0 specs cite the spec and the bones only.
 Re-verification is **mandatory across every live spine spec after any bone
 change**. Full rules in `references/citation-foldin.md`.
 
-**Adversarial pass (optional, at the full plan).** Run ossify's own audit —
-read `skills/challenge/references/audit.md` (relative to the plugin root) end to end
-and follow it with the spine plan as the artifact at close depth. The audit
-always runs; the adversary ladder decides whether an external fresh-frame
-joins. Placement and detail in `references/spec-authoring.md` §6.
+**Adversarial pass (optional, after §9).** Audit the finished `SPINE.md`, with
+every pinned section present, including Demo contribution and Fakes;
+follow `references/spec-authoring.md` §6 before locking.
 
 ---
 
@@ -282,7 +284,8 @@ contract. On **no**, record the skip and proceed.
 
 Demo criteria are authored **here**, at planning time, with implementation context
 in hand. The ledger is **cumulative**: every `auto:` line is re-run at every future
-spine close, every `user:` line walked by a human at every release close. You spend
+spine close, every `user:` line walked at every release close by the demo-walk
+holder (`close/references/cumulative-demo.md` §3). You spend
 runtime against the release's ledger budget — set at `plan-release`, read here with
 `oss get ".releases[] | select(.id == \"$rel\") | .ledger_budget"` — and attention
 against the release-close walkthrough. Author accordingly.
