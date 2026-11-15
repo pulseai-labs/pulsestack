@@ -3066,7 +3066,7 @@ pin_prose "$_b15_amend" 'Interrogate edges under §6 (`spine-sequencing-dag.md`)
 pin_prose "$_b15_amend" 'Add a journey exit criterion under §5b, or state that this amendment adds none.' 'B15-M16 amendments account for exit criteria'
 pin_prose "$_b15_amend" 'Re-check the ledger budget against this spine'"'"'s expected contribution (§5d).' 'B15-M17 amendments account for cumulative demo cost'
 pin_prose "$_b15_amend" 'Re-render `RELEASE.md` from state (`release-md-emission.md` §4), never hand-edit it.' 'B15-M18 amendments render rather than hand-edit RELEASE.md'
-pin_prose "$_b15_amend" 'Then `/ossify:plan-spine <new id>` plans it as usual.' 'B15-M19 amended spines return to normal spine planning'
+pin_prose "$_b15_amend" 'If §7 retired the new spine, stop: a retired spine takes no plan. Otherwise `/ossify:plan-spine <new id>` plans it as usual.' 'B15-M19 an amended spine §7 kept returns to normal spine planning; a retired one stops'
 # Scope the ordering pin to selection, so moving an unchanged sentence below
 # spine creation cannot satisfy it elsewhere in the file.
 _b15_selection="$(mktemp)"
@@ -3082,8 +3082,18 @@ pin_prose "$_b15_spine/SKILL.md" 'With `SPINE.md` finished, §6'"'"'s optional a
 pin_prose "$_b15_release/references/class-declaration.md" 'any spine adding a separately deployed service — moving existing work into one or creating a new one — needs **measured pressure**' 'B15-D4 the class bar covers new services as well as extractions'
 pin_prose "$_b15_spine/references/codebase-design.md" 'Add a separately deployed service only on measured pressure, whether moving existing work into it or creating new work there.' 'B15-D5 decomposition uses the same deployment admission scope'
 pin_prose "$_b15_release/references/class-declaration.md" 'Selection checks it before minting (§5a); this rung re-checks it.' 'B15-D6 rung 3 rechecks rather than first admitting the deployment'
-pin_prose "$_b15_release/references/class-declaration.md" 'retire it with `oss spine_status "<sid>" abandoned`, drop it from `spine_dag` (§4'"'"'s route), and return the candidate to the feature map' 'B15-D7 a late rejected deployment leaves no planned spine or DAG entry'
+pin_prose "$_b15_release/references/class-declaration.md" 'retire it with `oss spine_status "<sid>" abandoned` and return the candidate to the feature map with the admission condition in its `value`' 'B15-D7 a late rejected deployment leaves no planned spine and keeps its admission condition'
+pin_prose "$_b15_release/references/class-declaration.md" 'The spine keeps its `spine_dag` entry: its status records the retirement, and `spine-sequencing-dag.md` §3 lists every spine exactly once.' 'B15-D11 a late retirement keeps the DAG listing every spine once'
 pin_prose "$_b15_release/references/class-declaration.md" '`oss class_set "$sid" bone "<rationale>; pressure: <the measured evidence>"` even when the declared class was already `bone`' 'B15-D8 pressure evidence is persisted even without a class change'
 pin_prose "$_b15_release/references/class-declaration.md" '`spine_add` stores no reason and `RELEASE.md` is re-rendered from state.' 'B15-D9 pressure persistence survives release rendering'
+# Round-1 review C2: operative sentences whose semantic mutants survived.
+pin_prose "$_b15_amend" 'Run §3'"'"'s pre-flight, then resolve the release to amend.' 'B15-M22 the amendment arm runs the release pre-flight first'
+pin_prose "$_b15_amend" '§7c renders the current release draft as usual; scope its judgment to the new spine.' 'B15-M23 the amended critic judges the rendered draft'
+pin_prose "$_b15_release/references/feature-map-grooming.md" 'This covers moving existing work or creating new work there (`class-declaration.md` rung 3).' 'B15-D12 the grooming bar covers new services as well as extractions'
+pin_prose "$_b15_release/references/feature-map-grooming.md" 'An in-process cut of the same journey may still be selected' 'B15-D13 an in-process cut of a refused deployment stays selectable'
+pin_prose "$_b15_spine/references/codebase-design.md" '**The bar first binds at selection**, before any spine is minted' 'B15-D14 decomposition names selection as where the deployment bar first binds'
+pin_prose "$_b15_spine/references/citation-foldin.md" 'File paths and signatures use §1'"'"'s default root or explicit repo qualifier (`oss repo_root <name>`); absolute paths stand on their own.' 'B15-R5 the citation check runs against the default or named root'
+pin_prose "$_b15_spine/references/citation-foldin.md" 'The ambient cwd is no root declaration.' 'B15-R6 the ambient cwd never supplies a citation root'
+pin_prose "$_b15_spine/SKILL.md" 'including Demo contribution and Fakes; follow `references/spec-authoring.md` §6 before locking.' 'B15-A5 the spine audit runs before the spec locks'
 
 t_summary

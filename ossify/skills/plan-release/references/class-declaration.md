@@ -108,9 +108,11 @@ a new one — needs **measured pressure** for independent deployment, scaling,
 security isolation, failure containment, or separate ownership. Anticipated
 pressure is not evidence; its ADR records the evidence as the decision's grounds.
 Selection checks it before minting (§5a); this rung re-checks it. If a minted
-spine fails, retire it with `oss spine_status "<sid>" abandoned`, drop it from
-`spine_dag` (§4's route), and return the candidate to the feature map with the
-admission condition in its `value` (`plan-spine/references/codebase-design.md` §3).
+spine fails, retire it with `oss spine_status "<sid>" abandoned` and return the
+candidate to the feature map with the admission condition in its `value`
+(`plan-spine/references/codebase-design.md` §3), as §4 does. The spine keeps its
+`spine_dag` entry: its status records the retirement, and
+`spine-sequencing-dag.md` §3 lists every spine exactly once.
 
 For such a spine, persist §2's rationale with
 `oss class_set "$sid" bone "<rationale>; pressure: <the measured evidence>"`
