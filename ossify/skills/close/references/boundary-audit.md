@@ -590,7 +590,8 @@ The record is a **History passes** row in
 the private boundary inventory (`start/references/posture-block.md` §7): the
 repo, the **commit it reviewed through**, the date, and the **moat items reviewed** —
 written when the user confirms the review: full history the first time;
-commit refreshes need only the range since the recorded commit.
+a commit refresh needs only the range since the recorded commit, and adds no
+moat item: the row keeps only names it already carries that are still current.
 
 **The pass is owed by every repo whose history could be public — read that off
 the exposure, not off the arm.** Any repo on a full public arm owes one (§2's
@@ -987,8 +988,9 @@ unblocks, both real work:
   state that no longer exists. A fix confined to the AI workspace, or to an
   untracked file nothing loads, touches no gate's inputs — but it still
   re-enters through the §1 re-close, because the halt was terminal and no
-  gate is skipped by shortcut: what such a fix buys is `release-close.md` §8's
-  walk-equivalence option, not a bypass of the other gates. The audit itself
+  gate is skipped by shortcut. Any fix may cite the prior walk only under
+  `release-close.md` §8's conditions; a fix whose paths the holder cannot
+  clear is re-walked. The audit itself
   always re-runs — a fix is verified by the audit that re-examines it.
 - **Accepted-disclosure override** — the user records, in so many words, that
   this specific disclosure is accepted, with the reason. The close proceeds
@@ -1201,8 +1203,8 @@ naming a moat item in a public artifact is itself the leak.
   staged or unstaged tracked changes, and name it. (The role repos' audited
   ref IS their checked-out branch, named as such — §9; the anti-pattern is
   auditing an unresolveable ref, not the role rule.)
-- **Reading a `History passes` row as permanent.** The reviewed commit and
-  unasked moat items can expire it (§3).
+- **Reading a `History passes` row as permanent.** Its commit can be outrun,
+  and an unasked moat item owes a review (§3).
 - **Expiring a history pass against the audited ref alone**, when another
   public branch or tag can carry what the release ref never saw (§3).
 - **Reading the secrets scan as covering the document rules across history.**

@@ -36,7 +36,7 @@ Passing no argument at spine close silently turns a spine gate into a release
 walkthrough — the run gets longer and longer, and the release gate stops being
 the first place anyone notices a regression in an older journey.
 
-A walk runs against **composition-root post-merge state**, which is why the
+Both halves run against **composition-root post-merge state**, which is why the
 demo is step 4 and the merge is step 2. The runner resolves its working directory itself:
 the declared composition root when the project has one, the sole declared
 repo's root otherwise — refusing rather than guessing under more than one

@@ -2999,7 +2999,7 @@ pin_prose "$_b14_release" 'Record the ruling, full lists and both commits per re
 pin_prose "$_b14_release" 'Otherwise re-walk: a missing walked commit or a list that cannot be produced is no equivalence.' 'B14-W8 falls back to rewalking when proof is missing'
 pin_prose "$_b14_release" 'A re-walk may run on another host: the host that can run the `user:` surface walks the closing ref and records the outcome as §3 does.' 'B14-W9 permits another host only walking the closing ref'
 pin_prose "$_b14_boundary" 'amended-not-re-authored retro, the §8 walkthrough or walk-equivalence citation' 'B14-W10 keeps the boundary re-close pointer true'
-pin_prose "$_b14_boundary" 'what such a fix buys is `release-close.md` §8'"'"'s walk-equivalence option, not a bypass of the other gates.' 'B14-W11 reconciles the fix unblock with walk equivalence'
+pin_prose "$_b14_boundary" 'a fix whose paths the holder cannot clear is re-walked.' 'B14-W11 reconciles the fix unblock with walk equivalence'
 pin_prose "$CLOSE/SKILL.md" '(re-close exception: `release-close.md` §8)' 'B14-W12 keeps the close checklist citation-aware'
 pin_prose "$CLOSE/references/cumulative-demo.md" '(re-close citation: `release-close.md` §8)' 'B14-W13 keeps the cumulative demo table citation-aware'
 # Adjacent controls already green on fd4fda07: citation does not relax failure or corpus rules.
@@ -3019,7 +3019,10 @@ pin_prose "$_b14_boundary" 'A row with no `Moat items reviewed` value predates t
 pin_prose "$_b14_boundary" 'Use item names, not a file date or hash: the audit writes its own rows into this file, moving its date and content on every close that records one, and a filesystem-only AI workspace has no history to date a change against.' 'B14-H12 rejects self-invalidating file dates and hashes'
 pin_prose "$_b14_boundary" '**An absent or outrun row, or an unasked moat item, is a finding.**' 'B14-H13 sends unasked items to the same triage'
 pin_prose "$_b14_boundary" 'it was done and the row is written or amended for the review it asked for' 'B14-H14 reconciles the fix unblock with item-only amendment'
-pin_prose "$_b14_boundary" 'The reviewed commit and unasked moat items can expire it (§3).' 'B14-H15 keeps the anti-pattern aligned with both axes'
+pin_prose "$_b14_boundary" 'Its commit can be outrun, and an unasked moat item owes a review (§3).' 'B14-H15 keeps the anti-pattern aligned with both axes'
 pin_prose "$_b14_boundary" 'the commit-currency check compares one ref' 'B14-H16 keeps the scope cut limited to commit currency'
+pin_prose "$_b14_boundary" 'a commit refresh needs only the range since the recorded commit, and adds no moat item: the row keeps only names it already carries that are still current.' 'B14-R1 a commit refresh neither re-incrementalizes item reviews nor adds or keeps stale moat names'
+pin_prose "$_b14_release" 'together with every path the fix changed outside a commit (an untracked or ignored file added or removed)' 'B14-R2 the equivalence list names uncommitted fix paths'
+pin_prose "$_b14_boundary" 'Any fix may cite the prior walk only under `release-close.md` §8'"'"'s conditions; a fix whose paths the holder cannot clear is re-walked.' 'B14-R3 the boundary fix bullet agrees with the re-close conditions'
 
 t_summary

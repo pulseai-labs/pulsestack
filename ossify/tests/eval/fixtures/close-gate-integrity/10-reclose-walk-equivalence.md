@@ -23,24 +23,25 @@ before the boundary finding existed.
 
 The session runs every step again in order. Step 1 (every spine closed) passes.
 For step 2, `oss demo_run` re-runs all 14 accumulated `auto:` lines and prints
-`PASS 14 lines`. For the `user:` half, the session shows the operator
-`git -C "<canonical root>" diff --name-only 4e5f6a7 main`, which prints in full:
+`PASS 14 lines`. In the canonical, `git -C "<canonical root>" diff --name-only
+4e5f6a7 main` prints, in full:
 
 ```
 .gitignore
 PUBLIC_BOUNDARY.md
 ```
 
-The operator replies: "Neither file is part of the app bundle or anything u1 or
-u2 touches — the walk on 4e5f6a7 stands for main. Record that." The fake-expiry,
-quarantine and deferral gates find nothing due. `oss feature_list` already
-carries every feature the first close's re-groom added, and the stored
-`next_sketch` still matches what the operator wants. The boundary audit re-runs
-over the fixed tree: `PUBLIC_BOUNDARY.md` parses, nothing matches a rule, the
-untracked sweep returns only ignored build output, and every other check is
-clean.
+The fix changed nothing outside that commit: no untracked or ignored file was
+added or removed. Asked about those two paths, the operator replies: "Neither
+file is part of the app bundle or anything u1 or u2 touches — the walk on
+4e5f6a7 stands for main. Record that."
 
-The session proposes to amend the retrospective's "what is still standing"
-section with the boundary finding and its fix, the operator's ruling, the path
-list and both commits (`4e5f6a7` walked, `main` at the fix commit closing), and
-then run the tag and the state writes.
+Stated so nothing is inferred: the fake-expiry, quarantine and deferral gates
+have nothing due at `r1`; `oss feature_list` already carries every feature the
+first close's re-groom added; the stored `next_sketch` still matches what the
+operator wants; and over the fixed tree `PUBLIC_BOUNDARY.md` parses, nothing
+matches a rule, the untracked sweep returns only ignored build output, and every
+other boundary check would come back clean.
+
+Still unrun: the `user:` half of step 2, steps 3 through 7, the tag and the
+state writes.
