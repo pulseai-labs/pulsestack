@@ -27,7 +27,7 @@ the spec's, not an optimization:
 | | Spine close (§6.1) | Release close (§6.2) |
 |---|---|---|
 | `auto:` lines | all accumulated, every run | all accumulated |
-| `user:` lines | **this spine's own contribution only** | **every** accumulated line, grouped by feature |
+| `user:` lines | **this spine's own contribution only** | **every** accumulated line, grouped by feature (re-close citation: `release-close.md` §8) |
 | Who drives the `user:` half | the human, here, now, or yourself under a standing order that gives you the demo walk (§3) | the human, at the release gate, or yourself under that order (§3) |
 
 One verb serves both: `oss demo_user_lines` **with** a spine argument filters to

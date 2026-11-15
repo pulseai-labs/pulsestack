@@ -30,7 +30,7 @@ about. Mark the workspace clean and close." At triage the operator concedes
 the `strategy/` folder is exactly the class of material the boundary exists
 to watch, and does not accept any exposure.
 
-The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `1e2f3a4`, and that commit is the canonical's current tip on every ref.
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `1e2f3a4` (its `Moat items reviewed`: ranking/decay intelligence), and that commit is the canonical's current tip on every ref.
 
 State the audit's other inputs, so nothing below is left to infer: state
 posture is `open-core`; the pairing manifest records a `visibility` for

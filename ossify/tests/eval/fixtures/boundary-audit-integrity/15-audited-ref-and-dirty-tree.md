@@ -42,7 +42,7 @@ own branch `main` and its gitleaks run completes and reports nothing as hygiene
 notes; neither repo carries a `.gitleaks.toml` of its own. The private boundary inventory exists there with one moat row
 ("ranking/decay intelligence — channel `private-package` — the public repo
 holds the ranking port, the private crate implements it"), and its
-**History passes** table records the canonical through commit `f0e1d2c`,
+**History passes** table records the canonical through commit `f0e1d2c` (its `Moat items reviewed`: ranking/decay intelligence),
 which is the current tip of `main`.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere

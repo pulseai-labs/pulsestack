@@ -34,7 +34,7 @@ canonical's scans and close on the workspace's arm." At triage the operator
 affirms that no remote exists on record and does not dispute the file
 facts, and does not accept any exposure.
 
-The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `5e4d3c2`, and that commit is the canonical's current tip on every ref.
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `5e4d3c2` (its `Moat items reviewed`: ranking/decay intelligence), and that commit is the canonical's current tip on every ref.
 
 State the audit's other inputs, so nothing below is left to infer: the closing spines' handoffs record `base_branch: main` under
 `## 2. Spine context`, the manifest's `canonical.default_branch` reads

@@ -44,7 +44,7 @@ row here; this list is downstream of the rubric and goes stale silently.
 | I18 | **Accepted disclosures** section — present or absent, and **every field of each row**: the release id, the finding and the surface it covers, the reason, and the date (criterion 6 treats all of them as the row; §5/criterion 7 re-read the row to resurface) | 6, 7 |
 | I19 | the operator's disposition at triage — affirming or disputing the fact, **and accepting or not accepting the exposure** | 6, 7 |
 | I20 | the pin fields of any surface an override would have to pin, in the shape that surface admits — tracked content: path + content hash + the commit read at; untracked or fileless finding: path + pattern; tool degradation: tool + failure | 6 |
-| I21 | **History passes** row per repo — present, its recorded commit, and what the review covered | 8 |
+| I21 | **History passes** row per repo — present, its recorded commit, its `Moat items reviewed` value (or none), and what the review covered | 8 |
 | I22 | reachability of the audited ref from that recorded commit | 8 |
 | I23 | clone completeness **per repo**, not once for the set | 8, 3 |
 | I24 | audited-ref resolution — the spines' `base_branch`, manifest `default_branch`, the two `rev-parse` ids, and every other repo's checked-out branch | 9 |

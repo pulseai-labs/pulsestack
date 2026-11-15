@@ -299,7 +299,7 @@ enforceable at a release boundary). Eight steps, in **binding order**:
    exits 0. **`abandoned` is not `closed`**: it neither passes silently nor
    hard-halts, it is surfaced by name for the user to confirm.
 2. **The full cumulative walkthrough**: `oss demo_run` for every accumulated
-   `auto:` line, then walk **every** active `user:` line with the human, or
+   `auto:` line, then walk **every** active `user:` line (re-close exception: `release-close.md` §8) with the human, or
    yourself under a standing order in the project's memory bank or `AGENTS.md` that gives you the demo walk (`cumulative-demo.md` §3) — `oss demo_user_lines` with **no argument**. The amendments are already
    applied; the spines applied them. Grouping by feature is **derived** from
    `source_spine` and `oss feature_list`, not read off a field.

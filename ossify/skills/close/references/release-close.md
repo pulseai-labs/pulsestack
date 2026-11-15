@@ -337,7 +337,8 @@ a workspace **shape** is never something to paste into a command.
 **What it aggregates**, drawing on the sections `retrospective.md` pins so this
 is a roll-up and not a re-interview: what the release set out to do against what
 shipped; the walkthrough outcome from §3, by feature group (**including which
-groups were spot-checked rather than fully walked**); every spine's class and any
+groups were spot-checked rather than fully walked**), and, per repo exercised,
+the commit it stood at during the §3 walk; every spine's class and any
 mid-flight reclassification; **what is still standing** — the fakes, deferrals and
 quarantines each spine's own "still standing" section left owed, reconciled
 against steps 3 and 4's findings above; the durable lessons; and the
@@ -464,16 +465,27 @@ overridden close reports under the audit's third verdict, never as `clean`
 (`boundary-audit.md` §7).
 
 **A halt here is not free, and steps 1-6 are not free to repeat.** A re-close
-re-runs the full cumulative walkthrough — this ceremony's most expensive step —
-and two of the steps it re-runs already wrote state. `oss feature_add` appends
-**unconditionally**, so re-running §7 blind duplicates every feature it added:
-read `oss feature_list` first and add only what is missing; and `oss
-release_set_meta` has already stored a `next_sketch` for a release that is now
-not closing. And `release-retrospective.md` is already on disk with a "what is
-still standing" section written before the finding existed — **amend it** so the
-boundary finding and its disposition join that section; never silently
-re-author it. The audit still has to run last, because a fix has to be
-re-audited.
+re-runs §3; the `auto:` half always re-runs (`oss demo_run`). Its `user:` half
+may cite the prior walk only if the retrospective records the walked commit for
+every repo the walk exercised, the full per-repo list of paths changed from that
+commit to the closing ref is shown (for example,
+`git -C "<root>" diff --name-only --no-renames "<walked>" "<closing ref>"`), together with every
+path the fix changed outside a commit (an untracked or ignored file added,
+removed or edited), and the demo-walk
+holder (`cumulative-demo.md` §3: the operator, or the role a standing order gives
+the walk) rules that no listed path touches the surface any `user:` line exercises.
+Record the ruling, full lists and both commits per repo in the retrospective's
+amended "what is still standing" section. Otherwise re-walk: a missing walked
+commit or a list that cannot be produced is no equivalence.
+A re-walk may run on another host: the host that can run the `user:` surface
+walks the closing ref and records the outcome as §3 does.
+
+Two re-run steps already wrote state. `oss feature_add` appends **unconditionally**:
+read `oss feature_list` first and add only what is missing. `oss release_set_meta`
+already stored a `next_sketch` for a release now not closing. The retrospective's
+"what is still standing" predates the finding — **amend it** with the finding and
+its disposition; never silently re-author it. The audit still runs last: a fix
+has to be re-audited.
 
 ---
 
