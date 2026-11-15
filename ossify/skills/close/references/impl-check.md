@@ -108,7 +108,7 @@ directions bite:
   phrase is not vacuous.
 
 `user:` rows are not parsed here at all — and no ossify gate parses them
-anywhere. The human-walked half of acceptance lives in the demo ledger
+anywhere. The walked half of acceptance lives in the demo ledger
 (`oss ledger_add_user`, keyed by spine), walked at the cumulative demo; a
 spec's `user:` line is documentation for the implementer only.
 

@@ -120,7 +120,7 @@ Five parts, each load-bearing:
 |---|---|---|
 | `- [ ] ` | A markdown checkbox, exactly this | `- AC-1` or `* [ ] AC-1` yields **no row at all** |
 | `AC-<N>` | The label, numbered | No row |
-| `auto:` | The marker | No row. **And no ossify gate runs a `user:` AC either** — the human-walked half lives in the demo ledger (SKILL.md §8), keyed by spine, never read out of a spec |
+| `auto:` | The marker | No row. **And no ossify gate runs a `user:` AC either** — the walked half lives in the demo ledger (SKILL.md §8), keyed by spine, never read out of a spec |
 | `` `<command>` `` | **Backticked**, before the `→` | No pair of backticks there, a lone backtick, or an empty command: `verify_acs` names the AC and exits **3** — the gate halts. A backticked word in the expectation is never taken as the command |
 | `→ expected: ` | U+2192, then the literal word | An ASCII `->`, or a missing `expected:`, lands the whole tail in the expectation field: a row is emitted and it is **unusable** |
 
@@ -237,8 +237,8 @@ and a terrible ledger line. Promote to the ledger only what states something
 ## 5. Citation fold-in
 
 A mechanical step of authoring, not a ceremony: every citation resolves, or the
-spec does not lock. Full rules — the target set, the Release 0 narrowing, and the
-mandatory re-verification after any bone change — in `citation-foldin.md`.
+spec does not lock. Full rules, including the repo-qualified file-path rules,
+the Release 0 narrowing, and mandatory re-verification after any bone change, in `citation-foldin.md`.
 
 ---
 
@@ -246,7 +246,9 @@ mandatory re-verification after any bone change — in `citation-foldin.md`.
 
 If the user wants the plan audited before build, run ossify's own audit —
 `challenge` in audit mode — **against the spine plan** (`SPINE.md` plus the
-specs that exist), after the plan settles.
+specs that exist), after SKILL.md §9 finishes `SPINE.md`: Spine context,
+Decomposition, Rounds, Demo contribution, Fakes, and Bones this spine registers
+must all be present.
 
 1. **Run the audit.** Read
    `skills/challenge/references/audit.md` (relative to the plugin root) end to end and
@@ -256,8 +258,8 @@ specs that exist), after the plan settles.
    joins is the ladder's decision
    (`challenge/references/adversaries.md`), and the summary names what ran.
 2. **On return, triage the standing challenges** and fold accepted ones back
-   into the plan (§4 decomposition, §5 rounds, §8 demo contribution) before
-   locking.
+   into the plan (§4 decomposition, §5 rounds, §8 demo contribution, §9 fakes
+   and bones) before locking.
 
 This is a **planning** audit. The bone spine's full close-depth audit with the
 external adversary belongs to `close`, and it is a different moment with a

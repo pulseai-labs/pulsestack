@@ -22,8 +22,8 @@ silently. The deployment-evidence row (I4/I5) was added with criterion 6.
 | I1 | the proposed spine's scope — an architectural layer with no actor-to-outcome journey (a horizontal build) vs an actor-to-outcome journey | 1, 2 |
 | I2 | the declared class — `bone` / `flesh` / `internal-enabler` / reject | 1 |
 | I3 | whether the scope touches a registered bone's touch surface — a flesh claim touching a bone | 3 |
-| I4 | whether a service extraction is proposed — a new separately-deployed service (its own process, image, pipeline, and on-call surface) vs work kept in-process | 6 |
-| I5 | the measured-pressure evidence for a split — contemporaneous and checkable (a bottleneck profile, a load figure it cannot meet in-process, an outage where its failure took the rest down, an enacted compliance rule forbidding co-location, an ownership transfer that has happened) or its absence / an anticipated need only ("it will need to scale independently") | 6 |
+| I4 | whether a separately-deployed service (its own process, image, pipeline, and on-call surface) is proposed — moving existing work into it or creating new work there — vs work kept in-process; and whether the spine is still a candidate at selection or already minted, with its declared class | 6 |
+| I5 | the measured-pressure evidence for that service — contemporaneous and checkable (a bottleneck profile, a load figure it cannot meet in-process, an outage where its failure took the rest down, an enacted compliance rule forbidding co-location, an ownership transfer that has happened) or its absence / an anticipated need only ("it will need to scale independently") | 6 |
 | I6 | whether the plan is a genuine flesh spine on existing bones (no over-ceremony) vs inflated to bone | 4 |
 | I7 | the governing rule the rationale cites — journey requirement / bone-touch / enabler consumer / deployment-evidence bar | 5 |
 | I8 | for an internal-enabler, the named consuming user-facing spine scheduled in the current or next release (one-release-ahead cap) | 2 |
@@ -34,7 +34,7 @@ silently. The deployment-evidence row (I4/I5) was added with criterion 6.
 criterion 1's conclusion wearing an input's clothes — state the scope, the
 touch, and the evidence, not the class the criterion derives from them.
 
-**Omitting the deployment-evidence input on a split.** A body that proposes a
-service extraction without stating the measured pressure (or its absence)
-hands criterion 6 a guess between admitting the split as bone and deferring it
-to the feature map.
+**Omitting the deployment-evidence input on a separately-deployed service.** A
+body that proposes one without stating the measured pressure (or its absence)
+and whether the spine is minted yet hands criterion 6 a guess between admitting
+it as bone and leaving it on the feature map.

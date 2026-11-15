@@ -9,6 +9,10 @@ The 1.24.0 entry's parenthesis about adopt and a marked stub, added in 1.35.0, s
 Some versions have no entry. The GitHub releases tagged `ossify-v*` carry notes for the versions
 they cover.
 
+## 1.44.0
+
+Since 1.44.0 (#134, #870, #910, #977, #200), an open release can gain one spine through a documented amendment: full class, bone-touch and critic judgments for the new spine only, a whole-DAG rewrite preserving existing entries, exit-criterion and ledger-budget accounting, and a state-rendered RELEASE.md. Spine planning routes undeclared spines there and asks for a missing id. The optional spine-plan audit waits until §9 finishes every SPINE.md section. Demo cost statements use close's standing-order walk holder, and cross-repo file citations name their repo or use an absolute path. Any additional separately deployed service needs measured pressure before selection, whether extracted or new; rung 3 re-checks it, retires a rejected minted spine, and persists the pressure rationale even when its class stays bone. Prose only; no new engine surface.
+
 ## 1.43.0
 
 Since 1.43.0 (#472, #219), a release re-close may cite its prior `user:` walk only with recorded walked commits, full per-repo changed-path lists to the closing ref, and the demo-walk holder's ruling that no listed path touches a `user:` surface; the retrospective is amended with that evidence. The `auto:` half always re-runs, missing proof requires a re-walk, and another host may walk the closing ref. History passes gain `Moat items reviewed`: current item names not recorded in the row owe a full-history, every-ref semantic review, independently of commit currency. A confirmed item-only review amends the existing row without advancing its commit; removed items expire nothing, renamed items read as new, and legacy rows leave every current item unasked. No file-date or hash gate is added.

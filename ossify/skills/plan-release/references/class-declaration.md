@@ -102,23 +102,22 @@ surface is how the registry rots.
 Rung 3 catches what rung 2 cannot: a spine that creates a bone in files nobody has
 registered yet, because the bone does not exist until this spine lands.
 
-**One category carries an admission bar, not just a label: `system shape &
-deployment topology`.** Classifying a service extraction `bone` says how much
-ceremony it gets, not whether it is allowed — so a spine that moves existing
-work into a second deployable can pass this ladder and be selected on nothing
-but intent. It is admitted only on **measured pressure**: evidence that this
-seam specifically needs independent deployment, scaling, security isolation,
-failure containment, or separate ownership. An anticipated pressure is not
-evidence, and the ADR records the evidence as the decision's grounds. The full
-bar, and the deferral path when the evidence is absent, is
-`plan-spine/references/codebase-design.md` §3 — and **this rung is where it
-binds**, because this runs at release planning and that file loads later, at
-spine decomposition, when the release has already committed to the spine.
+**`System shape & deployment topology` carries an admission bar:** any spine
+adding a separately deployed service — moving existing work into one or creating
+a new one — needs **measured pressure** for independent deployment, scaling,
+security isolation, failure containment, or separate ownership. Anticipated
+pressure is not evidence; its ADR records the evidence as the decision's grounds.
+Selection checks it before minting (§5a); this rung re-checks it. If a minted
+spine fails, retire it with `oss spine_status "<sid>" abandoned` and return the
+candidate to the feature map with the admission condition in its `value`
+(`plan-spine/references/codebase-design.md` §3), as §4 does. The spine keeps its
+`spine_dag` entry: its status records the retirement, and
+`spine-sequencing-dag.md` §3 lists every spine exactly once.
 
-Record the evidence in the rationale, not only in the ADR: for this case §2's
-string takes a trailing `; pressure: <the measured evidence>`. Without it a
-declarer who follows §2 records a reason indistinguishable from a speculative
-split's, which is the gap the ADR was supposed to close.
+For such a spine, persist §2's rationale with
+`oss class_set "$sid" bone "<rationale>; pressure: <the measured evidence>"`
+even when the declared class was already `bone`: `spine_add` stores no reason
+and `RELEASE.md` is re-rendered from state.
 
 ### Rung 4 — otherwise, flesh
 

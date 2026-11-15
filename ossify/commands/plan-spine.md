@@ -18,7 +18,8 @@ bash -c '
 Now load the skill body and follow it:
 
 **Read `${CLAUDE_PLUGIN_ROOT}/skills/plan-spine/SKILL.md` (in OMP: `skill://plan-spine`) end to end and follow
-it** — with the parsed spine id (`r1.s2`). The skill body owns the pre-flight
+it** — with the spine id from the arguments, if any (`r1.s2` is the shape); with none,
+the skill lists planned spines and asks which one. The skill body owns the pre-flight
 probes (manifest + project + a planned release) → decomposition into 1-5 work
 items with a `target_repo` → round identification via the work-item DAG →
 per-round spec authoring with the citation fold-in → the grill-me gate for bone
