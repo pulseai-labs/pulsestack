@@ -93,8 +93,10 @@ Class P uses `references/plain-repo.md` §3, not the legacy close.
   It prints the root: sweep the workspace's porcelain too.
   It prints a parent directory: sweep only the workspace's part,
   `git -C "<root>" status --porcelain --untracked-files=all -- .`, and name the nesting
-  as a finding (`boundary-audit.md` blocks it at close).
-  It fails (no repository): skip that porcelain half and name the skip in the adoption record.
+  as a finding (at close, `boundary-audit.md` blocks it unless the parent is a declared repo).
+  It fails: run it under `LC_ALL=C`. Only an error that says `not a git repository` means no repository:
+  skip that porcelain half and name the skip in the adoption record.
+  Any other failure (for example `detected dubious ownership`) refuses and prints git's error.
   Both classes use this rule.
   Any porcelain line refuses under the evidence-and-disposition contract above;
   class P exempts only the topology A1 authored this run.

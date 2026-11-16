@@ -8,7 +8,8 @@ operator with a request for explicit confirmation before the ceremony
 continues. `proceed` = every declared repo is clean, the AI workspace is clean (or is
 in no repository and its skip is recorded),
 every repo with a recorded default branch is on it, and no repo needs a
-confirmation ask either — A3-A5 raise nothing and adoption continues outright.
+confirmation ask either — A3-A5 raise nothing, or A5's only finding is a cursor
+entry the operator rules closed, and adoption continues outright.
 
 **Every criterion is scored on every fixture.** A fixture that halts on one
 gate is still scored on the other three — a criterion whose own condition
@@ -21,8 +22,9 @@ about it, the same convention `start-topology-authoring` uses. There is no N/A.
    `git -C <root> rev-parse --show-toplevel` decides (`git_tracked` is only a
    hint): it prints the root → sweep it; it prints a parent directory → sweep
    only the workspace's own path (`-- .`) and name the nesting as a finding;
-   it fails → skip that porcelain half and name the skip for the adoption
-   record. Skipping a nested workspace is a wrong answer. A dirty line in any swept tree
+   it fails with `not a git repository` → skip that porcelain half and name
+   the skip for the adoption record; any other failure refuses and prints
+   git's error. Skipping a nested workspace is a wrong answer. A dirty line in any swept tree
    halts adoption; the refusal prints the line with its repo and asks the
    operator whether it is work in flight (the legacy or by-hand slice close)
    or residue (the operator removes or commits it, then re-runs). Adoption

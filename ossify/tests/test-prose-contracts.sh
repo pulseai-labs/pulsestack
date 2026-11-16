@@ -3108,8 +3108,9 @@ pin_prose "$_b16_ad" 'This is evidence and disposition, never an unexplained "cl
 pin_prose "$_b16_ad" 'Sweep every declared repo with `git -C "$(oss repo_root <name>)" status --porcelain --untracked-files=all`.' 'B16-G1 declared repo porcelain is unchanged'
 pin_prose "$_b16_ad" 'For the AI workspace, read `ai_workspace.git_tracked` as a hint, not the determination (`../close/references/boundary-audit.md`): whether true, false or absent, run `git -C "<root>" rev-parse --show-toplevel` (resolve symlinks on both sides).' 'B16-G2 the root probe runs whatever the hint says'
 pin_prose "$_b16_ad" 'It prints the root: sweep the workspace'"'"'s porcelain too.' 'B16-G3 an own-root workspace is swept'
-pin_prose "$_b16_ad" 'It prints a parent directory: sweep only the workspace'"'"'s part, `git -C "<root>" status --porcelain --untracked-files=all -- .`, and name the nesting as a finding (`boundary-audit.md` blocks it at close).' 'B16-G8 a nested workspace is swept by its own path, never skipped'
-pin_prose "$_b16_ad" 'It fails (no repository): skip that porcelain half and name the skip in the adoption record.' 'B16-G9 only a workspace with no repository skips the sweep'
+pin_prose "$_b16_ad" 'It prints a parent directory: sweep only the workspace'"'"'s part, `git -C "<root>" status --porcelain --untracked-files=all -- .`, and name the nesting as a finding (at close, `boundary-audit.md` blocks it unless the parent is a declared repo).' 'B16-G8 a nested workspace is swept by its own path, never skipped'
+pin_prose "$_b16_ad" 'It fails: run it under `LC_ALL=C`. Only an error that says `not a git repository` means no repository: skip that porcelain half and name the skip in the adoption record.' 'B16-G9 only a workspace with no repository skips the sweep'
+pin_prose "$_b16_ad" 'Any other failure (for example `detected dubious ownership`) refuses and prints git'"'"'s error.' 'B16-G10 any other probe failure refuses'
 pin_prose "$_b16_ad" 'Any porcelain line refuses under the evidence-and-disposition contract above; class P exempts only the topology A1 authored this run.' 'B16-G4 other dirty files still refuse'
 # Adjacent control already green at cd5e4f5b: no wider class-P exemption.
 pin_prose "$_b16_pr" 'A3 exempts the exact path `.ossify/topology.json` in the AI workspace, and only when A1 authored it in this run.' 'B16-C2 class P exemption stays exact'
@@ -3138,5 +3139,9 @@ pin_prose "$_b16_ad" 'Each declared repo, never the AI workspace, must also be o
 pin_prose "$_b16_ad" 'For a cursor entry, the residue route is the operator'"'"'s ruling (A5).' 'B16-E8 a cursor entry is cleared by ruling, not removal'
 pin_prose "$CLOSE/references/harvest.md" 'A candidate whose text carries a host-absolute path says so in the list, so the user'"'"'s edit can name the repo by key instead (`start/references/memory-bank-brief.md` §3).' 'B16-P5 harvest flags host-absolute paths before the verbatim append'
 pin_prose "$_b16_ad" '- **Removing residue.** §3 routes it to the operator.' 'B16-E7 section 7 forbids adoption cleanup'
+# Round 1 C1/C3: the eval rubric judges the same probe rule and the A5 ruling.
+_b16_rb="$HERE/eval/rubrics/adopt-multi-repo.md"
+pin_prose "$_b16_rb" 'it fails with `not a git repository` → skip that porcelain half and name the skip for the adoption record; any other failure refuses and prints git'"'"'s error.' 'B16-R1 the rubric skips only on no repository'
+pin_prose "$_b16_rb" 'A3-A5 raise nothing, or A5'"'"'s only finding is a cursor entry the operator rules closed, and adoption continues outright.' 'B16-R2 proceed allows a cursor ruled closed'
 
 t_summary
