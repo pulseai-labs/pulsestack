@@ -52,7 +52,8 @@ For each named item, the operator says whether it is work in flight or residue.
 For work in flight, name the **legacy stack's** close ceremony — scaffold-dev's slice close, then re-run;
 or, where scaffold-dev is no longer installed, close the slice by hand (#732):
 the operator finishes or abandons it until A3–A5 hold, committing every change in
-the repo it touched. For residue (a stale backup, an empty worktree parent, or adoption output from an earlier partial run), the operator removes or commits it in the repo it sits in, then re-runs; adoption never removes it itself (§7).
+the repo it touched. For residue (a stale backup, or adoption output from an earlier partial run), the operator removes or commits it in the repo it sits in, then re-runs; adoption never removes it itself (§7).
+For a cursor entry, the residue route is the operator's ruling (A5).
 This is evidence and disposition, never an unexplained "clean your tree".
 Class P uses `references/plain-repo.md` §3, not the legacy close.
 
@@ -87,10 +88,14 @@ Class P uses `references/plain-repo.md` §3, not the legacy close.
 - **A3 — every tree adoption will edit is clean, tracked and untracked.**
   Sweep every declared repo with `git -C "$(oss repo_root <name>)" status --porcelain --untracked-files=all`.
   For the AI workspace, read `ai_workspace.git_tracked` as a hint, not the determination
-  (`../close/references/boundary-audit.md`): whether true, false or absent,
-  `git -C "<root>" rev-parse --show-toplevel` must print the workspace root itself
-  (resolve symlinks on both sides). If it is its own git root, sweep its porcelain too;
-  otherwise skip only that porcelain half and name the skip in the adoption record. Both classes use this rule.
+  (`../close/references/boundary-audit.md`): whether true, false or absent, run
+  `git -C "<root>" rev-parse --show-toplevel` (resolve symlinks on both sides).
+  It prints the root: sweep the workspace's porcelain too.
+  It prints a parent directory: sweep only the workspace's part,
+  `git -C "<root>" status --porcelain --untracked-files=all -- .`, and name the nesting
+  as a finding (`boundary-audit.md` blocks it at close).
+  It fails (no repository): skip that porcelain half and name the skip in the adoption record.
+  Both classes use this rule.
   Any porcelain line refuses under the evidence-and-disposition contract above;
   class P exempts only the topology A1 authored this run.
   Each declared repo, never the AI workspace, must also be on its default branch —

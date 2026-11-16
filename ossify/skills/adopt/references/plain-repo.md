@@ -68,7 +68,7 @@ When that porcelain half runs, a re-run's topology is no longer "this run's": th
 ## 3. A3, A4, A5 on class P
 
 - **A3:** `git -C <root> status --porcelain --untracked-files=all` per declared repo.
-  Apply `SKILL.md` A3's AI-workspace root determination and recorded skip; the exemption above stays exact.
+  Apply `SKILL.md` A3's AI-workspace rule (own root, nested, or no repository); the exemption above stays exact.
   Print each other porcelain line with its repo and refuse; the operator names work in flight (finishes or drops it)
   or residue (removes or commits it), in the repo it touched, then re-runs. Adoption never removes it.
   The default-branch rule is unchanged; an unborn `HEAD` stops (§1).
@@ -99,7 +99,7 @@ before C2), or the completion floor refuses. The release description drops `unde
 **Zero steps left `shipped`** (a stated known limit): at C4, after C3, do not call `release_add`. Write the adoption
 record to that point (class, gates, baseline table, the C1 table, every C2 result and gap), then halt. The hand-off
 names what to clear to retry: the file `oss state_path` prints and its `.base.json` sibling, `ADOPTION.md` moved
-outside the AI workspace (C5 creates it only when absent; A3 refuses it untracked inside), and C3's uncommitted ADR files in the product repo (commit or remove
+outside the AI workspace (C5 creates it only when absent; where A3 sweeps the workspace, it refuses it untracked inside), and C3's uncommitted ADR files in the product repo (commit or remove
 them: A3 refuses them on retry). It says what happened: A6 asked, C2 found the checkout disagrees. The
 completion floor does not apply to this halt: it is a halt with its record written, not a completion.
 

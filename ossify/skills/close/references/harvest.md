@@ -170,6 +170,8 @@ is likelier to be a half-remembered intention. The user is calibrating on that
 difference when they accept or reject, so the tag is on the **first** line, where
 it cannot be missed.
 
+A candidate whose text carries a host-absolute path says so in the list, so the
+user's edit can name the repo by key instead (`start/references/memory-bank-brief.md` §3).
 Then consume the response per candidate: **accept**, **edit** (the user's text
 wins verbatim), or **reject**. Do not argue a rejection back, and do not fold two
 candidates into one to make the list shorter.

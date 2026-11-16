@@ -6,7 +6,7 @@ Score each 1-5 (4 criteria). Pass = all ≥4. `expected_outcome` vocabulary:
 recorded default branch, so its checked-out branch must be named to the
 operator with a request for explicit confirmation before the ceremony
 continues. `proceed` = every declared repo is clean, the AI workspace is clean (or is
-not its own git root and its skip is recorded),
+in no repository and its skip is recorded),
 every repo with a recorded default branch is on it, and no repo needs a
 confirmation ask either — A3-A5 raise nothing and adoption continues outright.
 
@@ -17,10 +17,12 @@ about it, the same convention `start-topology-authoring` uses. There is no N/A.
 
 1. **Full per-repo + workspace cleanliness sweep, with named evidence** — A3's
    `git status --porcelain` check runs against **every** repo declared in the
-   topology **and** the AI workspace, not canonical alone. The AI workspace is
-   swept when `git -C <root> rev-parse --show-toplevel` prints its own root
-   (`git_tracked` is only a hint); otherwise its porcelain half is skipped and
-   the skip is named for the adoption record. A dirty line in any swept tree
+   topology **and** the AI workspace, not canonical alone. For the AI workspace,
+   `git -C <root> rev-parse --show-toplevel` decides (`git_tracked` is only a
+   hint): it prints the root → sweep it; it prints a parent directory → sweep
+   only the workspace's own path (`-- .`) and name the nesting as a finding;
+   it fails → skip that porcelain half and name the skip for the adoption
+   record. Skipping a nested workspace is a wrong answer. A dirty line in any swept tree
    halts adoption; the refusal prints the line with its repo and asks the
    operator whether it is work in flight (the legacy or by-hand slice close)
    or residue (the operator removes or commits it, then re-runs). Adoption

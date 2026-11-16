@@ -2692,7 +2692,7 @@ pin "$_PR" 'at C4, after C3, do not call `release_add`' \
   "plain-repo §4: zero shipped steps after C2 mints no Release 0, and halts at C4 after C3 (#536)"
 pin "$_PR" 'names what to clear to retry: the file `oss state_path` prints and its `.base.json` sibling, `ADOPTION.md` moved' \
   "plain-repo §4: the C2 halt's hand-off names the state file, its .base.json and ADOPTION.md (#536)"
-pin "$_PR" 'outside the AI workspace (C5 creates it only when absent; A3 refuses it untracked inside), and C3'"'"'s uncommitted ADR files in the product repo (commit or remove' \
+pin "$_PR" 'outside the AI workspace (C5 creates it only when absent; where A3 sweeps the workspace, it refuses it untracked inside), and C3'"'"'s uncommitted ADR files in the product repo (commit or remove' \
   "plain-repo §4: the retry hand-off names C3's uncommitted ADR files (#536)"
 pin "$_AD2" 'a class P halt at C4, after C2 left zero `shipped` steps, is a halt,' \
   "adopt's completion floor accepts the C4 halt after a zero-shipped C2 as a halt (#536)"
@@ -3102,29 +3102,41 @@ pin_prose "$_b16_ad" 'preserve hand-authored zones; derive ossify additions from
 pin_prose "$_b16_ad" '| memory bank | derive additions from `../start/references/memory-bank-brief.md`, including §3 item 2;' 'B16-P4 memory additions follow the same path rule'
 pin_prose "$_b16_ad" 'A3–A5 refusals print each porcelain line with its repo, each directory with its path, the checked-out branch, and the cursor entry read as active, as applicable.' 'B16-E1 refusals retain their evidence'
 pin_prose "$_b16_ad" 'For each named item, the operator says whether it is work in flight or residue.' 'B16-E2 the operator classifies the evidence'
-pin_prose "$_b16_ad" 'For residue (a stale backup, an empty worktree parent, or adoption output from an earlier partial run), the operator removes or commits it in the repo it sits in, then re-runs; adoption never removes it itself (§7).' 'B16-E3 residue cleanup belongs only to the operator'
+pin_prose "$_b16_ad" 'For residue (a stale backup, or adoption output from an earlier partial run), the operator removes or commits it in the repo it sits in, then re-runs; adoption never removes it itself (§7).' 'B16-E3 residue cleanup belongs only to the operator'
 pin_prose "$_b16_ad" 'For work in flight, name the **legacy stack'"'"'s** close ceremony — scaffold-dev'"'"'s slice close, then re-run;' 'B16-E4 live work retains the legacy close route'
 pin_prose "$_b16_ad" 'This is evidence and disposition, never an unexplained "clean your tree".' 'B16-E5 reporting replaces the vague refusal'
 pin_prose "$_b16_ad" 'Sweep every declared repo with `git -C "$(oss repo_root <name>)" status --porcelain --untracked-files=all`.' 'B16-G1 declared repo porcelain is unchanged'
-pin_prose "$_b16_ad" 'For the AI workspace, read `ai_workspace.git_tracked` as a hint, not the determination (`../close/references/boundary-audit.md`): whether true, false or absent, `git -C "<root>" rev-parse --show-toplevel` must print the workspace root itself (resolve symlinks on both sides).' 'B16-G2 every hint value gets a root determination'
-pin_prose "$_b16_ad" 'If it is its own git root, sweep its porcelain too; otherwise skip only that porcelain half and name the skip in the adoption record. Both classes use this rule.' 'B16-G3 nonroot workspaces skip and real roots are swept'
+pin_prose "$_b16_ad" 'For the AI workspace, read `ai_workspace.git_tracked` as a hint, not the determination (`../close/references/boundary-audit.md`): whether true, false or absent, run `git -C "<root>" rev-parse --show-toplevel` (resolve symlinks on both sides).' 'B16-G2 the root probe runs whatever the hint says'
+pin_prose "$_b16_ad" 'It prints the root: sweep the workspace'"'"'s porcelain too.' 'B16-G3 an own-root workspace is swept'
+pin_prose "$_b16_ad" 'It prints a parent directory: sweep only the workspace'"'"'s part, `git -C "<root>" status --porcelain --untracked-files=all -- .`, and name the nesting as a finding (`boundary-audit.md` blocks it at close).' 'B16-G8 a nested workspace is swept by its own path, never skipped'
+pin_prose "$_b16_ad" 'It fails (no repository): skip that porcelain half and name the skip in the adoption record.' 'B16-G9 only a workspace with no repository skips the sweep'
 pin_prose "$_b16_ad" 'Any porcelain line refuses under the evidence-and-disposition contract above; class P exempts only the topology A1 authored this run.' 'B16-G4 other dirty files still refuse'
 # Adjacent control already green at cd5e4f5b: no wider class-P exemption.
 pin_prose "$_b16_pr" 'A3 exempts the exact path `.ossify/topology.json` in the AI workspace, and only when A1 authored it in this run.' 'B16-C2 class P exemption stays exact'
-pin_prose "$_b16_pr" 'Apply `SKILL.md` A3'"'"'s AI-workspace root determination and recorded skip; the exemption above stays exact.' 'B16-G5 class P shares the root rule'
+pin_prose "$_b16_pr" 'Apply `SKILL.md` A3'"'"'s AI-workspace rule (own root, nested, or no repository); the exemption above stays exact.' 'B16-G5 class P shares the root rule'
 pin_prose "$_b16_pr" 'Print each other porcelain line with its repo and refuse; the operator names work in flight (finishes or drops it) or residue (removes or commits it), in the repo it touched, then re-runs. Adoption never removes it.' 'B16-E6 class P shares evidence and operator disposition'
 pin_prose "$_b16_ad" 'Count only a directory that holds an entry: an empty directory is named as residue and does not refuse on its own.' 'B16-W1 empty worktree parents no longer refuse'
 pin_prose "$_b16_ad" 'A directory holding anything still refuses, naming its path, under the contract above' 'B16-W2 a populated worktree parent still refuses'
 pin_prose "$_b16_ad" '| `MASTER-SPEC.md` | reconcile the file `oss spec_path` prints, never the conventional path beside a routed one;' 'B16-S1 reconciliation uses the routed spec'
 pin_prose "$_b16_ad" 'Name the cursor entry read as active. A recorded operator ruling that the named slice is closed passes A5; carry the ruling in the adoption record.' 'B16-A1 a retained closed cursor can pass by recorded ruling'
 pin_prose "$_b16_ad" 'With no such ruling, an active slice refuses. Adoption never writes the cursor (§7).' 'B16-A2 without a ruling active cursors still refuse'
-# Ruling 8 is stopped: bone_add has no status; do not pin its proposed remedy.
+# Item 5: bone_add has no status, so the adoption record carries the Accepted reading (C4, C5).
 # Existing §7 is a stated control, green at cd5e4f5b.
 pin_prose "$_b16_ad" '**Repairing what it finds.** C2 gaps and stale ADRs are findings.' 'B16-C3 adoption does not repair legacy ADRs'
 pin_prose "$_b16_ad" 'A bone row carries no status, so the adoption record lists each adopted ADR as `Accepted` and names, as a finding, each legacy file still marked `Proposed`.' 'B16-C4 the adoption record carries the Accepted reading and names each Proposed legacy file'
 pin_prose "$_b16_ad" 'Adoption does not edit that file (§7); the operator flips it.' 'B16-C5 adoption never flips a legacy ADR status'
 pin_prose "$_b16_pr" 'an empty directory beside the product repo, optionally `git init`,' 'B16-G6 class P does not require a git workspace'
 pin_prose "$_b16_pr" 'commit the authored topology only if the AI workspace is its own git root' 'B16-G7 class P does not commit in a nonroot workspace'
+# Pre-PR review B2/N8: rewritten lines whose mutants survived.
+pin_prose "$_b16_pr" 'When that porcelain half runs, a re-run'"'"'s topology is no longer "this run'"'"'s": the operator deletes it (A1 re-authors it) or commits it.' 'B16-X1 the operator, never adoption, clears a stale topology'
+pin_prose "$_b16_ad" 'the operator finishes or abandons it until A3–A5 hold' 'B16-X3 the operator, never adoption, abandons work in flight'
+pin_prose "$_b16_pr" '- **A3:** `git -C <root> status --porcelain --untracked-files=all` per declared repo.' 'B16-X9 class P sweeps declared repos; the workspace follows the root rule'
+pin_prose "$_b16_pr" 'In a workspace that is its own git root, A1 commits the topology it authored only after the gates pass' 'B16-X2 the topology is committed only in an own-root workspace'
+pin_prose "$_b16_ad" 'Class P uses `references/plain-repo.md` §3, not the legacy close.' 'B16-X8 class P never routes to the legacy close'
+pin_prose "$_b16_pr" 'The topology A1 authored stays uncommitted on a refusal here (§2: delete it to retry).' 'B16-X14 a refusal leaves the topology uncommitted for the operator'
+pin_prose "$_b16_ad" 'Each declared repo, never the AI workspace, must also be on its default branch' 'B16-X6 the default-branch rule skips the AI workspace'
+pin_prose "$_b16_ad" 'For a cursor entry, the residue route is the operator'"'"'s ruling (A5).' 'B16-E8 a cursor entry is cleared by ruling, not removal'
+pin_prose "$CLOSE/references/harvest.md" 'A candidate whose text carries a host-absolute path says so in the list, so the user'"'"'s edit can name the repo by key instead (`start/references/memory-bank-brief.md` §3).' 'B16-P5 harvest flags host-absolute paths before the verbatim append'
 pin_prose "$_b16_ad" '- **Removing residue.** §3 routes it to the operator.' 'B16-E7 section 7 forbids adoption cleanup'
 
 t_summary
