@@ -1,0 +1,1 @@
+{"scores":{"full_cleanliness_sweep":5,"full_branch_check":5,"baseline_table":5,"aggregated_c3":4},"pass":true,"notes":"Sweeps both declared repos, skips only the AI-workspace porcelain half and records the skip, confirms both on main, and proceeds to a per-repo baseline and a C3 scan of both repos with the collision preflight; C3 mentioned only briefly."}

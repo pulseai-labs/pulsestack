@@ -2670,12 +2670,8 @@ pin "$_PR" 'never writes a byte in a product repo during A1.' \
   "plain-repo §2: A1 writes nothing in a product repo (#536)"
 pin "$_PR" '**Check first** that the working directory is not a declared repo and is not inside one' \
   "plain-repo §2: class P checks the working directory is no declared repo (#536)"
-pin "$_AD2" '--untracked-files=all` each. Any line, in any one — class P exempts only the topology A1 authored this run' \
-  "adopt A3 lists untracked files one by one and exempts only the authored topology (#536)"
 pin "$_PR" 'A3 exempts the exact path `.ossify/topology.json` in the AI workspace, and only when A1 authored it in this run.' \
   "plain-repo §2: the A3 exemption is the exact topology path, A1-authored this run (#536)"
-pin "$_PR" 'exemption above is exact. Any other line refuses, as "work in flight"' \
-  "plain-repo §3: any other line than the exempt topology still refuses at A3 (#536)"
 pin "$_PR" 'git -C <root> worktree list --porcelain' \
   "plain-repo §3: A4 lists linked worktrees for class P (#536)"
 pin "$_AD2" 'Class P records `A5: no legacy stack`.' \
@@ -3095,5 +3091,40 @@ pin_prose "$_b15_spine/references/codebase-design.md" '**The bar first binds at 
 pin_prose "$_b15_spine/references/citation-foldin.md" 'File paths and signatures use §1'"'"'s default root or explicit repo qualifier (`oss repo_root <name>`); absolute paths stand on their own.' 'B15-R5 the citation check runs against the default or named root'
 pin_prose "$_b15_spine/references/citation-foldin.md" 'The ambient cwd is no root declaration.' 'B15-R6 the ambient cwd never supplies a citation root'
 pin_prose "$_b15_spine/SKILL.md" 'including Demo contribution and Fakes; follow `references/spec-authoring.md` §6 before locking.' 'B15-A5 the spine audit runs before the spec locks'
+
+# 1.45.0 (#990, #294): batch-16 operative rules, wrap-proof.
+_b16_ad="$SKILLS/adopt/SKILL.md"
+_b16_pr="$SKILLS/adopt/references/plain-repo.md"
+_b16_mb="$SKILLS/start/references/memory-bank-brief.md"
+pin_prose "$_b16_mb" 'The memory bank and `AGENTS.md` name each repo by its topology key and never carry a host-absolute path; a reader on any host resolves a repo with `oss repo_root <key>` (or `oss spec_path` for the spec).' 'B16-P1 instruction paths are portable'
+pin_prose "$_b16_mb" '**Host-absolute repo paths in the memory bank or `AGENTS.md`.** Use §3 item 2.' 'B16-P2 the anti-pattern points to the path rule'
+pin_prose "$_b16_ad" 'preserve hand-authored zones; derive ossify additions from `../start/references/memory-bank-brief.md`, including §3 item 2.' 'B16-P3 AGENTS additions follow the path rule'
+pin_prose "$_b16_ad" '| memory bank | derive additions from `../start/references/memory-bank-brief.md`, including §3 item 2;' 'B16-P4 memory additions follow the same path rule'
+pin_prose "$_b16_ad" 'A3–A5 refusals print each porcelain line with its repo, each directory with its path, the checked-out branch, and the cursor entry read as active, as applicable.' 'B16-E1 refusals retain their evidence'
+pin_prose "$_b16_ad" 'For each named item, the operator says whether it is work in flight or residue.' 'B16-E2 the operator classifies the evidence'
+pin_prose "$_b16_ad" 'For residue (a stale backup, an empty worktree parent, or adoption output from an earlier partial run), the operator removes or commits it in the repo it sits in, then re-runs; adoption never removes it itself (§7).' 'B16-E3 residue cleanup belongs only to the operator'
+pin_prose "$_b16_ad" 'For work in flight, name the **legacy stack'"'"'s** close ceremony — scaffold-dev'"'"'s slice close, then re-run;' 'B16-E4 live work retains the legacy close route'
+pin_prose "$_b16_ad" 'This is evidence and disposition, never an unexplained "clean your tree".' 'B16-E5 reporting replaces the vague refusal'
+pin_prose "$_b16_ad" 'Sweep every declared repo with `git -C "$(oss repo_root <name>)" status --porcelain --untracked-files=all`.' 'B16-G1 declared repo porcelain is unchanged'
+pin_prose "$_b16_ad" 'For the AI workspace, read `ai_workspace.git_tracked` as a hint, not the determination (`../close/references/boundary-audit.md`): whether true, false or absent, `git -C "<root>" rev-parse --show-toplevel` must print the workspace root itself (resolve symlinks on both sides).' 'B16-G2 every hint value gets a root determination'
+pin_prose "$_b16_ad" 'If it is its own git root, sweep its porcelain too; otherwise skip only that porcelain half and name the skip in the adoption record. Both classes use this rule.' 'B16-G3 nonroot workspaces skip and real roots are swept'
+pin_prose "$_b16_ad" 'Any porcelain line refuses under the evidence-and-disposition contract above; class P exempts only the topology A1 authored this run.' 'B16-G4 other dirty files still refuse'
+# Adjacent control already green at cd5e4f5b: no wider class-P exemption.
+pin_prose "$_b16_pr" 'A3 exempts the exact path `.ossify/topology.json` in the AI workspace, and only when A1 authored it in this run.' 'B16-C2 class P exemption stays exact'
+pin_prose "$_b16_pr" 'Apply `SKILL.md` A3'"'"'s AI-workspace root determination and recorded skip; the exemption above stays exact.' 'B16-G5 class P shares the root rule'
+pin_prose "$_b16_pr" 'Print each other porcelain line with its repo and refuse; the operator names work in flight (finishes or drops it) or residue (removes or commits it), in the repo it touched, then re-runs. Adoption never removes it.' 'B16-E6 class P shares evidence and operator disposition'
+pin_prose "$_b16_ad" 'Count only a directory that holds an entry: an empty directory is named as residue and does not refuse on its own.' 'B16-W1 empty worktree parents no longer refuse'
+pin_prose "$_b16_ad" 'A directory holding anything still refuses, naming its path, under the contract above' 'B16-W2 a populated worktree parent still refuses'
+pin_prose "$_b16_ad" '| `MASTER-SPEC.md` | reconcile the file `oss spec_path` prints, never the conventional path beside a routed one;' 'B16-S1 reconciliation uses the routed spec'
+pin_prose "$_b16_ad" 'Name the cursor entry read as active. A recorded operator ruling that the named slice is closed passes A5; carry the ruling in the adoption record.' 'B16-A1 a retained closed cursor can pass by recorded ruling'
+pin_prose "$_b16_ad" 'With no such ruling, an active slice refuses. Adoption never writes the cursor (§7).' 'B16-A2 without a ruling active cursors still refuse'
+# Ruling 8 is stopped: bone_add has no status; do not pin its proposed remedy.
+# Existing §7 is a stated control, green at cd5e4f5b.
+pin_prose "$_b16_ad" '**Repairing what it finds.** C2 gaps and stale ADRs are findings.' 'B16-C3 adoption does not repair legacy ADRs'
+pin_prose "$_b16_ad" 'A bone row carries no status, so the adoption record lists each adopted ADR as `Accepted` and names, as a finding, each legacy file still marked `Proposed`.' 'B16-C4 the adoption record carries the Accepted reading and names each Proposed legacy file'
+pin_prose "$_b16_ad" 'Adoption does not edit that file (§7); the operator flips it.' 'B16-C5 adoption never flips a legacy ADR status'
+pin_prose "$_b16_pr" 'an empty directory beside the product repo, optionally `git init`,' 'B16-G6 class P does not require a git workspace'
+pin_prose "$_b16_pr" 'commit the authored topology only if the AI workspace is its own git root' 'B16-G7 class P does not commit in a nonroot workspace'
+pin_prose "$_b16_ad" '- **Removing residue.** §3 routes it to the operator.' 'B16-E7 section 7 forbids adoption cleanup'
 
 t_summary

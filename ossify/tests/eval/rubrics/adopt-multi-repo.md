@@ -5,7 +5,8 @@ Score each 1-5 (4 criteria). Pass = all ≥4. `expected_outcome` vocabulary:
 `confirm` = nothing halts, but at least one declared repo has no manifest-
 recorded default branch, so its checked-out branch must be named to the
 operator with a request for explicit confirmation before the ceremony
-continues. `proceed` = every declared repo and the AI workspace are clean,
+continues. `proceed` = every declared repo is clean, the AI workspace is clean (or is
+not its own git root and its skip is recorded),
 every repo with a recorded default branch is on it, and no repo needs a
 confirmation ask either — A3-A5 raise nothing and adoption continues outright.
 
@@ -14,10 +15,20 @@ gate is still scored on the other three — a criterion whose own condition
 never fires on that fixture scores whether the skill correctly stayed silent
 about it, the same convention `start-topology-authoring` uses. There is no N/A.
 
-1. **Full per-repo + workspace cleanliness sweep** — A3's `git status
-   --porcelain` check runs against **every** repo declared in the topology
-   **and** the AI workspace, not canonical alone. A dirty line in any one of
-   them halts adoption, naming the legacy stack's slice close as the remedy.
+1. **Full per-repo + workspace cleanliness sweep, with named evidence** — A3's
+   `git status --porcelain` check runs against **every** repo declared in the
+   topology **and** the AI workspace, not canonical alone. The AI workspace is
+   swept when `git -C <root> rev-parse --show-toplevel` prints its own root
+   (`git_tracked` is only a hint); otherwise its porcelain half is skipped and
+   the skip is named for the adoption record. A dirty line in any swept tree
+   halts adoption; the refusal prints the line with its repo and asks the
+   operator whether it is work in flight (the legacy or by-hand slice close)
+   or residue (the operator removes or commits it, then re-runs). Adoption
+   never removes or commits anything itself. The same evidence rule holds at
+   A4 and A5: A4 names each directory under `.worktrees` and refuses only on
+   one that holds an entry, naming an empty one as residue; A5 names the
+   cursor entry it reads as active and passes it only on a recorded operator
+   ruling that the named slice is closed, never by writing the cursor.
    Stopping the sweep once canonical (or canonical + the AI workspace) comes
    back clean, and never reaching a second or third declared repo, is a wrong
    answer here even when it happens to land on the right verdict for the

@@ -71,6 +71,7 @@ Authored at the same time, from the same sources. Contents at Release 0:
 1. **What this project is** — two lines from the vision narrative.
 2. **Where things are** — the memory-bank pointer + tier convention, the bones
    ADR directory, `project-state.json` (AI workspace), `PUBLIC_BOUNDARY.md`.
+   The memory bank and `AGENTS.md` name each repo by its topology key and never carry a host-absolute path; a reader on any host resolves a repo with `oss repo_root <key>` (or `oss spec_path` for the spec).
 3. **The loop** — this project uses ossify: `start` → `plan-release` →
    `plan-spine` → `close`; spines are `bone` or `flesh`; the cumulative demo
    ledger is the standing fitness check.
@@ -118,6 +119,7 @@ them.
   is decoupled by decision; the legacy brief targets the 10-phase schema, which
   does not exist here.
 - **Fill-in markers.** See §2.
+- **Host-absolute repo paths in the memory bank or `AGENTS.md`.** Use §3 item 2.
 - **Inventing detail to fill a thin section.** A three-line true section is
   correct at Release 0; a paragraph of plausible fiction is a hallucination that
   a future session will treat as a decision.
