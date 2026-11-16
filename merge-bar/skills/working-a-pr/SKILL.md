@@ -177,8 +177,9 @@ A round is one pass of §2 → §2.5 → §3 ending in one push. Round 1 is the 
 opened PR. The re-review of a pushed round is a **fresh** reviewer, never you: start it on the
 new head with `--round <n> --previous <URL of the posted report comment>`, so it reviews the
 fix diff and each prior class's closure. Your own sweep is a pre-push check, not the re-review.
-If a round changes the body’s `## Merge bar` or `## Claim` (beyond adding Known-limits lines or
-Evidence), start the next review as round 1 on the whole PR and say the bar or Claim changed.
+If a round changes the body's `## Merge bar` or `## Claim` (beyond adding Known-limits lines or
+Evidence), start the next review as above and tell it the bar or Claim changed: it then reviews the
+whole PR as round 1 (`reviewing-a-pr` §5). The round count continues.
 
 - **One push per round.** Commit fixes class by class, then push once, after the sweep below.
   Every push triggers another review, so each extra push buys one.
@@ -285,9 +286,9 @@ next to this repository by `.workspace/pairing.json` whose `canonical.name` matc
 (commonly `<repo>-ai`), or through `.ossify/topology.json`. Absolute `root` paths may belong
 to another machine — match by name and location, never by trusting them. Exactly one workspace
 must match: if none or several do, print the lines and ask. In that workspace, use
-the manifest’s `.well_known_paths.memory_bank` (`.ossify/topology.json` first, else `.workspace/pairing.json`).
+the manifest's `.well_known_paths.memory_bank` (`.ossify/topology.json` first, else `.workspace/pairing.json`).
 Expand `${ai_workspace.root}` to the matched workspace root; absent a route, use
-`.claude/memory-bank/`. Any other token: print the lines and ask. Resolve relative routes there.
+`.claude/memory-bank/`. A relative route, or any other token: print the lines and ask.
 If the file is absent, create it with the heading `# Tech debt — <repo>`. Append the lines and
 leave them **uncommitted**: tell the operator which file changed; committing belongs to that
 workspace's own session.
@@ -298,11 +299,11 @@ same bank (same match, none-or-several rule, uncommitted):
 ```
 - PR #N (<YYYY-MM-DD>) — rounds <n> — blocking: <class names | none> — answered: <class names | none> — rulings: <bar overrides, each with its reason | none> — report: <path | none>
 ```
-A PR in the workspace’s canonical repo stays `PR #N`; any other repo uses `PR <owner>/<repo>#N`
+A PR in the workspace's canonical repo stays `PR #N`; any other repo uses `PR <owner>/<repo>#N`
 in the ledger line and the parenthesized suffix above. The date is the merge date from
 `gh pr view <PR> --json mergedAt`, in UTC.
 The `answered:` field lists every non-blocking class with its disposition in parentheses:
-`(answered)`, `(invalid)`, `(limit)` or `(→ #N)`.
+`(answered)`, `(fixed)`, `(invalid)`, `(limit)` or `(→ #N)`.
 
 Rounds come from §3.5, class names from the §2.5 set. A ruling is a class you dispositioned
 differently from the reviewer's `Bar:` line, with the reason. A report with no `Bar:` line records

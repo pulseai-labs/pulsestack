@@ -18,7 +18,7 @@ replaces it. List with `gh pr list --state merged --limit 5000 --json number,mer
 `mergedAt` and take the last N (or those since the PR or date); the default listing is 30, ordered
 by creation. First PR is the earliest `mergedAt` in the window; last PR is the latest.
 The read-out states both and the count, and says so if the listing hit the limit. Without `gh`
-the window is undetermined: every ledger line counts, and the read-out says so.
+the window is undetermined: every ledger line for this repo counts, and the read-out says so.
 
 ## 2. Sources
 
@@ -31,7 +31,8 @@ Otherwise read and write only the chosen checkout; the read-out names it.
 Every source is optional; the read-out names what you read and did not find. A source read only in
 part says so there and on the run line's `read:` field. Cheapest first:
 
-1. The workspace's `review-ledger.md`: class names, rulings, report paths; line format in `working-a-pr` §5.
+1. The workspace's `review-ledger.md`, lines for this repo's PRs in either §5 form: class names, rulings,
+   report paths; line format in `working-a-pr` §5.
 2. An older review ledger in the workspace: find the window's PR numbers first, then read by
    meaning only those PRs; never whole.
 3. Review reports: the paths the ledger names, plus every report under `--reports <dir>` whose
@@ -53,7 +54,7 @@ Read headings and `Rule:` lines first; open site lists only for candidate classe
 
 1. **Group** findings by defect, by meaning, not wording.
 2. **Count.** A candidate needs **two or more distinct PRs**; rounds of one PR count once, a ruling
-   counts as a finding. A report’s `Refuted:` line is a cleared candidate, never evidence or reviewer noise.
+   counts as a finding. A report's `Refuted:` line is a cleared candidate, never evidence or reviewer noise.
    Only a disposition marked `invalid` by `working-a-pr` counts toward reviewer noise (no defect
    evidence): if it repeats, one reviewer-noise line, no proposal.
 3. **Sort** each candidate into one outcome, one proposal per class:
@@ -66,7 +67,7 @@ Read headings and `Rule:` lines first; open site lists only for candidate classe
    - **Covered, still recurring** — an entry covers a judgment class only when its rule flags
      every site of the class in the window (an accepted entry in the log and file counts):
      one read-out line, no duplicate entry. Entries in files under `## Read these where they live`
-     count; merge-bar’s baseline does not: a recurring baseline class gets an entry citing the baseline.
+     count; merge-bar's baseline does not: a recurring baseline class gets an entry citing the baseline.
      A covered class a check could decide is a **check** proposal.
    - **Rejected earlier** / **Accepted earlier** (checks only, accepted or edited) — per the retro
      log, when it exists: one read-out line (naming the issue, if any), no proposal, unless a PR
@@ -138,8 +139,8 @@ A host-refused write, including the run line, is printed with its destination fi
 
 `retro-log.md` beside the review ledger, created with `# Retro log — <repo>` when absent; written
 once, at the end of the run: one run line, then one line per answered proposal.
-`P<n>` numbers are per run; match the log by the class line’s meaning and take its outcome;
-when unsure, show the logged line beside the proposal. An `edited` log line uses the operator’s final wording as its class.
+`P<n>` numbers are per run; match the log by the class line's meaning and take its outcome;
+when unsure, show the logged line beside the proposal. An `edited` log line uses the operator's final wording as its class.
 An undetermined window uses `window undetermined (gh unavailable), <n> ledger lines`.
 
 ```
@@ -153,7 +154,7 @@ End with: the window (first PR, last PR, count); the checkout you read; sources 
 marked so) and sources missing or unavailable, each with its cause; reports skipped (no header,
 no repository in header, another repository, template header, or outside the window), counted;
 debt lines skipped for no PR suffix, counted; proposal counts by outcome;
-the files changed. Give the covered-still-recurring and reviewer-noise lines here. Zero proposals is
+the files changed. Give the covered-still-recurring, check-not-run-in-CI and reviewer-noise lines here. Zero proposals is
 a correct result when the history is thin: name every cause that applies (too few PRs, nothing
 repeats, a source missing, `gh` unavailable), never just "no history".
-One run’s silence on a class is not evidence it does not repeat; runs vary.
+One run's silence on a class is not evidence it does not repeat; runs vary.

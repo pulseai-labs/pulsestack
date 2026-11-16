@@ -93,7 +93,7 @@ existing standards file, which is never edited.
 
 With an existing non-stub `CODING_STANDARDS.md`, write nothing to it. List the proposals directly
 below the result line in `ADOPTION.md`, or without it (§6), in `## Review` of `08-governance.md`,
-in §5’s one-line form. `<m>` counts entries written, so it is 0 here; the result line says so (below).
+in §5's one-line form. `<m>` counts entries written, so it is 0 here; the result line says so (below).
 
 Adopt never overwrites: on an adopted project `08-governance.md` is occupied, so append its
 `## Review` section (§4) only when the file has none, with adopt's provenance trailer
