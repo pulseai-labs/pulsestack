@@ -1,5 +1,5 @@
 ---
-description: Review a pull request as defect classes with every site, each sorted against the merge bar in its own body — two axes in parallel, coverage stated per file; round 2+ reviews only the fix diff and each prior class's closure. Reports only.
+description: Review a pull request as defect classes with every site, each sorted against the merge bar in its own body — two axes in parallel, coverage stated per file; round 2+ reviews only the fix diff and each prior class's closure unless the bar or Claim changed. Reports only.
 argument-hint: "<PR number or URL> [--round N --previous <report>] [--standards <path>] [--verifier <path>] [--head <sha>] [--body <file>]"
 allowed-tools: Bash(git:*), Bash(gh:*), Bash(rg:*), Read, Glob, Grep, Write, Agent
 ---

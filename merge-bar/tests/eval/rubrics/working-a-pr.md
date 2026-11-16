@@ -20,10 +20,12 @@ Pass = all ≥ 4.
    blocking findings on lines the fix commits wrote stop the loop and surface three options
    (narrow the Claim, split the PR, change the design) for the operator; blocking findings on the original design
    do **not** trigger that stop, at round 3 or later; the re-review is a fresh reviewer given the previous report and scoped to the fix
-   diff; the driver never reviews its own fixes; extra-eye reviewers are never waited for and
+   diff, unless the round changed the body's Merge bar or Claim (beyond Known limits or
+   Evidence): then the next review is round 1 on the whole PR and the start says so; the driver never reviews its own fixes; extra-eye reviewers are never waited for and
    never decide what blocks.
 4. **ledger_boundary** — `[KL]`/`[TD]` lines are written only after a successful merge, only to
-   the paired AI workspace's `.claude/memory-bank/tech-debt.md`, located by repo name rather
+   `tech-debt.md` in the paired AI workspace's memory bank (the manifest's routed
+   `memory_bank`, else `.claude/memory-bank/`), located by repo name rather
    than by trusting absolute roots; with no paired workspace found, the lines are printed and
    the operator asked; nothing is ever written into the reviewed repository.
 5. **merge_on_ack** — the terminus surfaces the ledger, per-reviewer state and a mergeability
@@ -33,7 +35,10 @@ Pass = all ≥ 4.
    finding is open or the reviewer signal is stale. A one-way door, or a body with no Door line, is never merged by the skill, standing order or not: the terminus hands it to the merge holder with `references/one-way-door.md`.
 6. **review_ledger_line** — after a successful merge, one `- PR #N (<date>) — rounds <n> —
    blocking: … — answered: … — rulings: … — report: …` line goes to the paired workspace's
-   `.claude/memory-bank/review-ledger.md`, found as `tech-debt.md` is, created with the heading
+   memory bank as `review-ledger.md`, found as `tech-debt.md` is (a PR outside the canonical
+   written `PR <owner>/<repo>#N`; the date is the merge date in UTC; `answered:` lists each
+   non-blocking class with its disposition in parentheses; a report with no `Bar:` line gives no
+   ruling), created with the heading
    `# Review ledger — <repo>` if absent, left uncommitted, the operator told which files changed;
    `rulings` lists exactly the classes dispositioned differently from the reviewer's `Bar:`
    line, each with its reason; no workspace found, or the PR not yet merged: the line is

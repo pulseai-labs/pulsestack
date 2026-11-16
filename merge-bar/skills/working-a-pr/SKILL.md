@@ -177,6 +177,8 @@ A round is one pass of §2 → §2.5 → §3 ending in one push. Round 1 is the 
 opened PR. The re-review of a pushed round is a **fresh** reviewer, never you: start it on the
 new head with `--round <n> --previous <URL of the posted report comment>`, so it reviews the
 fix diff and each prior class's closure. Your own sweep is a pre-push check, not the re-review.
+If a round changes the body’s `## Merge bar` or `## Claim` (beyond adding Known-limits lines or
+Evidence), start the next review as round 1 on the whole PR and say the bar or Claim changed.
 
 - **One push per round.** Commit fixes class by class, then push once, after the sweep below.
   Every push triggers another review, so each extra push buys one.
@@ -275,30 +277,36 @@ as:
 
 ```
 - [KL] <area/path> — <the limit> — <why accepted> — revisit when <trigger> (PR #N)
-- [TD] <area/path> — <defect> → #N
+- [TD] <area/path> — <defect> → #N (PR #N)
 ```
 
-**Where they go:** the paired AI workspace's `.claude/memory-bank/tech-debt.md`. Find the
-workspace by looking next to this repository for a directory holding
-`.workspace/pairing.json` whose `canonical.name` is this repository's name (commonly
-`<repo>-ai`), or through ossify's `.ossify/topology.json`. The manifest's absolute `root`
-paths may belong to another machine — match by name and location, never by trusting them.
-Exactly one workspace must match: if none or more than one does, print the lines and ask.
+**Where they go:** `tech-debt.md` in the paired AI workspace's memory bank. Find the workspace
+next to this repository by `.workspace/pairing.json` whose `canonical.name` matches this repo
+(commonly `<repo>-ai`), or through `.ossify/topology.json`. Absolute `root` paths may belong
+to another machine — match by name and location, never by trusting them. Exactly one workspace
+must match: if none or several do, print the lines and ask. In that workspace, use
+the manifest’s `.well_known_paths.memory_bank` (`.ossify/topology.json` first, else `.workspace/pairing.json`).
+Expand `${ai_workspace.root}` to the matched workspace root; absent a route, use
+`.claude/memory-bank/`. Any other token: print the lines and ask. Resolve relative routes there.
 If the file is absent, create it with the heading `# Tech debt — <repo>`. Append the lines and
-leave them **uncommitted**: tell the operator which file changed, and that committing it
-belongs to that workspace's own session.
+leave them **uncommitted**: tell the operator which file changed; committing belongs to that
+workspace's own session.
 
-**The review-ledger line.** Every merged PR also gets one line in the paired workspace's
-`.claude/memory-bank/review-ledger.md`, found exactly as above (same match, same
-none-or-several rule, uncommitted):
+**The review-ledger line.** Every merged PR also gets one line in `review-ledger.md` in that
+same bank (same match, none-or-several rule, uncommitted):
 
 ```
 - PR #N (<YYYY-MM-DD>) — rounds <n> — blocking: <class names | none> — answered: <class names | none> — rulings: <bar overrides, each with its reason | none> — report: <path | none>
 ```
+A PR in the workspace’s canonical repo stays `PR #N`; any other repo uses `PR <owner>/<repo>#N`
+in the ledger line and the parenthesized suffix above. The date is the merge date from
+`gh pr view <PR> --json mergedAt`, in UTC.
+The `answered:` field lists every non-blocking class with its disposition in parentheses:
+`(answered)`, `(invalid)`, `(limit)` or `(→ #N)`.
 
 Rounds come from §3.5, class names from the §2.5 set. A ruling is a class you dispositioned
-differently from the reviewer's `Bar:` line, with the reason. Report is the last round's
-report path if it is on disk. If the file is absent, create it with the heading
+differently from the reviewer's `Bar:` line, with the reason. A report with no `Bar:` line records
+no ruling for its classes. Report is the last round's report path if it is on disk. If the file is absent, create it with the heading
 `# Review ledger — <repo>`; tell the operator which files changed. Not merged, or no
 workspace: print this line with the others.
 

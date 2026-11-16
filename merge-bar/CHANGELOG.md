@@ -2,6 +2,15 @@
 
 All notable changes to the `merge-bar` plugin.
 
+## 0.11.0
+
+**Prose and contract checks (#1012, #1007, #1211, #1038 item 2).**
+
+- `running-a-retro`: selects debt by PR suffix, skips repository-free report headers, reads report-shaped comments once, and distinguishes full coverage, partial entries (a judgment class with a searchable part stays an entry), existing checks absent from CI, and cleared candidates. Log matching uses class meaning, edited wording and round-qualified sources. Operator-free runs, refused writes, undetermined windows, temp-file cleanup and silence are explicit; the command permits directory listing.
+- `working-a-pr` §5: both ledgers use the routed workspace bank, PR references distinguish noncanonical repos, dates are UTC merge dates, every non-blocking disposition is recorded, and a missing `Bar:` line supplies no ruling.
+- A changed Merge bar or Claim resets the next review to round 1 on the whole PR; the actor announces it and the reviewer names why in the existing header.
+- Codex's interface descriptions name PR review and retro. `mb`'s header names skill-first question 2; no executable behavior changes. Prose pins cover the new contracts and byte parity of the shipped skill-first quotation.
+
 ## 0.10.3
 
 **Prose, tests and evals only (#1071, the non-blocking classes of #1070).** #1071's C4, ossify's "do not restructure twice" in `work-pr/references/loop.md`, is ossify's and goes to ossify 1.36.8 (#1073's patch); the CodeRabbit note on the pin file's maintainability is not addressed.

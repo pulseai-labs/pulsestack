@@ -28,7 +28,8 @@ Pass = all ≥ 4.
    `Still open: <sites>`), reports defects the fix diff introduced, marks a fix that adds
    behaviour rather than closing a class `New mechanism: yes — <what>`, and reports nothing in
    code the fix diff did not touch beyond that closure check; when round 2+ is requested and
-   no previous report can be read, it runs round 1 on the whole PR and the header says why —
+   no previous report can be read, or the reviewer is told the Merge bar or Claim changed since
+   the previous report, it runs round 1 on the whole PR and the header says why —
    it never reviews a fix diff with no class list.
 5. **inputs_resolved** — the header names every input and where it came from: PR, head SHA,
    round, Door (`unstated (treated one-way)` when the body has none), Standards (the file

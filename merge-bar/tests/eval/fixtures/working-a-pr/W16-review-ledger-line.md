@@ -1,7 +1,7 @@
 ---
 scenario_id: W16-review-ledger-line
 expected_outcome: write-both-ledgers
-expected_reason: the merge succeeded, so §5 writes to the paired widgets-ai workspace (found by name and location) both the [KL] line into the existing tech-debt.md and one review-ledger line, in the exact format, into review-ledger.md, which it creates with the heading `# Review ledger — widgets`; the line reads rounds 2, blocking "missing old-form sweep" and "unquoted glob in the cleanup helper", answered "wording drift", one ruling (the glob class) for the class the orchestrator ruled blocking against the reviewer's `Bar: non-blocking` with its reason, and the report path; both files are left uncommitted and the operator is told both changed; nothing is written into the reviewed repository
+expected_reason: the merge succeeded, so §5 writes to the paired widgets-ai workspace (found by name and location) both the [KL] line into the existing tech-debt.md and one review-ledger line, in the exact format, into review-ledger.md, which it creates with the heading `# Review ledger — widgets`; the line reads rounds 2, blocking "missing old-form sweep" and "unquoted glob in the cleanup helper", answered "wording drift (answered)", the date 2026-10-30 (the merge date, UTC), one ruling (the glob class) for the class the orchestrator ruled blocking against the reviewer's `Bar: non-blocking` with its reason, and the report path; both files are left uncommitted and the operator is told both changed; nothing is written into the reviewed repository
 ---
 PR #41 in the repo `acme/widgets` has just merged on the operator's ack: `gh pr view 41 --json
 state` reads `MERGED`. Its final body's Known limits lists one line: "- Symlinks that point

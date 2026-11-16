@@ -89,20 +89,20 @@ as above. "Could not list" is never "empty".
 ## 2. The tech-debt ledger
 
 merge-bar's `working-a-pr` writes accepted known limits and out-of-scope defects,
-after a merge, to the AI workspace's `.claude/memory-bank/tech-debt.md`:
+after a merge, to the AI workspace's routed memory bank (`working-a-pr` §5), in `tech-debt.md`:
 
 ```
 - [KL] <area/path> — <the limit> — <why accepted> — revisit when <trigger> (PR #N)
-- [TD] <area/path> — <defect> → #N
+- [TD] <area/path> — <defect> → #N (PR #N)
 ```
 
 Read it from the AI workspace: `oss repo_root ai_workspace` on an ossify
 project. Outside one, use the paired workspace next to the repo — a sibling
 directory whose `.workspace/pairing.json` names this repo as canonical, commonly
-`<repo>-ai`.
+`<repo>-ai`. Resolve the bank and PR-reference forms as `working-a-pr` §5 specifies.
 
 ```bash
-grep -n -E '^- \[(KL|TD)\] ' "<ai-workspace>/.claude/memory-bank/tech-debt.md"
+grep -n -E '^- \[(KL|TD)\] ' "<memory-bank>/tech-debt.md"
 ```
 
 The **surface** is what is being planned. At plan-spine pre-flight, it is the

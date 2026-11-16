@@ -30,7 +30,7 @@ Nothing here lands in a declared repo.
     the ledger and the `## Review` section, which would land in the repo.
 
   Either way say why. The rest of the ceremony continues, and the hand-off names what was not
-  seeded.
+  seeded. On a standalone (§6) run, the hand-off is the closing read-out.
 
 ## 2. The standards stub
 
@@ -91,9 +91,9 @@ the entry makes false. A `CODING_STANDARDS.md` that still carries the verbatim
 wrote, and the first one removes the sentence. Only a file without that sentence counts as an
 existing standards file, which is never edited.
 
-When `CODING_STANDARDS.md` already exists, write nothing to it. List the proposals in `ADOPTION.md`
-for the operator to place; with no `ADOPTION.md` (§6), list them directly below the result line. `<m>` counts entries written to the file, so it is 0 here, and the result
-line says where the proposals went (below).
+With an existing non-stub `CODING_STANDARDS.md`, write nothing to it. List the proposals directly
+below the result line in `ADOPTION.md`, or without it (§6), in `## Review` of `08-governance.md`,
+in §5’s one-line form. `<m>` counts entries written, so it is 0 here; the result line says so (below).
 
 Adopt never overwrites: on an adopted project `08-governance.md` is occupied, so append its
 `## Review` section (§4) only when the file has none, with adopt's provenance trailer
@@ -111,6 +111,6 @@ For a project ossify already started or adopted. Follow §1–§5 as written, wi
 - Run no adopt station. Append the `## Review` section with no provenance trailer: adopt's
   `source: adoption` and `r0 baseline` do not apply to a project it did not adopt.
 - `ADOPTION.md` may not exist. Record the result line after the other lines of the `## Review` section
-  of `08-governance.md`; with an existing standards file, the proposals follow it, one per line.
+  of `08-governance.md`; with an existing non-stub standards file, the proposals follow it, one per line.
 - When `08-governance.md` has no `## Review` section, add it, as part of seeding the project.
   Never edit any other part of the file.

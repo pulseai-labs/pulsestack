@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # mb - merge-bar's helper for PR mechanics (#750). Plugin: merge-bar.
+# Skill-first question 2: mechanical, closed input — fixed `gh` calls with a PR number and a head SHA.
 #
 # Fixed `gh` calls whose input is a PR number and a head SHA: unresolved review threads,
 # the checks of the current head, the base's merge rules, a stated blocker, a bounded wait,
