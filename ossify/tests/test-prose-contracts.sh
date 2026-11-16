@@ -3148,5 +3148,8 @@ pin_prose "$_b16_rb" 'A3-A5 raise nothing, or A5'"'"'s only finding is a cursor 
 pin_prose "$_RH" 'List the proposals directly below the result line in `ADOPTION.md`, or without it (§6), in `## Review` of `08-governance.md`, in §5'"'"'s one-line form.' 'B17-18a places kept-file proposals below the result in either carrier'
 pin_prose "$_RH" 'On a standalone (§6) run, the hand-off is the closing read-out.' 'B17-18b gives standalone refusals a hand-off carrier'
 pin_prose "$_RH" 'with an existing non-stub standards file, the proposals follow it, one per line.' 'B17-18c standalone proposals follow the result line'
+pin_prose "$_IL" 'Resolve the bank as `close/references/harvest.md`, "Where the bank is", says; the line shapes and PR-reference forms are `working-a-pr` §5'"'"'s.' 'B17-IL1 ossify resolves the bank through harvest.md'
+pin_prose "$_IL" '- [TD] <area/path> — <defect> → #N (PR #N)' 'B17-IL2 the TD shape carries its PR'
+pin_prose "$_IL" 'after a merge, to the AI workspace'"'"'s routed memory bank (`working-a-pr` §5), in `tech-debt.md`:' 'B17-IL3 the ledger lives in the routed bank'
 
 t_summary

@@ -287,8 +287,9 @@ next to this repository by `.workspace/pairing.json` whose `canonical.name` matc
 to another machine — match by name and location, never by trusting them. Exactly one workspace
 must match: if none or several do, print the lines and ask. In that workspace, use
 the manifest's `.well_known_paths.memory_bank` (`.ossify/topology.json` first, else `.workspace/pairing.json`).
-Expand `${ai_workspace.root}` to the matched workspace root; absent a route, use
-`.claude/memory-bank/`. A relative route, or any other token: print the lines and ask.
+Expand `${ai_workspace.root}` to the matched workspace root, and `${HOME}` and `${USER}` from the
+environment; absent a route, use `.claude/memory-bank/`. A relative route, any other token, or
+an absolute route that does not exist on this host: print the lines and ask.
 If the file is absent, create it with the heading `# Tech debt — <repo>`. Append the lines and
 leave them **uncommitted**: tell the operator which file changed; committing belongs to that
 workspace's own session.
@@ -297,11 +298,11 @@ workspace's own session.
 same bank (same match, none-or-several rule, uncommitted):
 
 ```
-- PR #N (<YYYY-MM-DD>) — rounds <n> — blocking: <class names | none> — answered: <class names | none> — rulings: <bar overrides, each with its reason | none> — report: <path | none>
+- PR #N (<YYYY-MM-DD>) — rounds <n> — blocking: <class names | none> — answered: <class (disposition), … | none> — rulings: <bar overrides, each with its reason | none> — report: <path | none>
 ```
 A PR in the workspace's canonical repo stays `PR #N`; any other repo uses `PR <owner>/<repo>#N`
 in the ledger line and the parenthesized suffix above. The date is the merge date from
-`gh pr view <PR> --json mergedAt`, in UTC.
+`gh pr view <PR> --json mergedAt`, in UTC; a line printed before the merge carries `<merge date>`.
 The `answered:` field lists every non-blocking class with its disposition in parentheses:
 `(answered)`, `(fixed)`, `(invalid)`, `(limit)` or `(→ #N)`.
 

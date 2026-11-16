@@ -128,7 +128,7 @@ A host-refused write, including the run line, is printed with its destination fi
   Delete both temp files after `gh issue create` returns, whatever its exit status.
 - **No reply:** print the proposals, write the run line (§5) and nothing else. The run line is
   written once, when the run ends: after the operator's answer, or when none comes.
-  “When none comes” means the run ends with a proposal unanswered. With no operator, otherwise
+  "When none comes" means the run ends with a proposal unanswered. With no operator, otherwise
   run normally, accept no proposal, write only the run line, and print the proposals.
 - **No paired workspace, or no standards file:** print accepted entries and ask where they go. Never
   write them into the reviewed repository or create a standards file; an ossify `reviewer-home.md`

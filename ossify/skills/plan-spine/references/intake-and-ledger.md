@@ -99,7 +99,8 @@ after a merge, to the AI workspace's routed memory bank (`working-a-pr` §5), in
 Read it from the AI workspace: `oss repo_root ai_workspace` on an ossify
 project. Outside one, use the paired workspace next to the repo — a sibling
 directory whose `.workspace/pairing.json` names this repo as canonical, commonly
-`<repo>-ai`. Resolve the bank and PR-reference forms as `working-a-pr` §5 specifies.
+`<repo>-ai`. Resolve the bank as `close/references/harvest.md`, "Where the bank is", says; the line shapes and
+PR-reference forms are `working-a-pr` §5's.
 
 ```bash
 grep -n -E '^- \[(KL|TD)\] ' "<memory-bank>/tech-debt.md"
