@@ -23,7 +23,7 @@ Everything else is non-blocking.
 |---|---|---|
 | `opening-a-pr` | `/merge-bar:open-pr` | Writes the seven-field body (Claim, Scope, Known limits, Merge danger, Merge bar, Evidence, Closes) and opens the PR |
 | `working-a-pr` | `/merge-bar:work-pr <PR>` | Works the PR to mergeable against its own bar; merges a two-way door on your ack, or under a standing order in the project's memory bank or `AGENTS.md` that binds this role and grants merge authority; a one-way door goes to the merge holder |
-| `reviewing-a-pr` | `/merge-bar:review-pr <PR>` | Reviews the PR as defect classes with every site, each sorted against its own bar, in two fresh-context axes (standards, and the Claim or spec); round 2+ reviews only the fix diff and each prior class's closure. Reports only; the command has no `run` (a launcher invoking the skill may name a scratch directory with `run:` to run the suite there) |
+| `reviewing-a-pr` | `/merge-bar:review-pr <PR>` | Reviews the PR as defect classes with every site, each sorted against its own bar, in two fresh-context axes (standards, and the Claim or spec); round 2+ reviews only the fix diff and each prior class's closure unless the bar or Claim changed. Reports only; the command has no `run` (a launcher invoking the skill may name a scratch directory with `run:` to run the suite there) |
 | `running-a-retro` | `/merge-bar:retro [--last N \| --since <PR or date>] [--reports <dir>]` | Reads the project's review record over a window of merged PRs; proposes a coding-standards entry or a deterministic check for classes that repeat across two or more PRs, each citing its PRs, and reports the classes it does not propose. Writes only what you accept |
 | `setting-up-reviewers` | `/merge-bar:setup-reviewers` | Once per repository: `AGENTS.md` review rules, and `.coderabbit.yaml` if public |
 
@@ -47,12 +47,12 @@ is no `bin/`, and `working-a-pr` falls back to plain `gh`.
 ## Known-limits ledger
 
 After a merge, `working-a-pr` writes the PR's known limits as `[KL]` lines, and its one
-out-of-scope issue as a `[TD]` line, to the paired AI workspace's
-`.claude/memory-bank/tech-debt.md`. With no paired workspace it prints them and asks. It never
-writes them into the reviewed repository. It also appends one line per merged PR to the same
-workspace's `.claude/memory-bank/review-ledger.md`, found the same way and left uncommitted.
-`running-a-retro` records each answered proposal in the same workspace's
-`.claude/memory-bank/retro-log.md`, so a later retro does not raise a rejected class again unless
+out-of-scope issue as a `[TD]` line, to `tech-debt.md` in the paired AI workspace's routed
+memory bank (`working-a-pr` §5). With no paired workspace it prints them and asks. It never
+writes them into the reviewed repository. It also appends one line per merged PR to
+`review-ledger.md` in that bank, found the same way and left uncommitted.
+`running-a-retro` records each answered proposal in `retro-log.md` in the same bank,
+so a later retro does not raise a rejected class again unless
 a newer PR shows it. With no paired workspace there is no log.
 
 ## Tests

@@ -1,7 +1,7 @@
 {
   "name": "merge-bar",
-  "version": "0.10.3",
-  "description": "The pull-request lifecycle against a merge bar fixed when the PR opens. Open a PR whose body carries seven fields (Claim, Scope, Known limits, Merge danger, Merge bar, Evidence, Closes); work it by sorting every reviewer finding as blocking or non-blocking against that bar, one push per round, with a stop at round 3 when the fixes are generating the findings, and non-blocking findings answered in the thread or recorded as known limits in the paired AI workspace's tech-debt ledger instead of filed as issues; review a PR as defect classes with every site, each sorted against that bar, in two parallel fresh-context axes (standards, and the Claim or spec), round 2+ on the fix diff only; teach a repository's reviewers the bar through an AGENTS.md Code Review Rules section and, on public repositories, a .coderabbit.yaml; and run a retro on the review record, proposing standards entries and deterministic checks for classes that repeat across PRs, written only when the operator accepts. Five prose skills, five slash commands, and `mb`, a bash and jq helper for the PR mechanics (review threads, checks, merge rules, blockers, a bounded wait for CI, thread reply and resolve), no state beyond one Markdown log.",
+  "version": "0.11.0",
+  "description": "The pull-request lifecycle against a merge bar fixed when the PR opens. Open a PR whose body carries seven fields (Claim, Scope, Known limits, Merge danger, Merge bar, Evidence, Closes); work it by sorting every reviewer finding as blocking or non-blocking against that bar, one push per round, with a stop at round 3 when the fixes are generating the findings, and non-blocking findings answered in the thread or recorded as known limits in the paired AI workspace's tech-debt ledger instead of filed as issues; review a PR as defect classes with every site, each sorted against that bar, in two parallel fresh-context axes (standards, and the Claim or spec), round 2+ on the fix diff only unless the bar or Claim changed; teach a repository's reviewers the bar through an AGENTS.md Code Review Rules section and, on public repositories, a .coderabbit.yaml; and run a retro on the review record, proposing standards entries and deterministic checks for classes that repeat across PRs, written only when the operator accepts. Five prose skills, five slash commands, and `mb`, a bash and jq helper for the PR mechanics (review threads, checks, merge rules, blockers, a bounded wait for CI, thread reply and resolve), no state beyond one Markdown log.",
   "author": {
     "name": "Pras"
   },
@@ -16,8 +16,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "merge-bar",
-    "shortDescription": "Open and work PRs against a merge bar fixed at open time",
-    "longDescription": "Opens pull requests with a seven-field body whose Merge bar says which findings can block and whose Merge danger says whether a revert undoes the merge, works each PR by sorting reviewer findings against that bar with one push per round and a round-3 stop, records non-blocking edge cases in a tech-debt ledger instead of filing issues, and sets up a repository's reviewers with AGENTS.md Code Review Rules.",
+    "shortDescription": "Open, work and review PRs against their merge bar; run a retro",
+    "longDescription": "Opens pull requests with a seven-field body whose Merge bar says which findings can block and whose Merge danger says whether a revert undoes the merge, works each PR by sorting reviewer findings against that bar with one push per round and a round-3 stop, records non-blocking edge cases in a tech-debt ledger instead of filing issues, reviews a PR as defect classes in two fresh-context axes, and runs a retro on recurring review findings with proposals written only when the operator accepts; also sets up reviewers with AGENTS.md Code Review Rules.",
     "developerName": "Pras",
     "category": "Coding",
     "capabilities": [

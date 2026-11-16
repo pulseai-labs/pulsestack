@@ -9,6 +9,10 @@ The 1.24.0 entry's parenthesis about adopt and a marked stub, added in 1.35.0, s
 Some versions have no entry. The GitHub releases tagged `ossify-v*` carry notes for the versions
 they cover.
 
+## 1.45.1
+
+Since 1.45.1 (#1007), reviewer-home places proposals for a kept standards file directly below the result line in `ADOPTION.md` or the standalone `## Review` section, using the same one-line form. A standalone refusal's hand-off is its closing read-out. The intake guide's tech-debt shape and bank pointer follow merge-bar 0.11.0's routed bank and PR suffix.
+
 ## 1.45.0
 
 Since 1.45.0 (#990, #294), the memory bank and `AGENTS.md` name repos by topology key, resolved on the reader's host, and harvest flags a candidate carrying a host-absolute path before its verbatim append; adopt uses the same authoring brief and reconciles the routed spec. Adoption refusals name their evidence and let the operator distinguish work in flight from residue, with cleanup never performed by adoption. Empty legacy worktree parents no longer refuse on their own; populated directories still do. Both adoption classes probe the AI workspace's git root first: an own-root workspace is swept, a nested one is swept by its own path and named as a finding, and only a workspace in no repository is skipped, with the skip recorded. A retained cursor may pass only with a recorded operator ruling that its named slice is closed; adoption never writes the cursor. The adoption record lists each adopted ADR as Accepted and names each legacy ADR file still marked Proposed as a finding, without editing it.

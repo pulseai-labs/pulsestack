@@ -1,6 +1,6 @@
 ---
 name: reviewing-a-pr
-description: Use when reviewing a PR, re-reviewing one after a fix push, or seated as a PR's reviewer — reports every defect as a class with every site in the repo, each sorted against the merge bar in the PR's own body, both axes (standards, and the Claim or spec) in parallel fresh-context subagents, coverage stated per file; round 2+ reviews only the fix diff plus each prior class's closure. Reports only — never posts, commits, edits or checks out; writes only the report, and with `run` each axis writes only in its own subdirectory.
+description: Use when reviewing a PR, re-reviewing one after a fix push, or seated as a PR's reviewer — reports every defect as a class with every site in the repo, each sorted against the merge bar in the PR's own body, both axes (standards, and the Claim or spec) in parallel fresh-context subagents, coverage stated per file; round 2+ reviews only the fix diff plus each prior class's closure unless the bar or Claim changed. Reports only — never posts, commits, edits or checks out; writes only the report, and with `run` each axis writes only in its own subdirectory.
 ---
 
 # Reviewing a pull request — classes against its merge bar
@@ -8,8 +8,8 @@ description: Use when reviewing a PR, re-reviewing one after a fix push, or seat
 You review; you do not fix. The output is one report in the shape of `references/report.md`.
 Two rules carry the design. **Every finding is a class with every site**: a review that names
 one site of a pattern guarantees a later round that finds the rest. **Round 2 reviews only the
-fix diff**: a fresh read of the whole PR each round re-samples it and brings findings round 1
-should have had. So round 1 carries the burden — whole diff, every class, every site.
+fix diff** unless the bar or Claim changed (§5): a fresh read of the whole PR each round
+re-samples it. So round 1 carries the burden — whole diff, every class, every site.
 
 You never post, commit, edit, push or check out; you write only the report; with `run`, each axis writes
 only in its own subdirectory. The launcher prepared the checkout; the work-PR session posts the report.
@@ -101,6 +101,9 @@ touched path; **correctly refuses unsupported input** is non-blocking at most; *
 it cannot handle** blocks when it corrupts or loses state; `n/a` otherwise.
 
 ## 5. Round 2 and later
+
+Told the bar or Claim changed since the previous report, review the whole PR as round 1 against
+the body now and say why in the header. Otherwise:
 
 The diff under review is `<previous report's Head>..HEAD` — the fix diff. Then:
 

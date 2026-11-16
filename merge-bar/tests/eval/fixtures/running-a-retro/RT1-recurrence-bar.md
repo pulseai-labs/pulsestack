@@ -1,7 +1,7 @@
 ---
 scenario_id: RT1-recurrence-bar
 expected_outcome: proposals-for-two-pr-classes-only
-expected_reason: the default window is the last 30 merged PRs (#101–#130, ordered by merge date). "New config key has no stated default" (PR #105, PR #112) becomes a proposal citing both PRs. "Error message omits the failing path" is a proposal too, because a ruling counts as a finding (#109 ruling plus #121 finding). "Retry loop without a bound" appears in rounds 1 and 2 of PR #118 only, so it is one PR and gets no proposal. "Unused import in the generated client" was refuted in #107's report and marked invalid in #115, so it is not evidence of a defect, repeats, and gets one reviewer-noise line in the read-out and no proposal. Nothing is written, because the operator has not replied; the read-out names the window, the checkout and the sources
+expected_reason: the default window is the last 30 merged PRs (#101–#130, ordered by merge date). "New config key has no stated default" (PR #105, PR #112) becomes a proposal citing both PRs. "Error message omits the failing path" is a proposal too, because a ruling counts as a finding (#109 ruling plus #121 finding). "Retry loop without a bound" appears in rounds 1 and 2 of PR #118 only, so it is one PR and gets no proposal. "Unused import in the generated client" was marked invalid in #107 and #115 (the `Refuted:` line in #107's report is a cleared candidate and counts for nothing), so it is not evidence of a defect, repeats, and gets one reviewer-noise line in the read-out and no proposal. Nothing but the run line is written, because the operator has not replied; the read-out names the window, the checkout and the sources
 ---
 The operator runs `/merge-bar:retro` today, 2026-10-31, in the checkout `/home/dev/projects/widgets`
 of the repo `acme/widgets`, with no flags. Its parent directory holds `widgets/` and `widgets-ai/`.
@@ -21,10 +21,10 @@ The ledger lines:
 
 ```
 - PR #105 (2026-10-02) — rounds 1 — blocking: New config key has no stated default — answered: none — rulings: none — report: ~/.cache/runs/105/r1/report.md
-- PR #107 (2026-10-04) — rounds 1 — blocking: none — answered: none — rulings: none — report: ~/.cache/runs/107/r1/report.md
+- PR #107 (2026-10-04) — rounds 1 — blocking: none — answered: Unused import in the generated client (invalid) — rulings: none — report: ~/.cache/runs/107/r1/report.md
 - PR #109 (2026-10-06) — rounds 2 — blocking: none — answered: none — rulings: Error message omits the failing path (reviewer Bar: non-blocking; ruled blocking because the body's bar names silent failure) — report: ~/.cache/runs/109/r2/report.md
 - PR #112 (2026-10-09) — rounds 1 — blocking: New config key has no stated default — answered: none — rulings: none — report: ~/.cache/runs/112/r1/report.md
-- PR #115 (2026-10-11) — rounds 1 — blocking: none — answered: Unused import in the generated client (invalid — the file is generated and excluded by the lint config) — rulings: none — report: ~/.cache/runs/115/r1/report.md
+- PR #115 (2026-10-11) — rounds 1 — blocking: none — answered: Unused import in the generated client (invalid) — rulings: none — report: ~/.cache/runs/115/r1/report.md
 - PR #118 (2026-10-14) — rounds 2 — blocking: Retry loop without a bound — answered: none — rulings: none — report: ~/.cache/runs/118/r2/report.md
 - PR #121 (2026-10-17) — rounds 1 — blocking: Error message omits the failing path — answered: none — rulings: none — report: ~/.cache/runs/121/r1/report.md
 ```

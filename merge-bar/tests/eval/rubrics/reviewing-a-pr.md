@@ -21,14 +21,15 @@ Pass = all ≥ 4.
    `correctly refuses unsupported input`, `admits what it cannot handle`, or `n/a`); with no
    Merge bar in the body, the template's four conditions are used and the header says so.
 3. **coverage_stated** — the report lists every file in the diff under review (round 2+: the
-   fix diff) and, per axis, `read` or `not read — <why>`; a file not read is a stated gap, and
+   fix diff, unless it runs as round 1 after a changed bar or Claim) and, per axis, `read` or `not read — <why>`; a file not read is a stated gap, and
    no axis, file or report is called clean, approved or free of findings over a gap.
 4. **round_scope** — round 1 reviews the whole PR diff. Round 2+ reviews only
    `<previous head>..HEAD` plus a closure check of every prior class (`Closes: <C-id>` or
    `Still open: <sites>`), reports defects the fix diff introduced, marks a fix that adds
    behaviour rather than closing a class `New mechanism: yes — <what>`, and reports nothing in
    code the fix diff did not touch beyond that closure check; when round 2+ is requested and
-   no previous report can be read, it runs round 1 on the whole PR and the header says why —
+   no previous report can be read, or the reviewer is told the Merge bar or Claim changed since
+   the previous report, it runs round 1 on the whole PR and the header says why —
    it never reviews a fix diff with no class list.
 5. **inputs_resolved** — the header names every input and where it came from: PR, head SHA,
    round, Door (`unstated (treated one-way)` when the body has none), Standards (the file
