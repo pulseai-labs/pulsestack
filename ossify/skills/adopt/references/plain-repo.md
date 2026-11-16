@@ -1,7 +1,7 @@
 # Plain-repo adoption — class P (#536)
 
 Depth for `SKILL.md` §3, §4, §5 and §6. `/adopt` takes two kinds of project that carry product source: **class L**, a
-project onboarded with the scaffold-dev legacy stack (the path in `SKILL.md`, unchanged), and **class P**, a plain
+project onboarded with the scaffold-dev legacy stack (the path in `SKILL.md`), and **class P**, a plain
 existing-source repo with no such stack (this file). A project with no product source is class G or H and goes
 to `/ossify:start`.
 
@@ -42,7 +42,7 @@ Record `Class: P` (or `L`) in the adoption record.
 
 ## 2. A1 on class P — two routes
 
-Class P runs in an **AI workspace the operator made**: an empty directory beside the product repo, `git init`,
+Class P runs in an **AI workspace the operator made**: an empty directory beside the product repo, optionally `git init`,
 with `/adopt` started from it. Adoption never makes a product repo its own AI workspace, and
 never writes a byte in a product repo during A1.
 **Check first** that the working directory is not a declared repo and is not inside one
@@ -61,16 +61,17 @@ before authoring anything, and name the fix: make an AI workspace beside the pro
 The plain route does not need `/pair-workspace`, which declares one canonical and aborts when that repo holds a
 memory bank or `MASTER-SPEC.md`.
 
-**A3's one exemption.** A1 commits the topology it authored only after the gates pass; until then it is untracked.
+**A3's one exemption.** In a workspace that is its own git root, A1 commits the topology it authored only after the gates pass; until then it is untracked.
 A3 exempts the exact path `.ossify/topology.json` in the AI workspace, and only when A1 authored it in this run.
-On a re-run after a refusal the file is no longer "this run's": delete it (A1 re-authors it) or commit it.
+When that porcelain half runs, a re-run's topology is no longer "this run's": the operator deletes it (A1 re-authors it) or commits it.
 
 ## 3. A3, A4, A5 on class P
 
-- **A3:** `git -C <root> status --porcelain --untracked-files=all` per declared repo and the AI workspace, so the
-  exemption above is exact. Any other line refuses, as "work in flight" (the operator commits, finishes or drops
-  it in the repo it touched), not as a legacy slice close. The default-branch rule is unchanged; an unborn `HEAD`
-  stops (§1).
+- **A3:** `git -C <root> status --porcelain --untracked-files=all` per declared repo.
+  Apply `SKILL.md` A3's AI-workspace rule (own root, nested, or no repository); the exemption above stays exact.
+  Print each other porcelain line with its repo and refuse; the operator names work in flight (finishes or drops it)
+  or residue (removes or commits it), in the repo it touched, then re-runs. Adoption never removes it.
+  The default-branch rule is unchanged; an unborn `HEAD` stops (§1).
 - **A4:** `git -C <root> worktree list --porcelain` per declared repo. Name each worktree besides the main one, and
   get the operator's confirmation that none holds work in flight. The `.worktrees` probe is class L's.
 - **A5:** record `A5: no legacy stack` among the gates passed.
@@ -83,7 +84,7 @@ On a re-run after a refusal the file is no longer "this run's": delete it (A1 re
 
   A6 asks; C2 verifies. The topology A1 authored stays uncommitted on a refusal here (§2: delete it to retry).
 
-Once A0 to A6 have passed, commit the authored topology (the baseline SHAs and `oss init` come after).
+Once A0 to A6 have passed, commit the authored topology only if the AI workspace is its own git root (the baseline SHAs and `oss init` come after).
 
 ## 4. C1, C2 and C4 on class P
 
@@ -98,7 +99,7 @@ before C2), or the completion floor refuses. The release description drops `unde
 **Zero steps left `shipped`** (a stated known limit): at C4, after C3, do not call `release_add`. Write the adoption
 record to that point (class, gates, baseline table, the C1 table, every C2 result and gap), then halt. The hand-off
 names what to clear to retry: the file `oss state_path` prints and its `.base.json` sibling, `ADOPTION.md` moved
-outside the AI workspace (C5 creates it only when absent; A3 refuses it untracked inside), and C3's uncommitted ADR files in the product repo (commit or remove
+outside the AI workspace (C5 creates it only when absent; where A3 sweeps the workspace, it refuses it untracked inside), and C3's uncommitted ADR files in the product repo (commit or remove
 them: A3 refuses them on retry). It says what happened: A6 asked, C2 found the checkout disagrees. The
 completion floor does not apply to this halt: it is a halt with its record written, not a completion.
 

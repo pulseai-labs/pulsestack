@@ -2,8 +2,8 @@
 
 Score each 1-5 (4 criteria). Pass = all >=4. `expected_outcome` vocabulary:
 `proceed-class-p` (the plain path continues past the gate named in the fixture) |
-`proceed-class-l` (the legacy-stack path continues, unchanged) | `refuse-a6` (A6
-refuses before any state) | `refuse-a3` (A3 refuses as work in flight) | `refuse-undeclared-repo` (A1 refuses a product repo the
+`proceed-class-l` (the legacy-stack path continues) | `refuse-a6` (A6
+refuses before any state) | `refuse-a3` (A3 refuses, naming each line with its repo for the operator to rule work in flight or residue) | `refuse-undeclared-repo` (A1 refuses a product repo the
 resolved topology does not declare) | `halt-c2-zero` (adoption halts after C2 with
 the record written and no Release 0 closed).
 
@@ -27,7 +27,7 @@ fire on a fixture is scored on whether the skill correctly held off. There is no
    step that works from a clean checkout today, else adoption refuses with the
    "nothing ships yet" wording before `oss init` or any other state. Class L does not
    meet A6. A3 uses `--untracked-files=all` and exempts only the topology A1 authored
-   this run (any other untracked line, or a topology from an earlier run, refuses); A4 uses `git worktree list --porcelain`; A5 records `no legacy stack`.
+   this run (any other untracked line, or a topology from an earlier run, refuses and is named; the operator removes or commits residue, adoption never does); A4 uses `git worktree list --porcelain`; A5 records `no legacy stack`.
 4. **C4 follows C2** - Release 0 closes only while at least one step is still
    `shipped` after C2. Zero left: no `release_add`, the record is written, and the
    hand-off names what to clear to retry (the state file and its `.base.json`, `ADOPTION.md`, C3's uncommitted ADRs). A class L run closes as before.

@@ -1,7 +1,7 @@
 ---
 scenario_id: 03-clean-two-repo-baseline-and-aggregated-adrs
 expected_outcome: proceed
-expected_reason: with every tree clean and every DECLARED repo on its recorded default branch (the AI workspace is checked for cleanliness only - A3 exempts it from the branch check and this scenario declares no default branch for it), A3-A5 raise nothing and adoption proceeds; the baseline must land as one SHA per declared repo (a table, not one SHA standing in for the product), and C3 must mint bones from ADRs found in BOTH repos' docs/adr/ directories, not canonical's alone
+expected_reason: with every tree clean and every DECLARED repo on its recorded default branch (the AI workspace, its own git root, is checked for cleanliness only - A3 exempts it from the branch check and this scenario declares no default branch for it), A3-A5 raise nothing and adoption proceeds; the baseline must land as one SHA per declared repo (a table, not one SHA standing in for the product), and C3 must mint bones from ADRs found in BOTH repos' docs/adr/ directories, not canonical's alone
 ---
 
 `.ossify/topology.json` declares two repos: `canonical`

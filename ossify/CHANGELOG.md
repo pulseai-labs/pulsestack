@@ -9,6 +9,10 @@ The 1.24.0 entry's parenthesis about adopt and a marked stub, added in 1.35.0, s
 Some versions have no entry. The GitHub releases tagged `ossify-v*` carry notes for the versions
 they cover.
 
+## 1.45.0
+
+Since 1.45.0 (#990, #294), the memory bank and `AGENTS.md` name repos by topology key, resolved on the reader's host, and harvest flags a candidate carrying a host-absolute path before its verbatim append; adopt uses the same authoring brief and reconciles the routed spec. Adoption refusals name their evidence and let the operator distinguish work in flight from residue, with cleanup never performed by adoption. Empty legacy worktree parents no longer refuse on their own; populated directories still do. Both adoption classes probe the AI workspace's git root first: an own-root workspace is swept, a nested one is swept by its own path and named as a finding, and only a workspace in no repository is skipped, with the skip recorded. A retained cursor may pass only with a recorded operator ruling that its named slice is closed; adoption never writes the cursor. The adoption record lists each adopted ADR as Accepted and names each legacy ADR file still marked Proposed as a finding, without editing it.
+
 ## 1.44.0
 
 Since 1.44.0 (#134, #870, #910, #977, #200), an open release can gain one spine through a documented amendment: full class, bone-touch and critic judgments for the new spine only, a whole-DAG rewrite preserving existing entries, exit-criterion and ledger-budget accounting, and a state-rendered RELEASE.md. Spine planning routes undeclared spines there and asks for a missing id. The optional spine-plan audit waits until §9 finishes every SPINE.md section. Demo cost statements use close's standing-order walk holder, and cross-repo file citations name their repo or use an absolute path. Any additional separately deployed service needs measured pressure before selection, whether extracted or new; rung 3 re-checks it, retires a rejected minted spine, and persists the pressure rationale even when its class stays bone. Prose only; no new engine surface.

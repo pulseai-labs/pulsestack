@@ -45,14 +45,17 @@ Call the `oss` dispatcher by name. The plugin loader puts `bin/` on `$PATH` on C
 
 ## 3. Pre-flight gates (fail closed, in order)
 
-Each gate refuses fail-closed. A1 reuses `/start`'s exact refusal contract;
-A3–A5's refusals (class P: `references/plain-repo.md` §3) name the **legacy stack's** close ceremony — scaffold-dev's
-slice close, then re-run — never "clean your tree", which fixes a symptom;
+Each gate refuses fail-closed. A1 reuses `/start`'s exact refusal contract.
+A3–A5 refusals print each porcelain line with its repo, each directory with its path,
+the checked-out branch, and the cursor entry read as active, as applicable.
+For each named item, the operator says whether it is work in flight or residue.
+For work in flight, name the **legacy stack's** close ceremony — scaffold-dev's slice close, then re-run;
 or, where scaffold-dev is no longer installed, close the slice by hand (#732):
-the operator finishes or abandons the slice until the state A3–A5 check holds —
-every declared repo and the AI workspace clean and each declared repo on its
-default branch, no live legacy worktree in any declared repo, the active-context
-cursor on a boundary — with every change committed in the repo it touched. Then re-run.
+the operator finishes or abandons it until A3–A5 hold, committing every change in
+the repo it touched. For residue (a stale backup, or adoption output from an earlier partial run), the operator removes or commits it in the repo it sits in, then re-runs; adoption never removes it itself (§7).
+For a cursor entry, the residue route is the operator's ruling (A5).
+This is evidence and disposition, never an unexplained "clean your tree".
+Class P uses `references/plain-repo.md` §3, not the legacy close.
 
 - **A0 — no inherited state override.** If `OSS_STATE_FILE` is set, stop:
   `_oss_resolve_state` lets it override the manifest for every verb below —
@@ -83,13 +86,23 @@ cursor on a boundary — with every change committed in the repo it touched. The
   state and no adoption record, so the record's absence distinguishes
   nothing.
 - **A3 — every tree adoption will edit is clean, tracked and untracked.**
-  Sweep every repo the topology declares (A1 only confirms it resolves) plus
-  the AI workspace: `git -C "$(oss repo_root <name>)" status --porcelain
-  --untracked-files=all` each. Any line, in any one — class P exempts only the topology A1 authored this run —
-  is work in flight; refuse, naming the legacy stack's slice close. Each declared repo, never the AI workspace, must also
-  be on its default branch — require it where the manifest declares one
-  (`boundary-audit.md`'s own precedent); else name the checked-out branch and
-  get the operator's confirmation before proceeding.
+  Sweep every declared repo with `git -C "$(oss repo_root <name>)" status --porcelain --untracked-files=all`.
+  For the AI workspace, read `ai_workspace.git_tracked` as a hint, not the determination
+  (`../close/references/boundary-audit.md`): whether true, false or absent, run
+  `git -C "<root>" rev-parse --show-toplevel` (resolve symlinks on both sides).
+  It prints the root: sweep the workspace's porcelain too.
+  It prints a parent directory: sweep only the workspace's part,
+  `git -C "<root>" status --porcelain --untracked-files=all -- .`, and name the nesting
+  as a finding (at close, `boundary-audit.md` blocks it unless the parent is a declared repo).
+  It fails: run it under `LC_ALL=C`. Only an error that says `not a git repository` means no repository:
+  skip that porcelain half and name the skip in the adoption record.
+  Any other failure (for example `detected dubious ownership`) refuses and prints git's error.
+  Both classes use this rule.
+  Any porcelain line refuses under the evidence-and-disposition contract above;
+  class P exempts only the topology A1 authored this run.
+  Each declared repo, never the AI workspace, must also be on its default branch —
+  require it where the manifest declares one (`boundary-audit.md`'s own precedent);
+  else name the checked-out branch and get the operator's confirmation before proceeding.
 - **A4 — no live worktrees.** `.during_dev.worktrees_dir` is a **single global
   value**, not a per-repo one: workspace-init writes one, typically
   `${canonical.root}/.worktrees`. Applying it "per repo" resolves that same
@@ -102,13 +115,17 @@ cursor on a boundary — with every change committed in the repo it touched. The
   under: **that repo is the only one it addresses.** Probe every other declared
   repo at `<repo-root>/.worktrees`. A routed value under no declared repo's root
   is itself a finding — name it, and probe the conventional path everywhere.
-  Then `find <dir> -mindepth 1 -maxdepth 1` per repo: any directory means a
-  slice is open (a plain probe; the oss verb needs the state A2 just forbade).
+  Then `find <dir> -mindepth 1 -maxdepth 1` per repo. Count only a directory that holds an entry:
+  an empty directory is named as residue and does not refuse on its own.
+  A directory holding anything still refuses, naming its path, under the contract above
+  (a plain probe; the oss verb needs the state A2 just forbade).
   Class P runs `git worktree list --porcelain` instead.
 - **A5 — legacy position is on a boundary.** The live position is the
   manifest-routed memory bank's `05-active-context.md` cursor (the roadmap
-  file is inventory, not position). An active slice there refuses and
-  names it. Class P records `A5: no legacy stack`.
+  file is inventory, not position). Name the cursor entry read as active.
+  A recorded operator ruling that the named slice is closed passes A5; carry the ruling in the adoption record.
+  With no such ruling, an active slice refuses. Adoption never writes the cursor (§7).
+  Class P records `A5: no legacy stack`.
 - **A6 — something ships (class P only).** The operator names a journey step
   that works from a clean checkout today, or adoption refuses before any state
   (`references/plain-repo.md` §3).
@@ -215,6 +232,9 @@ a list of no gaps is not evidence that the pass ran.
 4. **Status `Accepted`, not `Proposed`.** `/start` §7's protocol is Proposed,
    flipped to Accepted once a release exercises it; the adopted baseline **is**
    that exercise. Minting shipped decisions as Proposed misstates the record.
+   A bone row carries no status, so the adoption record lists each adopted ADR
+   as `Accepted` and names, as a finding, each legacy file still marked
+   `Proposed`. Adoption does not edit that file (§7); the operator flips it.
 5. **Categories with no ADR still get the forced-enumeration question.** The
    failure mode `/start` §7 guards is unasked questions; adoption does not
    change that. Answer, or `not-applicable` with a reason.
@@ -247,10 +267,10 @@ no blank destinations — an adopted project is all occupied surface.
 
 | Destination | Action |
 |---|---|
-| `MASTER-SPEC.md` | map legacy phases → the 7 lean sections; keep legacy sections (spec-validation reads their presence as legal) |
-| `AGENTS.md` | merge ossify's loop section when the file exists, but a workspace-init stub is replaced (`../start/references/occupied-destinations.md` §1a); author it when absent; preserve hand-authored zones. If the AI workspace still holds a `CLAUDE.md` (root or `.claude/`), leave it untouched and name `ossify:doctor`'s interop repair in the adoption record and the hand-off: Claude Code loads `CLAUDE.md` over `AGENTS.md` until it is migrated |
+| `MASTER-SPEC.md` | reconcile the file `oss spec_path` prints, never the conventional path beside a routed one; map legacy phases → the 7 lean sections; keep legacy sections (spec-validation reads their presence as legal) |
+| `AGENTS.md` | merge ossify's loop section when the file exists, but a workspace-init stub is replaced (`../start/references/occupied-destinations.md` §1a); author it when absent; preserve hand-authored zones; derive ossify additions from `../start/references/memory-bank-brief.md`, including §3 item 2. If the AI workspace still holds a `CLAUDE.md` (root or `.claude/`), leave it untouched and name `ossify:doctor`'s interop repair in the adoption record and the hand-off: Claude Code loads `CLAUDE.md` over `AGENTS.md` until it is migrated |
 | `EXECUTIVE-SUMMARY.md` | leave; no gate reads it |
-| memory bank | append with harvest's provenance trailer (`close/references/harvest.md`), declaring `source: adoption` with the baseline this pass recorded — `r0 baseline <sha>`, one `<repo>=<sha>` per declared repo when the adoption spans several; **never truncate**. For `09-known-issues.md` / `10-decisions-log.md`, harvest's never-regenerate rule wins — they hold the history adoption preserves (#268; the brief's conditional is still owed) |
+| memory bank | derive additions from `../start/references/memory-bank-brief.md`, including §3 item 2; append with harvest's provenance trailer (`close/references/harvest.md`), declaring `source: adoption` with the baseline this pass recorded — `r0 baseline <sha>`, one `<repo>=<sha>` per declared repo when the adoption spans several; **never truncate**. For `09-known-issues.md` / `10-decisions-log.md`, harvest's never-regenerate rule wins — they hold the history adoption preserves (#268; the brief's conditional is still owed) |
 | `tech-debt.md`, `PUBLIC_BOUNDARY.md` | author (absent) |
 | `CODING_STANDARDS.md`, `review-ledger.md`, `08-governance.md` `## Review` | author when absent, per `../start/references/reviewer-home.md` §1–§4; then its `reviewer-home.md` §5 history pass |
 | each declared repo's `docs/adr/` | append only, continuing the series |
@@ -321,6 +341,7 @@ Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
   is additive; the operator retires the old stack at their choosing.
 - **Mid-slice adoption.** §3 A5 refuses it by design.
 - **Repairing what it finds.** C2 gaps and stale ADRs are findings.
+- **Removing residue.** §3 routes it to the operator.
 - **Letting this body exceed 500 lines (the cap `test-skill-bash-blocks.sh` enforces).** Thin-by-design is a stated
   constraint, not an aspiration. Depth belongs in pointers, never restated.
 

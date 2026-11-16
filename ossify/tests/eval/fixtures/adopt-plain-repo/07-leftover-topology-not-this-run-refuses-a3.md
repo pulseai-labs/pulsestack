@@ -1,7 +1,7 @@
 ---
 scenario_id: 07-leftover-topology-not-this-run-refuses-a3
 expected_outcome: refuse-a3
-expected_reason: Control for the A3 exemption. The untracked .ossify/topology.json was authored by an earlier, refused run, not by A1 in this run, so the exemption does not apply and A3 refuses it as work in flight. The fix is to delete it (A1 re-authors it) or commit it. Nothing is recorded and oss init does not run.
+expected_reason: Control for the A3 exemption. The untracked .ossify/topology.json was authored by an earlier, refused run, not by A1 in this run, so the exemption does not apply and A3 refuses, naming it. It is residue: the operator deletes it (A1 re-authors it) or commits it; adoption does neither. Nothing is recorded and oss init does not run.
 ---
 The operator made `/home/dev/projects/relay-ai` (`git init`) and ran `/ossify:adopt`
 there yesterday; it refused at A6 ("nothing ships yet") and the operator closed the
