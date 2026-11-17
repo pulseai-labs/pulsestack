@@ -1757,6 +1757,50 @@ pin "$PRBRIEFS_MD" 'a class blocks unless its `Bar:` is `non-blocking`' \
   "the work-PR session reads blocking from each class's Bar: (#963)" flat
 pin "$PRBRIEFS_MD" '`/merge-bar:review-pr <PR_URL> --round <n> --previous <previous report path>`' \
   "the fix-range re-review of a merge-bar reviewer is its round 2+ command (#963)" flat
+# #1232: merge-bar's changed-body review is whole-PR, not a delta. /code-review stays unchanged.
+for f in "$LIFECYCLE_MD" "$PRBRIEFS_MD"; do
+  pin "$f" 'when the round changes the body'"'"'s Merge bar or Claim (beyond Known-limits lines or Evidence)' \
+    "#1232 changed body triggers the merge-bar exception in ${f##*/}" flat
+  pin "$f" 'tell that reviewer what changed; it reviews the whole PR as round 1 against the body now (`reviewing-a-pr` §5)' \
+    "#1232 the fresh merge-bar reviewer is told and reviews whole in ${f##*/}" flat
+done
+pin "$LIFECYCLE_MD" '**A fixed head is revalidated, never re-reviewed whole except for the merge-bar changed-body case below**' \
+  '#1232 lifecycle scopes its never-whole rule' flat
+pin "$PRBRIEFS_MD" 'except step 5'"'"'s merge-bar changed-body case' \
+  "#1232 the PR brief's NEVER line preserves its exception" flat
+pin "$LIFECYCLE_MD" 'A review runs exactly once per PR except for the merge-bar changed-body case below' \
+  '#1232 initial review count names the full-review exception' flat
+for f in "$LIFECYCLE_MD" "$PRBRIEFS_MD"; do
+  pin "$f" 'even where a bot reviews the push' "#1232 the changed-body review runs even where a bot reviews pushes in ${f##*/}" flat
+  pin "$f" 'append the change to its REVIEW_INVOCATION' "#1232 the change reaches the reviewer in ${f##*/}" flat
+done
+pin "$SKILL_MD" 'so no second review occurs, except after a round that changed the body'"'"'s Merge bar or Claim' '#1232 the skill names the changed-body review' flat
+pin "$LIFECYCLE_MD" 'No second review outside step 8'"'"'s merge-bar changed-body case.' \
+  '#1232 fix rounds do not forbid the required whole-PR review' flat
+# #1234 r1 C3: the session budget and its summaries admit the changed-body reviewer seat.
+for f in "$ROLES_MD" "$PLUGIN_README_MD"; do
+  pin "$f" 'one reviewer per PR, plus a fresh one per merge-bar changed-body review.' \
+    "#1234 the session budget admits the changed-body reviewer in ${f##*/}" flat
+done
+pin "$ROLES_MD" 'once per PR, plus a fresh seat per merge-bar changed-body review' \
+  '#1234 the reviewer row admits the changed-body seat' flat
+pin "$SKILL_MD" 'one reviewer per PR and a fresh one per merge-bar changed-body review' \
+  '#1234 the skill body budget admits the changed-body reviewer' flat
+pin "$SKILL_MD" 'One review per PR (/code-review by default), plus merge-bar'"'"'s changed-body review' \
+  '#1234 the skill description admits the changed-body review' flat
+pin "$COMMAND_MD" 'one reviewer per PR plus merge-bar'"'"'s changed-body review' \
+  '#1234 the command description admits the changed-body review' flat
+pin "$SKILL_MD" 'After the reviewer dispatch and your disposition' \
+  '#1234 r2 C11: the skill no longer calls the reviewer dispatch single' flat
+for f in "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json"; do
+  pin "$f" 'once per PR (a changed Merge bar or Claim under merge-bar gets a fresh seat)' \
+    "#1234 r2 C10: the manifest description admits the changed-body seat (${f#"$PLUGIN_ROOT"/})" flat
+done
+pin "$PLUGIN_README_MD" 'once per PR (a changed Merge bar or Claim under merge-bar gets a fresh seat)' \
+  '#1234 the README summary admits the changed-body seat' flat
+# #1234 CodeRabbit: an open: return never leaves an owed changed-body review to a resumed run.
+pin "$PRBRIEFS_MD" 'a round that changed the body'"'"'s Merge bar or Claim reaches its boundary only when step 5'"'"'s changed-body review has written its report' \
+  '#1234 a changed-body round ends only after its review reports' flat
 pin "$PRBRIEFS_MD" 'a one-way door — the body'"'"'s `Door: one-way`, or no `Door:` line — is never merged here' \
   "the work-PR session never merges a one-way door (#963)" flat
 pin "$PRBRIEFS_MD" 'skills/working-a-pr/references/one-way-door.md' \

@@ -2,6 +2,12 @@
 
 All notable changes to the `baton` plugin.
 
+## 0.20.0 - 2026-11-17
+
+- **Changed (#1232).** Item and spine work seats write the reason for a changed Merge bar or Claim to `bar-changed` in OUT. The next reviewer reads it, reviews the whole PR as round 1 against the body now and still checks earlier findings; accepting a well-formed review clears the signal. The engine and round counts are unchanged.
+- **Fixed (#1232).** The second spine close resolves the memory bank through ossify's harvest rule and follows merge-bar `working-a-pr` §5's line shapes, PR references and dispositions. Ledger dates use each PR's UTC merge date; reruns recognize both PR-reference forms, checking tech-debt lines separately.
+- **Upgrade.** Refresh the recipe and briefs together only when no run is armed or parked on that shared copy; an armed run keeps its recipe, so old recipes cannot clear the new signal. Never overwrite a customised copy: carry these changes into it.
+
 ## 0.19.0 - 2026-11-12
 
 The example recipe's spine PR loop gets a cap and a stricter pass edge, and the two after-merge steps that had no actor get one. The engine is unchanged. Closes #931, #1049, #1053 and #1206 (#1053's bar-raise note moved to merge-bar issue #1211).

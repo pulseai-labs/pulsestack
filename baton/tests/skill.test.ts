@@ -347,11 +347,11 @@ describe("README, skill and release wording (baton 0.18.1)", () => {
     expect(r).toContain("`<iso> <key> notify-orchestrator <where>: <reason>`");
   });
 
-  test("the version is 0.19.0 in plugin.json and the changelog; 0.18.1, 0.18.0 and 0.17.4 keep their upgrade notes as history (#1110)", () => {
-    expect(JSON.parse(readFileSync(join(import.meta.dir, "..", ".claude-plugin", "plugin.json"), "utf8")).version).toBe("0.19.0");
+  test("the version is 0.20.0 in plugin.json and the changelog; 0.18.1, 0.18.0 and 0.17.4 keep their upgrade notes as history (#1110)", () => {
+    expect(JSON.parse(readFileSync(join(import.meta.dir, "..", ".claude-plugin", "plugin.json"), "utf8")).version).toBe("0.20.0");
     const top = changelog().split("\n## ")[1].replace(/\s+/g, " ");
-    expect(top.startsWith("0.19.0 - ")).toBe(true);
-    const v181 = changelog().split("\n## ")[2].replace(/\s+/g, " ");
+    expect(top.startsWith("0.20.0 - ")).toBe(true);
+    const v181 = changelog().split("\n## ").find((s) => s.startsWith("0.18.1 - "))!.replace(/\s+/g, " ");
     expect(v181.startsWith("0.18.1 - ")).toBe(true);
     expect(v181).toContain("`correct` archives `correction.txt` before it removes `corrected`");
     expect(v181).toContain("#1110");
@@ -360,14 +360,14 @@ describe("README, skill and release wording (baton 0.18.1)", () => {
     expect(v181).toContain("Never `cp -r` over a customised copy");
     expect(v181).toContain("`rm -f review.md round-done operator.md`");
     // 0.18.0 keeps its own upgrade note and its #1110 known limit as history
-    const v18 = changelog().split("\n## ")[3].replace(/\s+/g, " ");
+    const v18 = changelog().split("\n## ").find((s) => s.startsWith("0.18.0 - "))!.replace(/\s+/g, " ");
     expect(v18.startsWith("0.18.0 - ")).toBe(true);
     expect(v18).toContain("It reaches every armed run at its next tick");
     expect(v18).toContain("no recipe copy is needed");
     expect(v18).toContain("`relaunch skipped`");
     expect(v18).toContain("Reordering its hooks is #1110");
     // 0.17.4 keeps its own upgrade note
-    const prev = changelog().split("\n## ")[4];
+    const prev = changelog().split("\n## ").find((s) => s.startsWith("0.17.4 - "))!;
     expect(prev.startsWith("0.17.4 - ")).toBe(true);
     expect(prev).toContain("only when no run is armed or parked there");
     expect(prev).toContain("the archive snippet's ten copies");
@@ -382,7 +382,7 @@ describe("README, skill and release wording (baton 0.19.0)", () => {
   const row = (start: string) => skill().split("\n").find((l) => l.startsWith(start)) ?? "";
 
   test("the changelog closes the four issues, names the engine as unchanged, and carries the known limits (#1053 moved its last item to merge-bar #1211)", () => {
-    const top = changelog().split("\n## ")[1].replace(/\s+/g, " ");
+    const top = changelog().split("\n## ").find((s) => s.startsWith("0.19.0 - "))!.replace(/\s+/g, " ");
     expect(top).toContain("Closes #931, #1049, #1053 and #1206");
     expect(top).toContain("The engine is unchanged");
     expect(top).not.toContain("loops `spine_review` and `spine_wait` with no park"); // the loop is parked now, not a known limit

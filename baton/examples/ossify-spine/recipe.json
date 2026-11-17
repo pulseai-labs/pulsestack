@@ -290,7 +290,7 @@
             { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: (pass|block)"] },
             { "exit0": ["sh", "-c", "sed -n 2p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "head: [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]"] }
           ],
-          "to": "item_wait"
+          "to": "item_wait", "run": [["rm", "-f", "{run.dir}/out/{unit.id}/bar-changed"]]
         }
       ]
     },
@@ -405,7 +405,7 @@
             { "exit0": ["sh", "-c", "[ -r \"$1\" ] || exit 2; sed -n 1p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "verdict: (pass|block)"] },
             { "exit0": ["sh", "-c", "sed -n 2p \"$1\" | grep -qxE \"$2\"", "sh", "{run.dir}/out/{unit.id}/review.md", "head: [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]"] }
           ],
-          "to": "spine_wait"
+          "to": "spine_wait", "run": [["rm", "-f", "{run.dir}/out/{unit.id}/bar-changed"]]
         }
       ]
     },

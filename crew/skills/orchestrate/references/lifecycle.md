@@ -160,12 +160,12 @@ Every command's syntax comes from the layer's guide.
    implementer's report names, re-checked without saying what was seeded, then removed.
    Its `fail` is the expected answer, never counted toward a second fail; the item passes
    only on a re-check of its real head after it.
-8. **Review.** A review runs exactly once per PR: the reviewer seat in a fresh worktree
+8. **Review.** A review runs exactly once per PR except for the merge-bar changed-body case below: the reviewer seat in a fresh worktree
    at the PR head, brief its review command (`config.md`, `review:`; `/code-review <PR> <LEVEL>` by default), every finding returned in the report file.
-   **A fixed head is revalidated, never re-reviewed whole**: the reviewer is re-dispatched from
+   **A fixed head is revalidated, never re-reviewed whole except for the merge-bar changed-body case below**: the reviewer is re-dispatched from
    its seat over the fix range alone — one scoped delta re-review; a `/merge-bar:review-pr`
    reviewer is a fresh seat running `/merge-bar:review-pr <PR_URL> --round <n> --previous
-   <previous report path>` — and its findings enter the
+   <previous report path>` — when the round changes the body's Merge bar or Claim (beyond Known-limits lines or Evidence), dispatch it even where a bot reviews the push and append the change to its REVIEW_INVOCATION: tell that reviewer what changed; it reviews the whole PR as round 1 against the body now (`reviewing-a-pr` §5) — and its findings enter the
    disposition baseline like any other, so a repository whose bot does not review a push still
    reaches a complete signal on the head it asks about. Every finding returned in the report file
    as file, line, severity, claim, or as that report's classes. The reviewer posts nothing to GitHub and edits
@@ -199,7 +199,7 @@ Every command's syntax comes from the layer's guide.
     bot or human finding that arrives after the disposition returns to the
     orchestrator, and the implementer waits — it
     resolves the finding only after the orchestrator's decision (#410). No second
-    review. Bot comments after each push stay in this stream, and review
+    review outside step 8's merge-bar changed-body case. Bot comments after each push stay in this stream, and review
     bodies and top-level PR conversation comments are part of it too —
     `reviewThreads` does not return them — refreshed after each push alongside the
     thread count. With ossify installed, this

@@ -1,5 +1,5 @@
 ---
-description: Start or resume an orchestrator run over the project file's declared layer, herdr or Orca. Bind the objective, then drive worker sessions by seat (planned and bounded implementers, one reviewer per PR, one retained verifier per work item) while this session keeps its context for decisions. Seats come from the operator's own files.
+description: Start or resume an orchestrator run over the project file's declared layer, herdr or Orca. Bind the objective, then drive worker sessions by seat (planned and bounded implementers, one reviewer per PR plus merge-bar's changed-body review, one retained verifier per work item) while this session keeps its context for decisions. Seats come from the operator's own files.
 argument-hint: "[objective]"
 allowed-tools: Bash(bash:*), Bash(crew-run:*), Bash(dagr:*), Bash(herdr:*), Bash(git:*), Bash(gh:*), Bash(mv:*), Bash(orca:*), Bash(orca-ide:*), Read, Write, Edit
 ---

@@ -8,6 +8,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { render, validate, type MergeStage, type Outcome, type Recipe, type SessionStage, type WaitStage } from "../src/recipe.ts";
 import { loadRecipe, raw, RECIPE_PATH, renderStageEnv } from "./ossify-recipe-helpers.ts";
+import { main } from "../src/cli.ts";
+import { tick } from "../src/engine.ts";
+import { notifyOnce } from "../src/notify.ts";
+import { openStore } from "../src/state.ts";
+import { FakeHost } from "./fake-host.ts";
+import { FakeForge } from "./fake-forge.ts";
 
 const BIN = join(import.meta.dir, "..", "bin", "baton");
 
@@ -65,6 +71,62 @@ describe("ossify-spine recipe", () => {
     expect(err).toBe("");
     expect(rc).toBe(0);
   });
+
+  for (const stage of ["item_review", "spine_review"]) {
+    test(`#1232 ${stage} consumes bar-changed only after an accepted review in the real engine`, async () => {
+      const root = mkdtempSync(join(tmpdir(), "baton-bar-changed-"));
+      const saved = { state: process.env.BATON_STATE_DIR, config: process.env.BATON_CONFIG };
+      process.env.BATON_STATE_DIR = join(root, "state");
+      process.env.BATON_CONFIG = join(root, "config.json");
+      try {
+        const target = stage === "item_review" ? "item_wait" : "spine_wait";
+        const source = loadRecipe().stages[stage] as SessionStage;
+        // Keep the recipe's acceptance outcome; replace only the external seat with a completed host thread.
+        const rec = { version: 1, name: "bar-change", params: [], sources: [], seed: [{ id: "u", stage }], stages: {
+          [stage]: { ...source, role: undefined, instance: "inst", model: "mod", project: "proj", cwd: "{run.dir}",
+            title: "review", message: "review", env: {}, handoff: null }, // the stage's own `before` hooks run at launch
+          [target]: { kind: "wait", outcomes: [{ when: [{ file: "{run.dir}/never" }], to: "done" }] },
+        } };
+        const recipeFile = join(root, "recipe.json");
+        writeFileSync(recipeFile, JSON.stringify(rec));
+        const sha = "a".repeat(40);
+        const cases = [
+          [null, false], ["verdict: maybe\nhead: " + sha + "\n", false],
+          ["verdict: pass\nhead: abc123\n", false],
+          [`verdict: pass\nhead: ${sha}\nfine\n`, true],
+          [`verdict: block\nhead: ${sha}\nblocking class\n`, true],
+        ] as const;
+        for (const [i, [text, accepted]] of cases.entries()) {
+          const id = `r${i}`;
+          process.env.BATON_STATE_DIR = join(root, `state-${i}`);
+          const store = openStore(process.env.BATON_STATE_DIR);
+          const host = new FakeHost({ [stage]: { ticks: 0, end: "completed" } });
+          expect(await main(["arm", recipeFile, "--run", id, "--no-timer"])).toBe(0);
+          const out = join(process.env.BATON_STATE_DIR, "runs", id, "out", "u");
+          mkdirSync(out, { recursive: true });
+          const signal = join(out, "bar-changed");
+          writeFileSync(signal, "Claim now covers shared banks\n");
+          const options = { store, host, runId: id, forge: new FakeForge(), notify: notifyOnce,
+            now: () => new Date("2026-11-17T12:00:00Z") };
+          const first = await tick(options); // first launch never reads an earlier visit's result
+          expect(first.errors).toEqual([]);
+          expect(first.launched).toEqual(["u"]);
+          expect(existsSync(signal)).toBe(true); // r1 C1: no launch hook may clear the signal the reviewer reads
+          if (text !== null) writeFileSync(join(out, "review.md"), text); // the seat writes its review after launch
+          const completed = await tick(options); // the completed review now takes its outcome
+          expect(completed.errors).toEqual([]);
+          expect([text, existsSync(signal)]).toEqual([text, !accepted]);
+          expect(store.readRun(id).units.u.stage).toBe(accepted ? target : stage);
+        }
+      } finally {
+        if (saved.state === undefined) delete process.env.BATON_STATE_DIR;
+        else process.env.BATON_STATE_DIR = saved.state;
+        if (saved.config === undefined) delete process.env.BATON_CONFIG;
+        else process.env.BATON_CONFIG = saved.config;
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
 
   test("the session stages are exactly the table's", () => {
     expect(sessions(loadRecipe()).map(([n]) => n).sort()).toEqual([...SESSION_STAGES].sort());
@@ -849,7 +911,6 @@ describe("ossify-spine recipe", () => {
     expect(st.slots).toEqual(["session"]);
     expect(st.outcomes).toHaveLength(1);
     expect(st.outcomes[0].to).toBe("item_wait");
-    expect(st.outcomes[0].run ?? []).toEqual([]);
   });
 
   test("the item_review archive, executed: review-prev.md is a copy of the last review, review-<n>.md the next free number, no file needed", () => {
@@ -1216,7 +1277,7 @@ describe("outcome hooks remove their own trigger last (#1110)", () => {
         }
       });
     }
-    expect(sites).toBe(10); // nine session outcomes and spine_wait's stale-review edge
+    expect(sites).toBe(12); // eleven session outcomes (including both accepted reviews) and spine_wait's stale-review edge
     expect(lost).toEqual([]);
   });
 
@@ -1341,6 +1402,41 @@ describe("ossify-spine briefs", () => {
     expect(b.replace("Read the handoff's `## Clarifications` first", "")).not.toContain("Read the handoff's `## Clarifications` first");
   });
 
+  for (const name of ["item-fix.md", "spine-work.md"]) {
+    test(`#1232 ${name} signals body changes from rulings and working-a-pr with a reason`, () => {
+      const b = flat(brief(name));
+      for (const pin of [
+        "In steps 1–2, when the round changes the body's `## Merge bar` or `## Claim`",
+        "beyond Known-limits lines or Evidence",
+        "write one line naming the change to `<OUT>/bar-changed`",
+      ]) expect([pin, b.includes(pin)]).toEqual([pin, true]);
+    });
+  }
+
+  test("#1232 r1 C2: spine-work.md keeps a ruling's changed claim as a line under `## Merge bar`", () => {
+    const pin = "or as a line under `## Merge bar` for a raised bar or a changed claim";
+    expect(flat(brief("spine-work.md"))).toContain(pin);
+  });
+
+  for (const name of ["item-review.md", "spine-review.md"]) {
+    test(`#1232 ${name} prioritizes changed-bar whole-PR review and retains closure`, () => {
+      const b = flat(brief(name));
+      for (const pin of [
+        "If `<OUT>/bar-changed` exists, review the whole PR as round 1 against the body now, not the fix range",
+        "check each earlier finding is closed",
+        "say why in the findings' first line",
+        "Otherwise", "changes since its `head:` line",
+      ]) expect([pin, b.includes(pin)]).toEqual([pin, true]);
+    });
+  }
+
+  test("#1232 README and runner skill carry the changed-bar review exception", () => {
+    for (const file of ["README.md", "skills/running-a-spine-on-baton/SKILL.md"]) {
+      const b = flat(readFileSync(join(import.meta.dir, "..", file), "utf8"));
+      expect(b).toContain("later reviews cover the fix range unless `<OUT>/bar-changed` exists, then the whole PR as round 1");
+    }
+  });
+
   test("close runs PR mode on the verdict and never picks a recovery option", () => {
     const c = brief("close.md");
     expect(c).toContain("`/ossify:close <work item> --pr --verdict <Verdict file from your message>` on Claude Code");
@@ -1446,14 +1542,11 @@ describe("ossify-spine briefs", () => {
   test("spine-finish writes the review-ledger and tech-debt lines with the close record, runs the harvest through §6 and accepts none (#1049)", () => {
     const b = flat(brief("spine-finish.md"));
     for (const pin of [
-      "merge-bar working-a-pr §5's lines", "`.claude/memory-bank/`", "one `review-ledger.md` line per merged PR of the spine (each item's `pr_url` in the project state, and the spine PR)",
+      "merge-bar working-a-pr §5's lines", "one `review-ledger.md` line per merged PR of the spine (each item's `pr_url` in the project state, and the spine PR)",
       "the `tech-debt.md` `[KL]` lines from each merged PR's final `## Known limits`", "`review-<n>.md`, then `review.md`", "`report:` is the last review file's path",
       "Commit the ledger and those memory-bank lines with the close record",
       "Write the numbered, tagged candidate list of ossify's `references/harvest.md` §6 to `harvest.md` in OUT", "End §6 at that written list (do not wait for its response)", "skip `references/harvest.md` §7 and finish the rest of close",
       "a `[TD]` line for its `outside scope → #N` issue, if any",
-      // each rerun skip is its own: the ledger line by the exact PR (with the space), each tech-debt line by itself
-      "skip a PR whose `PR #N ` line (with the space) is already in `review-ledger.md` and, separately, each tech-debt line already in `tech-debt.md`; one being present does not skip the other",
-      "The ledger line's date comes from `date -u +%F`",
       "`rulings:` from the archived `operator-<n>.md` files", "`## Harvest candidates` heading in the close PR body", "Accept none and apply nothing (no §7 append)",
     ]) expect([pin, b.includes(pin)]).toEqual([pin, true]);
     // rule 1 still ends the turn before anything is written
@@ -1466,6 +1559,28 @@ describe("ossify-spine briefs", () => {
     // the actor split, in both notices: the orchestrator presents the candidates to the operator and applies only the accepted set (PR C3)
     for (const o of fin.outcomes) expect(o.notify).toContain("present them to the operator, then apply the accepted set (ossify harvest §7)");
     expect(fin.outcomes.map((o) => o.to)).toEqual(["done", "spine_close_wait"]);
+  });
+
+  test("#1232 spine-finish routes the bank through ossify's owner", () => {
+    const b = flat(brief("spine-finish.md"));
+    expect(b).toContain('memory bank resolved by ossify\'s `close/references/harvest.md`, "Where the bank is"');
+    expect(b).not.toContain("`.claude/memory-bank/`");
+  });
+  test("#1232 spine-finish delegates line shapes and dispositions to working-a-pr", () => {
+    expect(flat(brief("spine-finish.md"))).toContain("`working-a-pr` §5 owns the line shapes, PR-reference forms and `answered:` dispositions");
+  });
+  test("#1232 spine-finish uses the PR merge date in UTC, not today's date", () => {
+    const b = flat(brief("spine-finish.md"));
+    expect(b).toContain("The ledger line's date is the PR's merge date from `gh pr view <PR> --json mergedAt`, in UTC");
+    expect(b).not.toContain("date -u +%F");
+  });
+  test("#1232 spine-finish deduplicates both PR-reference forms separately from tech debt", () => {
+    expect(flat(brief("spine-finish.md"))).toContain("skip a PR whose line in its own §5 form (`PR #N ` or `PR <owner>/<repo>#N `, each with the space) is already in `review-ledger.md` and, separately, each tech-debt line already in `tech-debt.md`; one being present does not skip the other");
+  });
+  test("#1232 README routes ledger location and forms to their owners", () => {
+    const b = flat(readFileSync(join(import.meta.dir, "..", "README.md"), "utf8"));
+    expect(b).toContain('the bank resolved by ossify\'s `close/references/harvest.md`, "Where the bank is"');
+    expect(b).toContain("`working-a-pr` §5 owns their shapes, PR-reference forms, dispositions and UTC merge date");
   });
 
   test("item-review carries the review contract and judges a body with no bar by the template's four conditions (#1046)", () => {
@@ -1484,13 +1599,17 @@ describe("ossify-spine briefs", () => {
   const ITEM_FIX_PINS = ["If the Ruling file exists", "one round only", "blocking findings", "Commit and push once", "existing item branch",
     "Never merge", "force-push", "`## Merge bar`", "working-a-pr adds the fields", "round-3 stop",
     // the ruling reaches the item reviewer through the PR body, as spine-work.md says (#1079 C8a)
-    "write it into the PR body", "because the reviewer reads the body and never this file"];
+    "write it into the PR body", "because the reviewer reads the body and never this file",
+    // #1232 pre-PR B2: the ruling's precedence and its place in the body survive the bar-changed signal
+    "it outranks the review file", "an allowed finding under `## Known limits`, a raised bar under `## Merge bar`",
+    "Fields working-a-pr adds to a body that had none are no change"];
   const itemFixMissing = (text: string): string[] => ITEM_FIX_PINS.filter((p) => !flat(text).includes(p));
   test("item-fix is one working-a-pr round on the existing branch: blocking findings only, one push, never a merge, the ruling in the PR body, the done file last (#1046)", () => {
     const f = brief("item-fix.md");
     expect(itemFixMissing(f)).toEqual([]);
     expect(f).not.toMatch(/operator file/i);
-    expect(f.length).toBeLessThan(1000);
+    // 1200, not 1000: #1232 adds the bar-changed signal beside the ruling rules it must not displace
+    expect(f.length).toBeLessThan(1200);
     // the body-write line is spine-work's, in the item reviewer's words
     expect(flat(brief("spine-work.md"))).toContain("write it into the PR body");
     // controls: the real check fails on a copy of the brief without the merge ban, and on one without the body line
@@ -1605,4 +1724,24 @@ describe("ossify-spine driver", () => {
     expect(text).toContain('{"result":"resume","cleared":"remove-file","to":"verify","ledger":{...}}');
     expect(readdirSync(BRIEFS_DIR).filter((f) => readFileSync(join(BRIEFS_DIR, f), "utf8").includes("reclose"))).toEqual([]);
   });
+});
+
+// #1232 pre-PR B3: only an accepted review removes bar-changed; no launch hook or other step may.
+test("bar-changed is named only by the two accepted-review outcomes' run steps (#1232)", () => {
+  const recipe = JSON.parse(readFileSync(RECIPE_PATH, "utf8"));
+  const hits: string[] = [];
+  const walk = (v: unknown, path: string): void => {
+    if (typeof v === "string") { if (v.includes("bar-changed")) hits.push(path); return; }
+    if (Array.isArray(v)) { v.forEach((x, i) => walk(x, `${path}.${i}`)); return; }
+    if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k);
+  };
+  walk(recipe, "");
+  expect(hits).toEqual(["stages.item_review.outcomes.0.run.0.2", "stages.spine_review.outcomes.0.run.0.2"]);
+});
+
+// #1234 r2 C9: each accepted-review outcome runs exactly the one `rm -f` step; no other hook rides with it.
+test("the two accepted-review outcomes run exactly one rm -f of bar-changed (#1232)", () => {
+  const recipe = JSON.parse(readFileSync(RECIPE_PATH, "utf8"));
+  for (const stage of ["item_review", "spine_review"])
+    expect([stage, recipe.stages[stage].outcomes[0].run]).toEqual([stage, [["rm", "-f", "{run.dir}/out/{unit.id}/bar-changed"]]]);
 });

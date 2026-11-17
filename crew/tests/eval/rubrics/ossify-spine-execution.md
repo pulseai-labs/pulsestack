@@ -170,7 +170,9 @@ aligned.
    record whose reviewed head equals the current PR head resumes disposition
    with **no reviewer created**, and a moved head re-fetches the GitHub signals
    with the prior review and its unresolved findings as the baseline — same head
-   or moved, **zero additional delegated reviews**; a record inconsistent with
+   or moved, **zero additional delegated reviews** (a round that changed the body's
+   Merge bar or Claim is the one exception: its merge-bar reviewer is told so and
+   reviews the whole PR); a record inconsistent with
    the PR's live state is asked upward, never repaired or guessed. A clean
    delegated review carries `Findings: none` **plus** `Reviewed head` **plus**
    `Summary` — a headless clean body is malformed, and a reviewed head that does

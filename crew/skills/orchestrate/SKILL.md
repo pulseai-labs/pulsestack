@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: The orchestrator/worker session model over herdr or Orca — one orchestrator keeps decisions and dispatches named seats from the operator's files (~/.claude/crew/agents.md, .crew/roles.md). One review per PR (/code-review by default), findings returned in the seat's report file, GitHub threads worked to zero; clean gates merge under a project standing order granting the orchestrator merge authority, else on the operator's word; operator gates and operator merge executors go to the operator. On a spine just planned here, operator-approved seats go into the project file and one spine session, with a fresh tab and pane per item seat. Use when the user says the herdr orchestrator session, a herdr worker seat, the herdr crew, dispatch to a herdr session, execution assignments for a spine in herdr, or runs /crew:orchestrate. Not herdr's command reference (`herdr --skill` owns that), and not a PR loop of its own where ossify's work-pr is installed.
+description: The orchestrator/worker session model over herdr or Orca — one orchestrator keeps decisions and dispatches named seats from the operator's files (~/.claude/crew/agents.md, .crew/roles.md). One review per PR (/code-review by default), plus merge-bar's changed-body review, findings returned in the seat's report file, GitHub threads worked to zero; clean gates merge under a project standing order granting the orchestrator merge authority, else on the operator's word; operator gates and operator merge executors go to the operator. On a spine just planned here, operator-approved seats go into the project file and one spine session, with a fresh tab and pane per item seat. Use when the user says the herdr orchestrator session, a herdr worker seat, the herdr crew, dispatch to a herdr session, execution assignments for a spine in herdr, or runs /crew:orchestrate. Not herdr's command reference (`herdr --skill` owns that), and not a PR loop of its own where ossify's work-pr is installed.
 ---
 
 # Orchestrate — the orchestrator/worker session model
@@ -54,7 +54,7 @@ a verifier session. Never signal processes by listing them (`ps`, `pgrep`, `pido
 id (`references/completion.md` names the stop per host).
 
 How many sessions may exist is the session budget in `references/roles.md` — one
-implementer seat and one verifier seat per work item, one reviewer per PR, plus
+implementer seat and one verifier seat per work item, one reviewer per PR and a fresh one per merge-bar changed-body review, plus
 the seats the project file declares for the operator's own roles — stated
 once there; any session outside those seats is a planning defect. A malformed or
 incomplete report is corrected by the correction-request template in
@@ -192,12 +192,13 @@ These cases are named because they look like clashes and are not:
   `references/briefs.md`'s reviewer template for the
   review, its REVIEW_INVOCATION filled by you (the worker cannot read the machine file), and that file's fix-round and correction bodies for what follows — a work-PR session
   builds those child briefs, and a dispatched brief is the whole contract its worker ever sees.
-  After the single reviewer dispatch and your disposition, the fix dispatch
+  After the reviewer dispatch and your disposition, the fix dispatch
   to the retained implementer is `/ossify:work-pr <PR> --repo-root <worktree holding the
   PR branch>` with the disposition list embedded as a third finding signal — work-pr
   targets the invoking repository unless told otherwise, and the retained implementer
   often sits elsewhere. `work-pr`'s "re-review on the new head" means re-fetching
-  GitHub signals after a push, so no second review occurs. The worker stops at
+  GitHub signals after a push, so no second review occurs, except after a round that changed the
+  body's Merge bar or Claim (`references/lifecycle.md` step 8). The worker stops at
   `work-pr`'s merge ask and returns its ledger in its report file; you answer it as
   step 12's `run.merge_word` says, and you merge it under step 12 — one `gh` command.
 

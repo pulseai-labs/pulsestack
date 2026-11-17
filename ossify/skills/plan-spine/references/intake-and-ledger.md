@@ -121,11 +121,12 @@ For each overlapping line, record exactly one disposition:
 - **still accepted** — with the reason. Say whether its `revisit when` trigger
   has fired; a fired trigger is the reason to pull it in, so accepting it anyway
   needs its own reason.
-- **retired** — the code it names is gone. Show the evidence
+- **retired** — the code it names is gone. Only an unsuffixed line or one naming the planned repo (`PR #N` for the workspace's canonical, otherwise `PR <owner>/<repo>#N`) can be retired. Show the evidence
   (`git -C "<repo>" ls-files <path>` prints nothing, and the commit that removed
   it), delete the line from `tech-debt.md`, and note the retirement in `SPINE.md` — for a
   patch, which has no `SPINE.md` and never writes another spine's, in the PR's Evidence.
   This is the only write this section makes, and it is in the AI workspace.
+- **another repo's** — always, and only, for a line whose `(PR …)` suffix names another repo: name it as not this repo's; never retire or delete it.
 
 No ledger file, or no overlapping line → one line saying which. Never write the
 ledger, or anything about it, into the product repository.

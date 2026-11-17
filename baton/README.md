@@ -540,7 +540,8 @@ Each unit's files live in `<state>/runs/<run>/out/<unit>/`. Operator runbook:
   `baton unpark <run> spine-pr --to spine_work`; that round does it first, and the round's end
   archives the file as `out/spine-pr/operator-<n>.md` (the work-PR seat also writes the ruling into
   the PR body, which the reviewer reads). The previous round's review stays as
-  `out/spine-pr/review-prev.md`, which the next review is told as `previous:`.
+  `out/spine-pr/review-prev.md`, which the next review is told as `previous:`; later reviews cover the
+  fix range unless `<OUT>/bar-changed` exists, then the whole PR as round 1.
 - **A spine PR conflict parks `spine-pr`** in `spine_wait`. Resolve it on the spine branch in the
   canonical root (merge the base in; never rebase or force-push), push, copy
   `out/spine-pr/review.md` to `review-prev.md` and move it aside as the next free `review-<n>.md`, then
@@ -551,8 +552,10 @@ Each unit's files live in `<state>/runs/<run>/out/<unit>/`. Operator runbook:
   `out/spine-pr/review.md` to `review-prev.md`, move it aside as the next free `review-stale-<n>.md`
   and `baton unpark <run> spine-pr --to spine_review`. baton sees the merge and runs the second
   spine close. The `spine_finish` seat commits the review-ledger and tech-debt lines of every merged
-  PR of the spine (merge-bar `working-a-pr` §5) with the close record, since no seat runs §5 after a
-  baton merge. It writes the harvest candidates to `out/spine-pr/harvest.md` and, where there is a
+  PR of the spine in the bank resolved by ossify's `close/references/harvest.md`, "Where the bank is";
+  `working-a-pr` §5 owns their shapes, PR-reference forms, dispositions and UTC merge date. They go with
+  the close record, since no seat runs §5 after a baton merge. It writes the harvest candidates to
+  `out/spine-pr/harvest.md` and, where there is a
   close PR, under `## Harvest candidates` in its body, and accepts and applies none: the operator
   accepts, and the orchestrator applies the accepted set (ossify harvest §7) on the close PR's
   branch before the merge, or as a follow-up commit where the workspace pushes direct.

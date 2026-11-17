@@ -189,7 +189,7 @@ TASK: drive PR_NUMBER to a merge on the top's word, or a one-way door to step 6'
      verdict is read there; where none is, the reviewer seat is re-dispatched over the fix range
      — re-created if it was released, and guarded before its command then (role `reviewer`,
      `MECHANICS` Seat launch); a `/merge-bar:review-pr` reviewer is a fresh seat running
-     `/merge-bar:review-pr <PR_URL> --round <n> --previous <previous report path>`. A post-disposition
+     `/merge-bar:review-pr <PR_URL> --round <n> --previous <previous report path>`; when the round changes the body's Merge bar or Claim (beyond Known-limits lines or Evidence), dispatch that fresh seat even where a bot reviews the push, and append the change to its REVIEW_INVOCATION: tell that reviewer what changed; it reviews the whole PR as round 1 against the body now (`reviewing-a-pr` §5). A post-disposition
      finding returns through a blocking question to the
      top before any seat acts on it, never fixed by you or silently deferred. Relay ONE batched
      summary per round; STOPPING_RULE decides when fixing stops, counting the fix rounds
@@ -219,7 +219,7 @@ RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
 DONE: write your report file, returning PR_REPO, PR_NUMBER and every ledger comment id, plus one
 of three outcomes: the merge SHA; `handed off: one-way <reviewed head OID>`, only for step 6's
 one-way door; or `open: <PR url> at <head sha>`, with RUN_JSON's path and the pane its
-`run.orchestrator` names at writing, when the word you were relayed was wait or leave open, or at a fix-round boundary once the context-ceiling notice or a molt warning has fired — then stand
+`run.orchestrator` names at writing, when the word you were relayed was wait or leave open, or at a fix-round boundary once the context-ceiling notice or a molt warning has fired (a round that changed the body's Merge bar or Claim reaches its boundary only when step 5's changed-body review has written its report, so the review it owes is never left to a resumed run) — then stand
 down your own armed waits before you return, as the top and a spine session do: one
 report must wake one session (`lifecycle.md`, "Your own rotation"). On the open shape, first release both seats and close the workspaces you created for them, as step 6 does; then persist its review record —
 whether the delegated review ran, its reviewed head, its clean/findings state and
@@ -231,6 +231,6 @@ Changed / Evidence / Open / Files as ids, SHAs, counts and a report path.
 
 MOLT: if molt warns you, send one ping, `<PING_SEND> '[crew molt coordinator] <pct> <task id>'` (read as PING says; never when NOTIFY_RUN is `none`), and return `open:` at the next fix-round boundary, or, with no fix round in hand, return `open:` at once; molt never clears this session. If molt's handoff command arrives mid-round, still finish the round: a round molt's block cuts short is relayed to the operator by your parent. End the reply that writes `open:` with `MOLT-HANDOFF: <REPORT_PATH>`. A wake or message after that write is added to your report verbatim, never acted on.
 NEVER: talk to the operator — every question goes up to the top; squash; merge
-without the top's relayed word; delete a branch; or dispatch a second full review — one
-delegated review per PR (`roles.md`, step 8); a fixed head takes one scoped delta re-review. Never signal processes by listing them (`ps`, `pgrep`, `pidof`, `/proc`); stop your own job by its id (OMP `write proc://<id>/kill`, Claude Code `TaskStop`).
+without the top's relayed word; delete a branch; or dispatch a second full review except step 5's merge-bar changed-body case — one
+delegated review per PR (`roles.md`, step 8); otherwise a fixed head takes one scoped delta re-review. Never signal processes by listing them (`ps`, `pgrep`, `pidof`, `/proc`); stop your own job by its id (OMP `write proc://<id>/kill`, Claude Code `TaskStop`).
 ```
