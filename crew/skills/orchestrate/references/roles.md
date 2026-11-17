@@ -12,7 +12,7 @@ The seat names below are examples: the project file (`.crew/roles.md`,
 | Orchestrator | you — the operator launched this session | | one per run | |
 | Implementer, planned | `strong-coder` | the seat's — a marked item or a retry fills a higher-effort seat the project file's conditions name, and the machine entry is the only source of effort: never the same command edited | retained across work items and the PR's fix rounds, to the threshold below | `contract`: an interface, schema, contract, or architectural change, or a plan gate; the default when the item is not `bounded` |
 | Implementer, fast | `fast-coder` | the seat's | retained if a fix round follows, else released | `bounded` only when the item is one-file, mechanical, or read-only |
-| Reviewer | `sonnet-review` — once per PR; first task its review command (`/code-review <PR> <LEVEL>` by default, `config.md` `review:`); never implements | the seat's | disposable; released after its report file validates | |
+| Reviewer | `sonnet-review` — once per PR, plus a fresh seat per merge-bar changed-body review (`lifecycle.md` step 8); first task its review command (`/code-review <PR> <LEVEL>` by default, `config.md` `review:`); never implements | the seat's | disposable; released after its report file validates | |
 | Verifier | `strong-coder` — the work-item verify; `fast-coder` for read-only probes and mechanical runs outside it (a suite, a count, a fact) | the seat's | retained until its item passes or escalates to the operator | |
 | Operator | the human — the merge word, and decisions no session can own | | | |
 
@@ -142,7 +142,7 @@ so the generic lane-driver policy does not select it.
 
 ## Session budget
 
-One implementer seat and one verifier seat per work item; one reviewer per PR. A fix
+One implementer seat and one verifier seat per work item; one reviewer per PR, plus a fresh one per merge-bar changed-body review. A fix
 round may re-use the verifier seat, and a context-rotation replacement occupies the
 seat it replaces. Any session outside those seats is a planning defect: stop and
 re-plan the item. A further read-only question goes to the existing verifier or

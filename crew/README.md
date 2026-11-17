@@ -5,7 +5,7 @@ The orchestrator/worker session model over herdr or Orca. One prose skill, one s
 One orchestrator session keeps its context for decisions and dispatches everything else
 to worker sessions launched by seat name through the project's layer — the seats defined in the
 operator's own files, not in this plugin. A planned-work seat and a bounded-work seat
-implement by complexity class, one reviewer seat runs its review command (`/code-review` by default) once per PR and
+implement by complexity class, one reviewer seat runs its review command (`/code-review` by default) once per PR (a changed Merge bar or Claim under merge-bar gets a fresh seat) and
 returns its findings through its report file, the retained implementer works GitHub
 threads to zero; clean gates merge under a project standing order granting the orchestrator merge authority, else on the operator's word; operator gates and operator merge executors go to the operator.
 
@@ -67,7 +67,7 @@ the authority. The skill never substitutes `claude --model`.
 
 ## Session budget
 
-One implementer seat and one verifier seat per work item; one reviewer per PR. A fix
+One implementer seat and one verifier seat per work item; one reviewer per PR, plus a fresh one per merge-bar changed-body review. A fix
 round may re-use the verifier seat, and a context-rotation replacement occupies the seat
 it replaces. Beyond those, the budget admits three kinds of seat: a role the operator
 declares in the project file, for that role's dispatch only and against the allowance the

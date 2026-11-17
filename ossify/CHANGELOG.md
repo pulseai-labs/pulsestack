@@ -11,7 +11,7 @@ they cover.
 
 ## 1.45.2
 
-Since 1.45.2 (#1232), plan-spine's tech-debt retirement checks the PR suffix before path evidence: another repo's line is named as not this repo's and never retired or deleted. Only unsuffixed lines and lines naming the planned repo can be retired.
+Since 1.45.2 (#1232), plan-spine's tech-debt retirement checks the PR suffix before path evidence: another repo's line takes its own disposition, **another repo's**: named as not this repo's and never retired or deleted. Only unsuffixed lines and lines naming the planned repo can be retired.
 
 ## 1.45.1
 

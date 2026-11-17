@@ -219,7 +219,7 @@ RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
 DONE: write your report file, returning PR_REPO, PR_NUMBER and every ledger comment id, plus one
 of three outcomes: the merge SHA; `handed off: one-way <reviewed head OID>`, only for step 6's
 one-way door; or `open: <PR url> at <head sha>`, with RUN_JSON's path and the pane its
-`run.orchestrator` names at writing, when the word you were relayed was wait or leave open, or at a fix-round boundary once the context-ceiling notice or a molt warning has fired — then stand
+`run.orchestrator` names at writing, when the word you were relayed was wait or leave open, or at a fix-round boundary once the context-ceiling notice or a molt warning has fired (a round that changed the body's Merge bar or Claim reaches its boundary only when step 5's changed-body review has written its report, so the review it owes is never left to a resumed run) — then stand
 down your own armed waits before you return, as the top and a spine session do: one
 report must wake one session (`lifecycle.md`, "Your own rotation"). On the open shape, first release both seats and close the workspaces you created for them, as step 6 does; then persist its review record —
 whether the delegated review ran, its reviewed head, its clean/findings state and

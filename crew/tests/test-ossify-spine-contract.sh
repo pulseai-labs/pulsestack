@@ -1777,6 +1777,24 @@ done
 pin "$SKILL_MD" 'so no second review occurs, except after a round that changed the body'"'"'s Merge bar or Claim' '#1232 the skill names the changed-body review' flat
 pin "$LIFECYCLE_MD" 'No second review outside step 8'"'"'s merge-bar changed-body case.' \
   '#1232 fix rounds do not forbid the required whole-PR review' flat
+# #1234 r1 C3: the session budget and its summaries admit the changed-body reviewer seat.
+for f in "$ROLES_MD" "$PLUGIN_README_MD"; do
+  pin "$f" 'one reviewer per PR, plus a fresh one per merge-bar changed-body review.' \
+    "#1234 the session budget admits the changed-body reviewer in ${f##*/}" flat
+done
+pin "$ROLES_MD" 'once per PR, plus a fresh seat per merge-bar changed-body review' \
+  '#1234 the reviewer row admits the changed-body seat' flat
+pin "$SKILL_MD" 'one reviewer per PR and a fresh one per merge-bar changed-body review' \
+  '#1234 the skill body budget admits the changed-body reviewer' flat
+pin "$SKILL_MD" 'One review per PR (/code-review by default), plus merge-bar'"'"'s changed-body review' \
+  '#1234 the skill description admits the changed-body review' flat
+pin "$COMMAND_MD" 'one reviewer per PR plus merge-bar'"'"'s changed-body review' \
+  '#1234 the command description admits the changed-body review' flat
+pin "$PLUGIN_README_MD" 'once per PR (a changed Merge bar or Claim under merge-bar gets a fresh seat)' \
+  '#1234 the README summary admits the changed-body seat' flat
+# #1234 CodeRabbit: an open: return never leaves an owed changed-body review to a resumed run.
+pin "$PRBRIEFS_MD" 'a round that changed the body'"'"'s Merge bar or Claim reaches its boundary only when step 5'"'"'s changed-body review has written its report' \
+  '#1234 a changed-body round ends only after its review reports' flat
 pin "$PRBRIEFS_MD" 'a one-way door — the body'"'"'s `Door: one-way`, or no `Door:` line — is never merged here' \
   "the work-PR session never merges a one-way door (#963)" flat
 pin "$PRBRIEFS_MD" 'skills/working-a-pr/references/one-way-door.md' \

@@ -4,7 +4,7 @@ All notable changes to the `crew` plugin.
 
 ## 0.13.2
 
-**Changed Merge bars and Claims get a whole-PR merge-bar review.** For #1232, lifecycle step 8 and the work-PR brief tell the fresh `/merge-bar:review-pr … --round <n> --previous …` reviewer what changed and review the whole PR as round 1 against the body now (`reviewing-a-pr` §5). Known-limits/Evidence-only edits and other review commands keep the fix-range path.
+**Changed Merge bars and Claims get a whole-PR merge-bar review.** For #1232, lifecycle step 8 and the work-PR brief tell the fresh `/merge-bar:review-pr … --round <n> --previous …` reviewer what changed and review the whole PR as round 1 against the body now (`reviewing-a-pr` §5). Known-limits/Evidence-only edits and other review commands keep the fix-range path. The session budget (`roles.md`, the README, the skill and command descriptions) admits that fresh reviewer seat, and a work-PR session's round that changed the body reaches its boundary only when that review has reported.
 
 ## 0.13.1
 

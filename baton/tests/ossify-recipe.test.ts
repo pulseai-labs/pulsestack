@@ -84,7 +84,7 @@ describe("ossify-spine recipe", () => {
         // Keep the recipe's acceptance outcome; replace only the external seat with a completed host thread.
         const rec = { version: 1, name: "bar-change", params: [], sources: [], seed: [{ id: "u", stage }], stages: {
           [stage]: { ...source, role: undefined, instance: "inst", model: "mod", project: "proj", cwd: "{run.dir}",
-            title: "review", message: "review", env: {}, before: [], handoff: null },
+            title: "review", message: "review", env: {}, handoff: null }, // the stage's own `before` hooks run at launch
           [target]: { kind: "wait", outcomes: [{ when: [{ file: "{run.dir}/never" }], to: "done" }] },
         } };
         const recipeFile = join(root, "recipe.json");
@@ -106,12 +106,13 @@ describe("ossify-spine recipe", () => {
           mkdirSync(out, { recursive: true });
           const signal = join(out, "bar-changed");
           writeFileSync(signal, "Claim now covers shared banks\n");
-          if (text !== null) writeFileSync(join(out, "review.md"), text);
           const options = { store, host, runId: id, forge: new FakeForge(), notify: notifyOnce,
             now: () => new Date("2026-11-17T12:00:00Z") };
           const first = await tick(options); // first launch never reads an earlier visit's result
           expect(first.errors).toEqual([]);
           expect(first.launched).toEqual(["u"]);
+          expect(existsSync(signal)).toBe(true); // r1 C1: no launch hook may clear the signal the reviewer reads
+          if (text !== null) writeFileSync(join(out, "review.md"), text); // the seat writes its review after launch
           const completed = await tick(options); // the completed review now takes its outcome
           expect(completed.errors).toEqual([]);
           expect([text, existsSync(signal)]).toEqual([text, !accepted]);
@@ -1411,6 +1412,11 @@ describe("ossify-spine briefs", () => {
       ]) expect([pin, b.includes(pin)]).toEqual([pin, true]);
     });
   }
+
+  test("#1232 r1 C2: spine-work.md keeps a ruling's changed claim as a line under `## Merge bar`", () => {
+    const pin = "or as a line under `## Merge bar` for a raised bar or a changed claim";
+    expect(flat(brief("spine-work.md"))).toContain(pin);
+  });
 
   for (const name of ["item-review.md", "spine-review.md"]) {
     test(`#1232 ${name} prioritizes changed-bar whole-PR review and retains closure`, () => {

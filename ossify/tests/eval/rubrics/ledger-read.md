@@ -16,8 +16,9 @@ warrant a step, score whether the output correctly declined it. No N/A.
    work item or AC named); still accepted (the reason, and whether its `revisit
    when` trigger has fired); or retired because the code it names is gone
    (evidence shown, and the line deleted from `tech-debt.md`) — only a line with no
-   `(PR …)` suffix or one naming the planned repo; a line naming another repo is
-   named as not this repo's and never retired.
+   `(PR …)` suffix or one naming the planned repo; or another repo's — always, and
+   only, for a line whose suffix names another repo: named as not this repo's and
+   never retired.
 3. **absent_is_one_line** — no ledger file, or no overlapping line, is one line
    saying which. Nothing is invented and planning proceeds.
 4. **write_boundary** — the ledger is read from the AI workspace. Nothing is
