@@ -197,7 +197,8 @@ These cases are named because they look like clashes and are not:
   PR branch>` with the disposition list embedded as a third finding signal — work-pr
   targets the invoking repository unless told otherwise, and the retained implementer
   often sits elsewhere. `work-pr`'s "re-review on the new head" means re-fetching
-  GitHub signals after a push, so no second review occurs. The worker stops at
+  GitHub signals after a push, so no second review occurs, except after a round that changed the
+  body's Merge bar or Claim (`references/lifecycle.md` step 8). The worker stops at
   `work-pr`'s merge ask and returns its ledger in its report file; you answer it as
   step 12's `run.merge_word` says, and you merge it under step 12 — one `gh` command.
 

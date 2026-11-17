@@ -165,7 +165,7 @@ Every command's syntax comes from the layer's guide.
    **A fixed head is revalidated, never re-reviewed whole except for the merge-bar changed-body case below**: the reviewer is re-dispatched from
    its seat over the fix range alone — one scoped delta re-review; a `/merge-bar:review-pr`
    reviewer is a fresh seat running `/merge-bar:review-pr <PR_URL> --round <n> --previous
-   <previous report path>` — when the round changes the body's Merge bar or Claim (beyond Known-limits lines or Evidence), tell that reviewer what changed; it reviews the whole PR as round 1 against the body now (`reviewing-a-pr` §5) — and its findings enter the
+   <previous report path>` — when the round changes the body's Merge bar or Claim (beyond Known-limits lines or Evidence), dispatch it even where a bot reviews the push and append the change to its REVIEW_INVOCATION: tell that reviewer what changed; it reviews the whole PR as round 1 against the body now (`reviewing-a-pr` §5) — and its findings enter the
    disposition baseline like any other, so a repository whose bot does not review a push still
    reaches a complete signal on the head it asks about. Every finding returned in the report file
    as file, line, severity, claim, or as that report's classes. The reviewer posts nothing to GitHub and edits

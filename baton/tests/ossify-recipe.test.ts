@@ -1569,7 +1569,7 @@ describe("ossify-spine briefs", () => {
     expect(b).not.toContain("date -u +%F");
   });
   test("#1232 spine-finish deduplicates both PR-reference forms separately from tech debt", () => {
-    expect(flat(brief("spine-finish.md"))).toContain("skip a PR whose `PR #N ` or `PR <owner>/<repo>#N ` line (each with the space) is already in `review-ledger.md` and, separately, each tech-debt line already in `tech-debt.md`; one being present does not skip the other");
+    expect(flat(brief("spine-finish.md"))).toContain("skip a PR whose line in its own §5 form (`PR #N ` or `PR <owner>/<repo>#N `, each with the space) is already in `review-ledger.md` and, separately, each tech-debt line already in `tech-debt.md`; one being present does not skip the other");
   });
   test("#1232 README routes ledger location and forms to their owners", () => {
     const b = flat(readFileSync(join(import.meta.dir, "..", "README.md"), "utf8"));
@@ -1593,13 +1593,17 @@ describe("ossify-spine briefs", () => {
   const ITEM_FIX_PINS = ["If the Ruling file exists", "one round only", "blocking findings", "Commit and push once", "existing item branch",
     "Never merge", "force-push", "`## Merge bar`", "working-a-pr adds the fields", "round-3 stop",
     // the ruling reaches the item reviewer through the PR body, as spine-work.md says (#1079 C8a)
-    "write it into the PR body", "because the reviewer reads the body and never this file"];
+    "write it into the PR body", "because the reviewer reads the body and never this file",
+    // #1232 pre-PR B2: the ruling's precedence and its place in the body survive the bar-changed signal
+    "it outranks the review file", "an allowed finding under `## Known limits`, a raised bar under `## Merge bar`",
+    "Fields working-a-pr adds to a body that had none are no change"];
   const itemFixMissing = (text: string): string[] => ITEM_FIX_PINS.filter((p) => !flat(text).includes(p));
   test("item-fix is one working-a-pr round on the existing branch: blocking findings only, one push, never a merge, the ruling in the PR body, the done file last (#1046)", () => {
     const f = brief("item-fix.md");
     expect(itemFixMissing(f)).toEqual([]);
     expect(f).not.toMatch(/operator file/i);
-    expect(f.length).toBeLessThan(1000);
+    // 1200, not 1000: #1232 adds the bar-changed signal beside the ruling rules it must not displace
+    expect(f.length).toBeLessThan(1200);
     // the body-write line is spine-work's, in the item reviewer's words
     expect(flat(brief("spine-work.md"))).toContain("write it into the PR body");
     // controls: the real check fails on a copy of the brief without the merge ban, and on one without the body line
@@ -1714,4 +1718,17 @@ describe("ossify-spine driver", () => {
     expect(text).toContain('{"result":"resume","cleared":"remove-file","to":"verify","ledger":{...}}');
     expect(readdirSync(BRIEFS_DIR).filter((f) => readFileSync(join(BRIEFS_DIR, f), "utf8").includes("reclose"))).toEqual([]);
   });
+});
+
+// #1232 pre-PR B3: only an accepted review removes bar-changed; no launch hook or other step may.
+test("bar-changed is named only by the two accepted-review outcomes' run steps (#1232)", () => {
+  const recipe = JSON.parse(readFileSync(RECIPE_PATH, "utf8"));
+  const hits: string[] = [];
+  const walk = (v: unknown, path: string): void => {
+    if (typeof v === "string") { if (v.includes("bar-changed")) hits.push(path); return; }
+    if (Array.isArray(v)) { v.forEach((x, i) => walk(x, `${path}.${i}`)); return; }
+    if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k);
+  };
+  walk(recipe, "");
+  expect(hits).toEqual(["stages.item_review.outcomes.0.run.0.2", "stages.spine_review.outcomes.0.run.0.2"]);
 });

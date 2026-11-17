@@ -1770,6 +1770,11 @@ pin "$PRBRIEFS_MD" 'except step 5'"'"'s merge-bar changed-body case' \
   "#1232 the PR brief's NEVER line preserves its exception" flat
 pin "$LIFECYCLE_MD" 'A review runs exactly once per PR except for the merge-bar changed-body case below' \
   '#1232 initial review count names the full-review exception' flat
+for f in "$LIFECYCLE_MD" "$PRBRIEFS_MD"; do
+  pin "$f" 'even where a bot reviews the push' "#1232 the changed-body review runs even where a bot reviews pushes in ${f##*/}" flat
+  pin "$f" 'append the change to its REVIEW_INVOCATION' "#1232 the change reaches the reviewer in ${f##*/}" flat
+done
+pin "$SKILL_MD" 'so no second review occurs, except after a round that changed the body'"'"'s Merge bar or Claim' '#1232 the skill names the changed-body review' flat
 pin "$LIFECYCLE_MD" 'No second review outside step 8'"'"'s merge-bar changed-body case.' \
   '#1232 fix rounds do not forbid the required whole-PR review' flat
 pin "$PRBRIEFS_MD" 'a one-way door — the body'"'"'s `Door: one-way`, or no `Door:` line — is never merged here' \

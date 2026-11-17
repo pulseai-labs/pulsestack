@@ -189,7 +189,7 @@ TASK: drive PR_NUMBER to a merge on the top's word, or a one-way door to step 6'
      verdict is read there; where none is, the reviewer seat is re-dispatched over the fix range
      — re-created if it was released, and guarded before its command then (role `reviewer`,
      `MECHANICS` Seat launch); a `/merge-bar:review-pr` reviewer is a fresh seat running
-     `/merge-bar:review-pr <PR_URL> --round <n> --previous <previous report path>`; when the round changes the body's Merge bar or Claim (beyond Known-limits lines or Evidence), tell that reviewer what changed; it reviews the whole PR as round 1 against the body now (`reviewing-a-pr` §5). A post-disposition
+     `/merge-bar:review-pr <PR_URL> --round <n> --previous <previous report path>`; when the round changes the body's Merge bar or Claim (beyond Known-limits lines or Evidence), dispatch that fresh seat even where a bot reviews the push, and append the change to its REVIEW_INVOCATION: tell that reviewer what changed; it reviews the whole PR as round 1 against the body now (`reviewing-a-pr` §5). A post-disposition
      finding returns through a blocking question to the
      top before any seat acts on it, never fixed by you or silently deferred. Relay ONE batched
      summary per round; STOPPING_RULE decides when fixing stops, counting the fix rounds
