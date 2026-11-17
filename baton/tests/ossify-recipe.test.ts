@@ -1738,3 +1738,10 @@ test("bar-changed is named only by the two accepted-review outcomes' run steps (
   walk(recipe, "");
   expect(hits).toEqual(["stages.item_review.outcomes.0.run.0.2", "stages.spine_review.outcomes.0.run.0.2"]);
 });
+
+// #1234 r2 C9: each accepted-review outcome runs exactly the one `rm -f` step; no other hook rides with it.
+test("the two accepted-review outcomes run exactly one rm -f of bar-changed (#1232)", () => {
+  const recipe = JSON.parse(readFileSync(RECIPE_PATH, "utf8"));
+  for (const stage of ["item_review", "spine_review"])
+    expect([stage, recipe.stages[stage].outcomes[0].run]).toEqual([stage, [["rm", "-f", "{run.dir}/out/{unit.id}/bar-changed"]]]);
+});

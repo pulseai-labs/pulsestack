@@ -1790,6 +1790,12 @@ pin "$SKILL_MD" 'One review per PR (/code-review by default), plus merge-bar'"'"
   '#1234 the skill description admits the changed-body review' flat
 pin "$COMMAND_MD" 'one reviewer per PR plus merge-bar'"'"'s changed-body review' \
   '#1234 the command description admits the changed-body review' flat
+pin "$SKILL_MD" 'After the reviewer dispatch and your disposition' \
+  '#1234 r2 C11: the skill no longer calls the reviewer dispatch single' flat
+for f in "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json"; do
+  pin "$f" 'once per PR (a changed Merge bar or Claim under merge-bar gets a fresh seat)' \
+    "#1234 r2 C10: the manifest description admits the changed-body seat (${f#"$PLUGIN_ROOT"/})" flat
+done
 pin "$PLUGIN_README_MD" 'once per PR (a changed Merge bar or Claim under merge-bar gets a fresh seat)' \
   '#1234 the README summary admits the changed-body seat' flat
 # #1234 CodeRabbit: an open: return never leaves an owed changed-body review to a resumed run.
