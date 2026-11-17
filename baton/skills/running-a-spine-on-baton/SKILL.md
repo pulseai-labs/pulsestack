@@ -11,7 +11,7 @@ decisions. Check, propose the exact `baton arm` command, and arm it only on the 
 session, and nothing else watches the run.
 
 The commands, the arm example and the runbook are in the baton plugin's `README.md`
-("Commands", "Example: an ossify spine"). Read them there.
+("Commands", "Example: an ossify spine"); later reviews cover the fix range unless `<OUT>/bar-changed` exists, then the whole PR as round 1.
 
 ## 1. Preflight (read-only)
 

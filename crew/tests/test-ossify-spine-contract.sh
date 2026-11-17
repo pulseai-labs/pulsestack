@@ -1757,6 +1757,21 @@ pin "$PRBRIEFS_MD" 'a class blocks unless its `Bar:` is `non-blocking`' \
   "the work-PR session reads blocking from each class's Bar: (#963)" flat
 pin "$PRBRIEFS_MD" '`/merge-bar:review-pr <PR_URL> --round <n> --previous <previous report path>`' \
   "the fix-range re-review of a merge-bar reviewer is its round 2+ command (#963)" flat
+# #1232: merge-bar's changed-body review is whole-PR, not a delta. /code-review stays unchanged.
+for f in "$LIFECYCLE_MD" "$PRBRIEFS_MD"; do
+  pin "$f" 'when the round changes the body'"'"'s Merge bar or Claim (beyond Known-limits lines or Evidence)' \
+    "#1232 changed body triggers the merge-bar exception in ${f##*/}" flat
+  pin "$f" 'tell that reviewer what changed; it reviews the whole PR as round 1 against the body now (`reviewing-a-pr` §5)' \
+    "#1232 the fresh merge-bar reviewer is told and reviews whole in ${f##*/}" flat
+done
+pin "$LIFECYCLE_MD" '**A fixed head is revalidated, never re-reviewed whole except for the merge-bar changed-body case below**' \
+  '#1232 lifecycle scopes its never-whole rule' flat
+pin "$PRBRIEFS_MD" 'except step 5'"'"'s merge-bar changed-body case' \
+  "#1232 the PR brief's NEVER line preserves its exception" flat
+pin "$LIFECYCLE_MD" 'A review runs exactly once per PR except for the merge-bar changed-body case below' \
+  '#1232 initial review count names the full-review exception' flat
+pin "$LIFECYCLE_MD" 'No second review outside step 8'"'"'s merge-bar changed-body case.' \
+  '#1232 fix rounds do not forbid the required whole-PR review' flat
 pin "$PRBRIEFS_MD" 'a one-way door — the body'"'"'s `Door: one-way`, or no `Door:` line — is never merged here' \
   "the work-PR session never merges a one-way door (#963)" flat
 pin "$PRBRIEFS_MD" 'skills/working-a-pr/references/one-way-door.md' \

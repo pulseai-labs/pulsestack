@@ -189,7 +189,7 @@ TASK: drive PR_NUMBER to a merge on the top's word, or a one-way door to step 6'
      verdict is read there; where none is, the reviewer seat is re-dispatched over the fix range
      — re-created if it was released, and guarded before its command then (role `reviewer`,
      `MECHANICS` Seat launch); a `/merge-bar:review-pr` reviewer is a fresh seat running
-     `/merge-bar:review-pr <PR_URL> --round <n> --previous <previous report path>`. A post-disposition
+     `/merge-bar:review-pr <PR_URL> --round <n> --previous <previous report path>`; when the round changes the body's Merge bar or Claim (beyond Known-limits lines or Evidence), tell that reviewer what changed; it reviews the whole PR as round 1 against the body now (`reviewing-a-pr` §5). A post-disposition
      finding returns through a blocking question to the
      top before any seat acts on it, never fixed by you or silently deferred. Relay ONE batched
      summary per round; STOPPING_RULE decides when fixing stops, counting the fix rounds
@@ -231,6 +231,6 @@ Changed / Evidence / Open / Files as ids, SHAs, counts and a report path.
 
 MOLT: if molt warns you, send one ping, `<PING_SEND> '[crew molt coordinator] <pct> <task id>'` (read as PING says; never when NOTIFY_RUN is `none`), and return `open:` at the next fix-round boundary, or, with no fix round in hand, return `open:` at once; molt never clears this session. If molt's handoff command arrives mid-round, still finish the round: a round molt's block cuts short is relayed to the operator by your parent. End the reply that writes `open:` with `MOLT-HANDOFF: <REPORT_PATH>`. A wake or message after that write is added to your report verbatim, never acted on.
 NEVER: talk to the operator — every question goes up to the top; squash; merge
-without the top's relayed word; delete a branch; or dispatch a second full review — one
-delegated review per PR (`roles.md`, step 8); a fixed head takes one scoped delta re-review. Never signal processes by listing them (`ps`, `pgrep`, `pidof`, `/proc`); stop your own job by its id (OMP `write proc://<id>/kill`, Claude Code `TaskStop`).
+without the top's relayed word; delete a branch; or dispatch a second full review except step 5's merge-bar changed-body case — one
+delegated review per PR (`roles.md`, step 8); otherwise a fixed head takes one scoped delta re-review. Never signal processes by listing them (`ps`, `pgrep`, `pidof`, `/proc`); stop your own job by its id (OMP `write proc://<id>/kill`, Claude Code `TaskStop`).
 ```

@@ -9,6 +9,10 @@ The 1.24.0 entry's parenthesis about adopt and a marked stub, added in 1.35.0, s
 Some versions have no entry. The GitHub releases tagged `ossify-v*` carry notes for the versions
 they cover.
 
+## 1.45.2
+
+Since 1.45.2 (#1232), plan-spine's tech-debt retirement checks the PR suffix before path evidence: another repo's line is named as not this repo's and never retired or deleted. Only unsuffixed lines and lines naming the planned repo can be retired.
+
 ## 1.45.1
 
 Since 1.45.1 (#1007), reviewer-home places proposals for a kept standards file directly below the result line in `ADOPTION.md` or the standalone `## Review` section, using the same one-line form. A standalone refusal's hand-off is its closing read-out. The intake guide's tech-debt shape and bank pointer follow merge-bar 0.11.0's routed bank and PR suffix.
