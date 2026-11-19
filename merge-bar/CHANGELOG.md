@@ -2,6 +2,13 @@
 
 All notable changes to the `merge-bar` plugin.
 
+## 0.11.1
+
+**OMP bin-path fixes (#743, #745, #1038 item 1).**
+
+- The shared module (VERSION 3) and loader use only user-scope entries in the OMP and Claude Code install records. Project-scope entries are never a fallback, and project records are not discovered. Install at user scope for plugin bin paths in OMP sessions; the root README states that limit. The shared header has no hand-kept plugin or binary list.
+- Re-download the separate version-3 loader for self-targeting update warnings. MIN_LOADER_VERSION stays 1 so old loaders do not print their defective update command.
+
 ## 0.11.0
 
 **Prose and contract checks (#1012, #1007, #1211, #1038 item 2).**

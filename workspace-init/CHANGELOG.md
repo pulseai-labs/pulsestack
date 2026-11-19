@@ -1,5 +1,10 @@
 # workspace-init changelog
 
+## 0.10.8
+
+### Fixed
+- **OMP user-scope bin paths (#743, #745, #1038 item 1).** The shared bin-path module (VERSION 3) and loader select only user-scope entries from the OMP and Claude Code install records, never a project-scope fallback. Project records are not discovered; install at user scope for plugin bin paths in OMP sessions. The root README states that limit, and the shared header no longer maintains a plugin or binary list. Re-download the separate version-3 loader for update warnings that target the running loader file; MIN_LOADER_VERSION remains 1 to avoid triggering old loaders' wrong command.
+
 ## 0.10.7
 
 Closes #834, #835 and #841.

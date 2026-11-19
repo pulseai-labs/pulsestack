@@ -9,6 +9,10 @@ The 1.24.0 entry's parenthesis about adopt and a marked stub, added in 1.35.0, s
 Some versions have no entry. The GitHub releases tagged `ossify-v*` carry notes for the versions
 they cover.
 
+## 1.45.4
+
+Since 1.45.4 (#743, #745, #1038 item 1), the OMP bin-path module (VERSION 3) and loader use only user-scope entries in the OMP and Claude Code install records; a project-scope entry is never a fallback. Project records are not discovered: install at user scope for plugin bin paths in OMP sessions, as the root README now states. The shared header no longer keeps a plugin or binary list. The separately downloaded loader (version 3) targets its own file in update warnings; MIN_LOADER_VERSION stays 1 so old loaders do not print the defective update command.
+
 ## 1.45.3
 
 Since 1.45.3 (#1230), the README says the demo-walk holder walks each `user:` line (the human, or the orchestrator under a standing order that gives it the walk), not "a person", as `close/references/cumulative-demo.md` §3 says. The repo-root evolutionary-architecture playbook, which ossify cites, now holds a new separately deployed service to the same measured-pressure bar as an extracted one, as `codebase-design.md` §3 does since 1.44.0.

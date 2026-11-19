@@ -170,7 +170,8 @@ mods (`seat-mods`, `molt`), the shared `crew` and the OMP-only `omp-roles`.
     omp plugin install ossify@pulsestack   # and each plugin you want
 
 OMP does not put a plugin's `bin/` on `PATH`. Install the extension that does, once per machine, in your
-user extension folder; OMP loads it in every session:
+user extension folder; OMP loads it in every session. Download from `main`, so the loader is at least as new
+as the newest installed module:
 
     curl -fsSL --create-dirs https://raw.githubusercontent.com/pulseai-labs/pulsestack/main/omp/extensions/plugin-bin-path.ts \
       -o ~/.omp/agent/extensions/plugin-bin-path.ts
@@ -181,6 +182,10 @@ The file is a small loader: the logic ships inside the plugins, so `omp plugin u
 and the loader warns with this command if it ever needs a new download. Without it, `oss`, `wi`, `mb` and `crew-run`
 are not found and the skills that need them say so. A session started
 with `--no-extensions` needs `-e <that file>`.
+
+Only a user-scope install puts its `bin/` on `PATH` in OMP sessions: the loader and the module read only
+`scope: "user"` entries, in the OMP user record and the Claude Code record. An OMP project-scope install, and a
+Claude Code project-, local- or managed-scope install, gets no `bin/` there; install at user scope.
 
 Guarded seats: install `omp-roles` and both mods, then launch with `omp-seat` (the guard and molt load only
 through it; seat-mods' kill rail loads in every omp session with seat-mods enabled, unless started with `--no-extensions`). Link its `bin/omp-seat` onto `PATH` as `omp-roles/README.md` shows. It needs `bun`, and `seat-mods` and `molt` at the minimum versions `omp-roles/README.md` names; for a missing mod it refuses and names the mod; for one that is too old it refuses and names the version it needs.
