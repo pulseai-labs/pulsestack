@@ -3,8 +3,9 @@
 // through `command -v` fail without this. Install paths come from records, never
 // from "newest in cache". It writes no file and never searches the filesystem.
 //
-// This file is the source of truth. Plugins that ship a bin/ carry byte-identical
-// copies at <plugin>/omp/bin-path.ts, held by tests/test-omp-surface.sh check 6.
+// This file is the source of truth. The OMP marketplace's plugins that ship a bin/
+// carry byte-identical copies at <plugin>/omp/bin-path.ts, held by
+// tests/test-omp-surface.sh check 6.
 // The user-level loader (omp/extensions/plugin-bin-path.ts) imports the newest
 // installed copy, so a plugin update refreshes this logic. Bump VERSION on any
 // behaviour change, and MIN_LOADER_VERSION only when old loaders must warn.

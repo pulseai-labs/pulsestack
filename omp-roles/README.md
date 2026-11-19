@@ -32,6 +32,6 @@ ln -sf "$(jq -r '.plugins["omp-roles@pulsestack"] | (map(select(.scope == "user"
 
 Run it again after an upgrade: the link points at one version's folder. `omp-seat` needs `bun`; a `--via` wrapper that runs omp under `timeout` needs `--foreground`.
 
-`omp-seat` needs seat-mods 0.14.0 (0.4.1 first mapped `seat-reviewer` to the reviewer profile; 0.14.0 added the kill rail, #1099) and molt 0.3.0. It refuses an older version or a missing OMP extension, naming the required minimum.
+`omp-seat` needs seat-mods 0.14.0 (0.4.1 first mapped `seat-reviewer` to the reviewer profile; 0.14.0 added the kill rail, #1099) and molt 0.3.0. It refuses an older version or a missing OMP extension, naming the required minimum. It finds both only through user-scope install entries (the OMP user record, then the Claude Code record), as the root README's bin-path section does; a mod installed only at another scope counts as not installed, so the seat does not launch.
 
 Pinned and tested on omp 18.16.0; an upgrade is a PR.

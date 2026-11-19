@@ -107,6 +107,17 @@ describe("resolveBinDirs", () => {
     record(claudeRecord, { [id("merge-bar")]: [entry("project", install("merge-bar", "current-project"), process.cwd())] });
     expect(run()).toEqual({ dirs: [], warnings: [] });
   });
+  // Only scope "user" counts: a scope-less, local-scope (per project) or managed-scope entry is never used.
+  for (const [label, make] of [
+    ["scope-less", (p: string) => ({ installPath: p })],
+    ["local-scope", (p: string) => entry("local", p, process.cwd())],
+    ["managed-scope", (p: string) => entry("managed", p)],
+  ] as const) {
+    test(`a Claude ${label} entry is never used`, () => {
+      record(claudeRecord, { [id("merge-bar")]: [make(install("merge-bar", label))] });
+      expect(run()).toEqual({ dirs: [], warnings: [] });
+    });
+  }
 });
 
 describe("installPaths", () => {

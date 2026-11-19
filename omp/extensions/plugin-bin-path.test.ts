@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { load, moduleCandidates, LOADER_VERSION } from "./plugin-bin-path";
+import { load, moduleCandidates } from "./plugin-bin-path";
 
 const M = "claude-agent-scaffolding";
 const homes: string[] = [];
@@ -134,6 +134,7 @@ describe("loader", () => {
     const source = await Bun.file(join(import.meta.dir, "plugin-bin-path.ts")).text();
     const javascript = new Bun.Transpiler({ loader: "ts" }).transformSync(source);
     // A VM module supplies a genuine non-file URL without rewriting loader source.
+    // The child runs the .ts loader under plain node: it needs type stripping (Node >= 22.18 or 23.6).
     // Its dynamic-import callback preserves normal file imports for installed modules.
     const child = Bun.spawnSync(["node", "--experimental-vm-modules", "--input-type=module", "-e", `
       import vm from "node:vm";
@@ -192,6 +193,18 @@ describe("loader", () => {
     entries(join(h, ".claude", "plugins", "installed_plugins.json"), [entry("project", stub(h, "current-project", 99), process.cwd())]);
     expect(moduleCandidates(h)).toEqual([]);
   });
+  // Only scope "user" counts: a scope-less, local-scope (per project) or managed-scope entry is never a candidate.
+  for (const [label, make] of [
+    ["scope-less", (p: string) => ({ installPath: p })],
+    ["local-scope", (p: string) => entry("local", p, process.cwd())],
+    ["managed-scope", (p: string) => entry("managed", p)],
+  ] as const) {
+    test(`a Claude ${label} module is never a candidate`, () => {
+      const h = home();
+      entries(join(h, ".claude", "plugins", "installed_plugins.json"), [make(stub(h, label, 99))]);
+      expect(moduleCandidates(h)).toEqual([]);
+    });
+  }
   test("a module that fails to import is skipped with a warning; another runs", async () => {
     const h = home();
     record(h, ".omp", { ossify: stub(h, "ossify", 5, 1, "this is not typescript {{{"),

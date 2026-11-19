@@ -45,6 +45,18 @@ describe('planLaunch', () => {
       warnings: [],
     })
   })
+  // Only user-scope entries count (omp-roles README): a mod installed only at another scope, for this or another
+  // project, is not installed, so an unguarded seat never launches on it.
+  for (const scope of ['project', 'local', 'managed']) {
+    test(`seat-mods and molt recorded only at Claude ${scope} scope count as not installed`, () => {
+      const plugins: Record<string, unknown[]> = {}
+      for (const n of ['seat-mods', 'molt'])
+        plugins[`${n}@${MARKETPLACE}`] = [{ scope, installPath: install(n), ...(scope === 'managed' ? {} : { projectPath: '/some/other/project' }) }]
+      mkdirSync(join(claudeRecord, '..'), { recursive: true })
+      writeFileSync(claudeRecord, JSON.stringify({ version: 2, plugins }))
+      expect(launch()).toEqual({ error: `omp-seat: seat-mods is not installed (looked in ${ompRecord} and ${claudeRecord})` })
+    })
+  }
   test('a worker launches with seat-mods and molt only', () => {
     const [s, m] = [install('seat-mods'), install('molt')]
     record(ompRecord, { 'seat-mods': s, molt: m })
