@@ -1,6 +1,6 @@
 {
   "name": "sage",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "Decision-making mentor for project work. Four surfaces: grill-me (one-question-at-a-time plan interrogation with CORE posture + 4 cognitive-discipline escape valves), council (5-persona multi-angle idea validation, Karpathy LLM Council pattern with codebase-aware Historian), eli10 (repeatable simplification), fool (sticky beginner's-mind mode). Skill-first; no hooks, no state machinery.",
   "author": {
     "name": "Pras"

@@ -50,5 +50,15 @@ for copy in "${COPIES[@]}"; do
   fi
 done
 
+# #111: TOP SEVERITY escalates a restart-class *recommendation*, not a menu that merely offers a restart
+# option (read literally, the old "restart-class options" escalated every orchestrate gate). The parity
+# checks above carry this sentence to every copy.
+flat="$(tr -s ' \n' '  ' < "$SOT")"
+if [[ "$flat" == *"a restart-class recommendation at orchestrate gates — a restart option merely on the menu does not trip it"* ]]; then
+  pass "TOP SEVERITY names a restart-class recommendation, not a restart option on the menu (#111)"
+else
+  fail "TOP SEVERITY names a restart-class recommendation, not a restart option on the menu (#111)"
+fi
+
 printf '\nPassed: %d  Failed: %d\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

@@ -99,7 +99,8 @@ predicate:
    migrations, deletions, pushes or PR-merges to the canonical repo. (Local
    worktree→branch merges are reversible and do not trip this.)
 4. **TOP SEVERITY** — the surface's own top class (e.g. `premise`-severity
-   challenges in critique; restart-class options at orchestrate gates).
+   challenges in critique; a restart-class recommendation at orchestrate gates —
+   a restart option merely on the menu does not trip it).
 5. **CONTESTED** — the recommended disposition is `rebut`, or two adversaries
    (host + external) disagree about the finding. Agent-vs-agent disagreement
    needs a human referee.

@@ -4,7 +4,7 @@
 
 **v2.0.0** is a scope-cut release. v1.x shipped a 4-pillar cognitive-partner framework with mechanical edit-blocking hooks, a quiz protocol, prompt rewriting, and ~620 tokens of per-session protocol injection. In ~12 months of v1.x use, only one surface (`grill-me`) actually earned its keep. v2.0 deletes everything that didn't, sharpens `grill-me` with cognitive-discipline content, promotes the two simpler surfaces that still see use, and adds one new surface (`council`) for multi-angle idea validation.
 
-See [`docs/SPEC-ai-mentor-v2.md`](../docs/SPEC-ai-mentor-v2.md) for full design rationale and [`docs/PLAN-ai-mentor-v2.md`](../docs/PLAN-ai-mentor-v2.md) for the 8-phase implementation breakdown.
+The sections below describe what ships; the v2 design spec and plan were working documents of this repository and are not part of the plugin.
 
 ## The four surfaces
 
