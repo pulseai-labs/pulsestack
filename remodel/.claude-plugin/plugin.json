@@ -1,6 +1,6 @@
 {
   "name": "remodel",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Strict quality review and architecture deepening. Four prose skills: deep-review (human-invoked maintainability audit of a diff — code-judo ambition, the 1000-line rule, spaghetti growth, boundary leaks — producing one report and one categorical disposition pass, never a loop), deepen-architecture (codebase scan for shallow modules, single HTML report with before/after diagrams and strength badges, then a grilling loop), codebase-design (the deep-module vocabulary), domain-modeling (CONTEXT.md glossary where nothing else owns it; composes ADRs, does not file them). Skill-first; no lib, no hooks, no state.",
   "author": {
     "name": "Pras"

@@ -2,6 +2,12 @@
 
 All notable changes to the `remodel` plugin (named `code-judo` through 0.2.4).
 
+## 0.3.1
+
+The recommendation policy copy in `deepen-architecture` follows the source of truth: TOP SEVERITY's
+example reads "a restart-class recommendation at orchestrate gates", so a restart option merely on the
+menu does not escalate a gate (#111).
+
 ## 0.3.0
 
 Renamed from `code-judo` to `remodel`, in the marketplace's rename to `pulsestack`. The commands

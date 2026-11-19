@@ -7,6 +7,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [2.6.1]
+
+### Fixed
+
+- The recommendation policy's TOP SEVERITY example reads "a restart-class recommendation at orchestrate
+  gates": a restart option merely on the menu does not escalate a gate (#111). Both copies, in `grill-me`
+  and `council`, follow the source of truth.
+- The README no longer links to `docs/SPEC-ai-mentor-v2.md` and `docs/PLAN-ai-mentor-v2.md`, which do not
+  ship with the plugin (#146). Older entries below keep their citations as written.
+
 ## [2.6.0]
 
 ### Changed

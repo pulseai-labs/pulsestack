@@ -198,6 +198,15 @@ if [ "$found_any" -eq 0 ]; then
   exit 1
 fi
 
+# ── shipped README links stay inside the plugin (#146) ───────────────────
+# Repo-root docs/ does not ship with /plugin install, so a `](../docs/` link in
+# the README is dead for every installed copy. CHANGELOG history keeps its citations.
+if grep -n '](\.\./' "$PLUGIN_ROOT/README.md" >/dev/null; then
+  fail "README.md links outside the plugin: $(grep -n '](\.\./' "$PLUGIN_ROOT/README.md" | cut -c1-80)"
+else
+  pass "README.md has no link outside the plugin (#146)"
+fi
+
 # ── summary ────────────────────────────────────────────────────────────────
 printf '\n%s──────────────────────────────────────%s\n' "$DIM" "$RST"
 printf 'Passed: %s%d%s   Failed: %s%d%s\n' "$GREEN" "$PASS" "$RST" "$RED" "$FAIL" "$RST"
