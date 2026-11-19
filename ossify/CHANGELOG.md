@@ -11,7 +11,7 @@ they cover.
 
 ## 1.45.5
 
-Since 1.45.5 (#1082), the OMP bin-path module (VERSION 4) and loader (LOADER_VERSION 4) read only installs under the `pulsestack` marketplace name; the pre-rename `claude-agent-scaffolding` entries are no longer read, now that every host has moved. MIN_LOADER_VERSION is 4, so a loader older than 4 warns once per session with a command that re-downloads it over its own file (loader 3 and later print that command).
+Since 1.45.5 (#1082), the OMP bin-path module (VERSION 4) and loader (LOADER_VERSION 4) read only installs under the `pulsestack` marketplace name; the pre-rename `claude-agent-scaffolding` entries are no longer read, now that every host has moved. MIN_LOADER_VERSION is 4, so loaders 2 and 3 warn once per session with their re-download command (loader 3 writes over its own file, loader 2 to `~/.omp/agent/extensions/`); loader 1 reads only the old name, so on a moved host it finds no module and says so instead of warning.
 
 ## 1.45.4
 
