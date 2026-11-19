@@ -129,18 +129,16 @@ describe("installPaths", () => {
     });
     expect(installPaths(claudeRecord)).toEqual(new Map([["merge-bar", user]]));
   });
-  test("installPaths prefers pulsestack over the legacy name", () => {
-    const oldP = install("ossify", "1.0.0"), newP = install("ossify", "2.0.0");
-    for (const order of [["claude-agent-scaffolding", "pulsestack"], ["pulsestack", "claude-agent-scaffolding"]]) {
-      const paths: Record<string, string> = { "claude-agent-scaffolding": oldP, pulsestack: newP };
-      record(ompRecord, Object.fromEntries(order.map((m) => [id("ossify", m), [{ scope: "user", installPath: paths[m] }]])));
-      expect(installPaths(ompRecord)).toEqual(new Map([["ossify", newP]]));
-    }
+  // #1082: the pre-rename marketplace name is no longer read, in either record.
+  test("installPaths ignores an entry under the old marketplace name", () => {
+    const oldP = install("ossify", "1.0.0"), newP = install("merge-bar", "2.0.0");
+    record(ompRecord, { [id("ossify", "claude-agent-scaffolding")]: [{ scope: "user", installPath: oldP }],
+                        [id("merge-bar")]: [{ scope: "user", installPath: newP }] });
+    expect(installPaths(ompRecord)).toEqual(new Map([["merge-bar", newP]]));
   });
-  test("installPaths reads a legacy-only record", () => {
-    const oldP = install("ossify", "1.0.0");
-    record(ompRecord, { [id("ossify", "claude-agent-scaffolding")]: [{ scope: "user", installPath: oldP }] });
-    expect(installPaths(ompRecord)).toEqual(new Map([["ossify", oldP]]));
+  test("resolveBinDirs adds no bin/ for a Claude entry under the old marketplace name", () => {
+    record(claudeRecord, { [id("ossify", "claude-agent-scaffolding")]: [{ scope: "user", installPath: install("ossify", "1.0.0") }] });
+    expect(resolveBinDirs({ ompRecord, claudeRecord })).toEqual({ dirs: [], warnings: [] });
   });
   test("installPaths ignores a marketplace named like an Object member", () => {
     record(ompRecord, { [id("ossify", "toString")]: [{ scope: "user", installPath: install("ossify", "1.0.0") }] });

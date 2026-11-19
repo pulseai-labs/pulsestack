@@ -2,6 +2,10 @@
 
 All notable changes to the `merge-bar` plugin.
 
+## 0.11.2
+
+**OMP bin-path drops the pre-rename marketplace name (#1082).** The OMP bin-path module (VERSION 4) and loader (LOADER_VERSION 4) read only installs under the `pulsestack` marketplace name; the pre-rename `claude-agent-scaffolding` entries are no longer read, now that every host has moved. MIN_LOADER_VERSION is 4, so a loader older than 4 warns once per session with a command that re-downloads it over its own file (loader 3 and later print that command).
+
 ## 0.11.1
 
 **OMP bin-path fixes (#743, #745, #1038 item 1).**

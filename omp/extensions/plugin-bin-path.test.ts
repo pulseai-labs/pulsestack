@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { load, moduleCandidates } from "./plugin-bin-path";
 
-const M = "claude-agent-scaffolding";
+const M = "pulsestack";
 const homes: string[] = [];
 function home() { const h = mkdtempSync(join(tmpdir(), "pbl-")); homes.push(h); return h; }
 afterEach(() => { for (const h of homes.splice(0)) rmSync(h, { recursive: true, force: true }); });
@@ -69,12 +69,13 @@ describe("loader", () => {
     record(h, ".omp", { "brand-new-plugin": p });
     expect(moduleCandidates(h)).toEqual([join(p, "omp", "bin-path.ts")]);
   });
-  test("moduleCandidates finds modules under both names", () => {
+  // #1082: the pre-rename marketplace name is no longer read, in either record.
+  test("a module recorded only under the old marketplace name is not a candidate", () => {
     const h = home();
     const a = stub(h, "ossify", 1), b = stub(h, "merge-bar", 1);
-    record(h, ".omp", { ossify: a }, "pulsestack");
+    record(h, ".omp", { ossify: a });
     record(h, ".claude", { "merge-bar": b }, "claude-agent-scaffolding");
-    expect(moduleCandidates(h).sort()).toEqual([join(a, "omp", "bin-path.ts"), join(b, "omp", "bin-path.ts")].sort());
+    expect(moduleCandidates(h)).toEqual([join(a, "omp", "bin-path.ts")]);
   });
   test("a plugin of another marketplace that ships omp/bin-path.ts yields no candidate", () => {
     const h = home();
@@ -111,12 +112,12 @@ describe("loader", () => {
     copyFileSync(join(import.meta.dir, "plugin-bin-path.ts"), loaderFile);
     // Runtime copy: import.meta.url must identify the relocated file, not the source checkout.
     const relocated = await import(pathToFileURL(loaderFile).href);
-    record(h, ".omp", { ossify: stub(h, "ossify", 4, 4) });
+    record(h, ".omp", { ossify: stub(h, "ossify", 5, 5) });
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const pi: { ran?: string } = {};
       await relocated.load(pi, h);
-      expect(pi.ran).toBe("ossify@4");
+      expect(pi.ran).toBe("ossify@5");
       const warning = String(warn.mock.calls[0]?.[0]);
       const command = warning.slice(warning.indexOf("curl -fsSL"));
       const parsed = Bun.spawnSync(["bash", "-c", `curl() { printf '%s\\0' "$@"; }; ${command}`],
@@ -130,7 +131,7 @@ describe("loader", () => {
   });
   test("a loader without a file URL gives the download URL and save-over instruction", async () => {
     const h = home();
-    record(h, ".omp", { ossify: stub(h, "ossify", 4, 4) });
+    record(h, ".omp", { ossify: stub(h, "ossify", 5, 5) });
     const source = await Bun.file(join(import.meta.dir, "plugin-bin-path.ts")).text();
     const javascript = new Bun.Transpiler({ loader: "ts" }).transformSync(source);
     // A VM module supplies a genuine non-file URL without rewriting loader source.
@@ -152,20 +153,20 @@ describe("loader", () => {
     `],
       { env: { HOME: h, PATH: process.env.PATH }, stdout: "pipe", stderr: "pipe" });
     expect(child.exitCode).toBe(0);
-    expect(JSON.parse(child.stdout.toString())).toEqual({ ran: "ossify@4" });
+    expect(JSON.parse(child.stdout.toString())).toEqual({ ran: "ossify@5" });
     const warning = child.stderr.toString();
     expect(warning).toContain("https://raw.githubusercontent.com/pulseai-labs/pulsestack/main/omp/extensions/plugin-bin-path.ts");
     expect(warning).toContain("save it over this loader file");
     expect(warning).not.toContain("-o ");
   });
-  test("a module requiring loader 3 runs without an obsolete-loader warning", async () => {
+  test("a module requiring loader 4 runs without an obsolete-loader warning", async () => {
     const h = home();
-    record(h, ".omp", { ossify: stub(h, "ossify", 3, 3) });
+    record(h, ".omp", { ossify: stub(h, "ossify", 4, 4) });
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const pi: { ran?: string } = {};
       await load(pi, h);
-      expect(pi.ran).toBe("ossify@3");
+      expect(pi.ran).toBe("ossify@4");
       expect(warn.mock.calls).toEqual([]);
     } finally { warn.mockRestore(); }
   });

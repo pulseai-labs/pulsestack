@@ -1,5 +1,10 @@
 # workspace-init changelog
 
+## 0.10.9
+
+### Changed
+- **OMP bin-path drops the pre-rename marketplace name (#1082).** The OMP bin-path module (VERSION 4) and loader (LOADER_VERSION 4) read only installs under the `pulsestack` marketplace name; the pre-rename `claude-agent-scaffolding` entries are no longer read, now that every host has moved. MIN_LOADER_VERSION is 4, so a loader older than 4 warns once per session with a command that re-downloads it over its own file (loader 3 and later print that command).
+
 ## 0.10.8
 
 ### Fixed

@@ -15,10 +15,9 @@
 #   */tests/eval/evidence/*  — recorded eval runs, same reason.
 #   */tests/eval/fixtures/*  — eval scenarios that replay a recorded host state, paths included.
 #   omp/**/*.test.ts         — the OMP tests build install records under the old marketplace to
-#                              prove both names resolve for one release.
-#   lines naming LEGACY_MARKETPLACE — the one constant that keeps the old name on purpose.
+#                              prove the bin-path module and loader no longer read it (#1082).
 #   lines marked "pre-rename" — prose that picks an install record names the old key as the
-#                              one-release fallback, the same window as LEGACY_MARKETPLACE.
+#                              fallback it reads.
 #   merge-bar/tests/test-mb.sh — asserts on text read from the recorded fixtures above.
 #   README.md migration lines ("Renamed from", "marketplace remove") — a move names both ends.
 #   paths under .claude/<old>/ — plugin-internal state paths keep their names this release (spec:
@@ -54,7 +53,7 @@ survivor() {
     omp/*.test.ts|omp/*/*.test.ts) return 0 ;;
     merge-bar/tests/test-mb.sh) return 0 ;;
   esac
-  case "$text" in *LEGACY_MARKETPLACE*|*pre-rename*) return 0 ;; esac
+  case "$text" in *pre-rename*) return 0 ;; esac
   if [ "$file" = README.md ]; then
     case "$text" in *"Renamed from"*|*"marketplace remove"*) return 0 ;; esac
   fi
