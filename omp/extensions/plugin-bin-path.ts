@@ -9,10 +9,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const LOADER_VERSION = 3;
+export const LOADER_VERSION = 4;
 const MARKETPLACE = "pulsestack";
-// The pre-rename name, read for one release so a host that has not re-added the marketplace still loads.
-const LEGACY_MARKETPLACE = "claude-agent-scaffolding";
 const DOWNLOAD = "https://raw.githubusercontent.com/pulseai-labs/pulsestack/main/omp/extensions/plugin-bin-path.ts";
 
 function updateCommand(): string {
@@ -28,7 +26,7 @@ function installPaths(record: string): string[] {
   try {
     const plugins = JSON.parse(readFileSync(record, "utf8"))?.plugins ?? {};
     for (const [id, e] of Object.entries(plugins)) {
-      if (!id.endsWith(`@${MARKETPLACE}`) && !id.endsWith(`@${LEGACY_MARKETPLACE}`)) continue;
+      if (!id.endsWith(`@${MARKETPLACE}`)) continue;
       const entries: Entry[] = Array.isArray(e) ? e : [];
       const pick = entries.find((x) => x?.scope === "user");
       if (typeof pick?.installPath === "string" && pick.installPath) paths.push(pick.installPath);

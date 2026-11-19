@@ -248,8 +248,8 @@ To move a machine, for each harness you use:
    and install the same plugins, then download the bin-path loader again (the `curl` line under
    the OMP block above). Relink anything on `PATH` that pointed into the old plugin cache (for example `omp-seat`).
 
-For one release, the OMP bin-path module and loader also read installs under the old marketplace
-name (`marketplace remove` not run yet), so a machine keeps working until it moves.
+The OMP bin-path module and loader now read only the `pulsestack` name: a machine that has not moved gets no
+plugin `bin/` on `PATH` until it does.
 
 </details>
 
