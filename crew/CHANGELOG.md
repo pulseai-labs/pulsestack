@@ -2,6 +2,10 @@
 
 All notable changes to the `crew` plugin.
 
+## 0.13.3
+
+**OMP user-scope bin paths (#743, #745, #1038 item 1).** The shared module (VERSION 3) and loader use only user-scope entries in the OMP and Claude Code install records, never falling back to project-scope entries or discovering project records. Install at user scope for plugin bin paths in OMP sessions, as the root README now states. The shared header no longer keeps a plugin or binary list. Re-download the separate version-3 loader for update commands targeting the running loader file. MIN_LOADER_VERSION remains 1 so old loaders do not print their defective command.
+
 ## 0.13.2
 
 **Changed Merge bars and Claims get a whole-PR merge-bar review.** For #1232, lifecycle step 8 and the work-PR brief tell the fresh `/merge-bar:review-pr … --round <n> --previous …` reviewer what changed and review the whole PR as round 1 against the body now (`reviewing-a-pr` §5). Known-limits/Evidence-only edits and other review commands keep the fix-range path. The session budget (`roles.md`, the README, the skill and command descriptions) admits that fresh reviewer seat, and a work-PR session's round that changed the body reaches its boundary only when that review has reported.

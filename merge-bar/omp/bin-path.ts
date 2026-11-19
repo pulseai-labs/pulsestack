@@ -1,19 +1,19 @@
 // Puts the bin/ of this marketplace's installed plugins on PATH for OMP sessions.
-// OMP has no plugin bin/ mechanism (spec B, F4), so skills that call `oss` or `wi`
-// through `command -v` fail without this. The install path always comes
-// from a record, never from "newest in cache" (see ~/.local/bin/oss). It writes
-// no file and never searches the filesystem.
+// OMP has no plugin bin/ mechanism, so skills resolving a plugin's bin/ command
+// through `command -v` fail without this. Install paths come from records, never
+// from "newest in cache". It writes no file and never searches the filesystem.
 //
-// This file is the source of truth. ossify, workspace-init, omp-roles and
-// merge-bar ship byte-identical copies at <plugin>/omp/bin-path.ts; the user-level loader
-// (omp/extensions/plugin-bin-path.ts) imports the newest installed copy, so a
-// plugin update refreshes this logic. Bump VERSION on any behaviour change, and
-// MIN_LOADER_VERSION only when the loader itself must change.
+// This file is the source of truth. Plugins that ship a bin/ carry byte-identical
+// copies at <plugin>/omp/bin-path.ts, held by tests/test-omp-surface.sh check 6.
+// The user-level loader (omp/extensions/plugin-bin-path.ts) imports the newest
+// installed copy, so a plugin update refreshes this logic. Bump VERSION on any
+// behaviour change, and MIN_LOADER_VERSION only when old loaders must warn.
+// Skill-first question 2: mechanical selection from known install-record shapes.
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
 
-export const VERSION = 2;
+export const VERSION = 3;
 export const MIN_LOADER_VERSION = 1;
 export const MARKETPLACE = "pulsestack";
 // The marketplace's name before the pulsestack rename. Its entries are still read, for one
@@ -44,15 +44,15 @@ function ours(plugins: Plugins | undefined): Map<string, Entry> {
     const mkt = at < 0 ? "" : id.slice(at + 1);
     const to = mkt === MARKETPLACE ? fresh : mkt === LEGACY_MARKETPLACE ? legacy : undefined;
     if (to === undefined || !Array.isArray(entries)) continue;
-    const e = entries.find((x) => x?.scope === "user") ?? entries[0];
+    const e = entries.find((x) => x?.scope === "user");
     if (typeof e?.installPath === "string" && e.installPath) to.set(id.slice(0, at), e);
   }
   for (const [name, e] of legacy) if (!fresh.has(name)) fresh.set(name, e);
   return fresh;
 }
 
-// Plugin name -> installPath for this marketplace's entries in one record (the user-scope entry, else
-// the first). An absent file gives an empty map; a file that exists but cannot be read or parsed throws.
+// User-scope entries only; project-scope entries are never used.
+// An absent file gives an empty map; an unreadable or unparseable existing file throws.
 export function installPaths(record: string): Map<string, string> {
   return new Map([...ours(load(record))].map(([name, e]) => [name, e.installPath!]));
 }

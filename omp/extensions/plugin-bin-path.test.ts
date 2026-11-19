@@ -1,11 +1,22 @@
-import { describe, expect, test, spyOn } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { describe, expect, test, spyOn, afterEach } from "bun:test";
+import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { load, moduleCandidates, LOADER_VERSION } from "./plugin-bin-path";
 
 const M = "claude-agent-scaffolding";
-function home() { return mkdtempSync(join(tmpdir(), "pbl-")); }
+const homes: string[] = [];
+function home() { const h = mkdtempSync(join(tmpdir(), "pbl-")); homes.push(h); return h; }
+afterEach(() => { for (const h of homes.splice(0)) rmSync(h, { recursive: true, force: true }); });
+const entry = (scope: string, installPath: string, projectPath?: string) => ({
+  scope, installPath, version: "0.11.0", installedAt: "2026-11-19T15:30:06.679Z",
+  lastUpdated: "2026-11-19T15:30:06.679Z", ...(projectPath === undefined ? {} : { projectPath }),
+});
+function entries(f: string, values: unknown[]) {
+  mkdirSync(join(f, ".."), { recursive: true });
+  writeFileSync(f, JSON.stringify({ version: 2, plugins: { "merge-bar@pulsestack": values } }));
+}
 function stub(h: string, name: string, version: number, minLoader = 1, body = "") {
   const p = join(h, "cache", `${name}-${version}`);
   mkdirSync(join(p, "omp"), { recursive: true });
@@ -36,6 +47,14 @@ describe("loader", () => {
     const pi: any = {};
     await load(pi, h);
     expect(pi.ran).toBe("sage@1");
+  });
+  test("both user records remain candidates for the newest module (control)", async () => {
+    const h = home();
+    record(h, ".omp", { ossify: stub(h, "omp-user", 1) });
+    record(h, ".claude", { ossify: stub(h, "claude-user", 3) });
+    const pi: { ran?: string } = {};
+    await load(pi, h);
+    expect(pi.ran).toBe("claude-user@3");
   });
   test("a plugin of our marketplace without omp/bin-path.ts yields no candidate", () => {
     const h = home();
@@ -85,15 +104,93 @@ describe("loader", () => {
     expect(String(warn.mock.calls[0][0])).toContain("no installed plugin ships omp/bin-path.ts");
     warn.mockRestore();
   });
-  test("an out-of-date loader warns with the download command and still runs the module", async () => {
+  test("an out-of-date relocated loader targets its own file with shell-safe quoting", async () => {
     const h = home();
-    record(h, ".omp", { ossify: stub(h, "ossify", 3, LOADER_VERSION + 1) });
+    const loaderFile = join(h, "relocated space ' $HOME", "plugin-bin-path.ts");
+    mkdirSync(join(loaderFile, ".."), { recursive: true });
+    copyFileSync(join(import.meta.dir, "plugin-bin-path.ts"), loaderFile);
+    // Runtime copy: import.meta.url must identify the relocated file, not the source checkout.
+    const relocated = await import(pathToFileURL(loaderFile).href);
+    record(h, ".omp", { ossify: stub(h, "ossify", 4, 4) });
     const warn = spyOn(console, "warn").mockImplementation(() => {});
-    const pi: any = {};
-    await load(pi, h);
-    expect(pi.ran).toBe("ossify@3");
-    expect(String(warn.mock.calls[0][0])).toContain("curl -fsSL");
-    warn.mockRestore();
+    try {
+      const pi: { ran?: string } = {};
+      await relocated.load(pi, h);
+      expect(pi.ran).toBe("ossify@4");
+      const warning = String(warn.mock.calls[0]?.[0]);
+      const command = warning.slice(warning.indexOf("curl -fsSL"));
+      const parsed = Bun.spawnSync(["bash", "-c", `curl() { printf '%s\\0' "$@"; }; ${command}`],
+        { env: { HOME: h, PATH: process.env.PATH }, stdout: "pipe", stderr: "pipe" });
+      expect(parsed.exitCode).toBe(0);
+      expect(parsed.stdout.toString().split("\0").filter(Boolean)).toEqual([
+        "-fsSL", "https://raw.githubusercontent.com/pulseai-labs/pulsestack/main/omp/extensions/plugin-bin-path.ts",
+        "--create-dirs", "-o", loaderFile,
+      ]);
+    } finally { warn.mockRestore(); }
+  });
+  test("a loader without a file URL gives the download URL and save-over instruction", async () => {
+    const h = home();
+    record(h, ".omp", { ossify: stub(h, "ossify", 4, 4) });
+    const source = await Bun.file(join(import.meta.dir, "plugin-bin-path.ts")).text();
+    const javascript = new Bun.Transpiler({ loader: "ts" }).transformSync(source);
+    // A VM module supplies a genuine non-file URL without rewriting loader source.
+    // Its dynamic-import callback preserves normal file imports for installed modules.
+    const child = Bun.spawnSync(["node", "--experimental-vm-modules", "--input-type=module", "-e", `
+      import vm from "node:vm";
+      import { pathToFileURL } from "node:url";
+      const loader = new vm.SourceTextModule(${JSON.stringify(javascript)}, {
+        initializeImportMeta(meta) { meta.url = "https://example.invalid/plugin-bin-path.ts"; },
+        importModuleDynamically(specifier) { return import(pathToFileURL(specifier).href); },
+      });
+      await loader.link(async (specifier) => {
+        const imported = await import(specifier), names = Object.keys(imported);
+        return new vm.SyntheticModule(names, function () { for (const name of names) this.setExport(name, imported[name]); });
+      });
+      await loader.evaluate();
+      const pi = {}; await loader.namespace.load(pi, ${JSON.stringify(h)}); console.log(JSON.stringify(pi));
+    `],
+      { env: { HOME: h, PATH: process.env.PATH }, stdout: "pipe", stderr: "pipe" });
+    expect(child.exitCode).toBe(0);
+    expect(JSON.parse(child.stdout.toString())).toEqual({ ran: "ossify@4" });
+    const warning = child.stderr.toString();
+    expect(warning).toContain("https://raw.githubusercontent.com/pulseai-labs/pulsestack/main/omp/extensions/plugin-bin-path.ts");
+    expect(warning).toContain("save it over this loader file");
+    expect(warning).not.toContain("-o ");
+  });
+  test("a module requiring loader 3 runs without an obsolete-loader warning", async () => {
+    const h = home();
+    record(h, ".omp", { ossify: stub(h, "ossify", 3, 3) });
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const pi: { ran?: string } = {};
+      await load(pi, h);
+      expect(pi.ran).toBe("ossify@3");
+      expect(warn.mock.calls).toEqual([]);
+    } finally { warn.mockRestore(); }
+  });
+  for (const which of [".omp", ".claude"]) {
+    test(`${which} another project's module is never a candidate`, () => {
+      const h = home();
+      entries(join(h, which, "plugins", "installed_plugins.json"), [
+        entry("project", stub(h, "foreign", 99), which === ".claude" ? join(h, "other") : undefined),
+      ]);
+      expect(moduleCandidates(h)).toEqual([]);
+    });
+    test(`${which} user module survives beside a project entry (control)`, async () => {
+      const h = home();
+      entries(join(h, which, "plugins", "installed_plugins.json"), [
+        entry("project", stub(h, "project", 99), which === ".claude" ? process.cwd() : undefined),
+        entry("user", stub(h, "user", 3)),
+      ]);
+      const pi: { ran?: string } = {};
+      await load(pi, h);
+      expect(pi.ran).toBe("user@3");
+    });
+  }
+  test("a current Claude project module is never used even when it is the only entry", () => {
+    const h = home();
+    entries(join(h, ".claude", "plugins", "installed_plugins.json"), [entry("project", stub(h, "current-project", 99), process.cwd())]);
+    expect(moduleCandidates(h)).toEqual([]);
   });
   test("a module that fails to import is skipped with a warning; another runs", async () => {
     const h = home();

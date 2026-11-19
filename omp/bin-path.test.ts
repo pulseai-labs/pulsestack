@@ -1,5 +1,5 @@
-import { describe, expect, test, beforeEach, spyOn } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import factory, { apply, installPaths, resolveBinDirs, ompRecordPath, prependPath, MARKETPLACE } from "./bin-path";
@@ -16,12 +16,18 @@ function record(path: string, plugins: Record<string, unknown[]>) {
   writeFileSync(path, JSON.stringify({ version: 2, plugins }));
 }
 const id = (n: string, m = MARKETPLACE) => `${n}@${m}`;
+// Full entry shape measured with OMP 18.16.0; Claude entries may also carry projectPath.
+const entry = (scope: string, installPath: string, projectPath?: string) => ({
+  scope, installPath, version: "0.11.0", installedAt: "2026-11-19T15:30:06.679Z",
+  lastUpdated: "2026-11-19T15:30:06.679Z", ...(projectPath === undefined ? {} : { projectPath }),
+});
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "pbp-"));
-  ompRecord = join(root, "omp", "plugins", "installed_plugins.json");
-  claudeRecord = join(root, "claude", "plugins", "installed_plugins.json");
+  ompRecord = join(root, "home", ".omp", "plugins", "installed_plugins.json");
+  claudeRecord = join(root, "home", ".claude", "plugins", "installed_plugins.json");
 });
+afterEach(() => { rmSync(root, { recursive: true, force: true }); });
 const run = () => resolveBinDirs({ ompRecord, claudeRecord });
 
 describe("resolveBinDirs", () => {
@@ -82,26 +88,35 @@ describe("resolveBinDirs", () => {
     record(ompRecord, { [id("ossify")]: [{ scope: "user", installPath: ok }], [id("workspace-init")]: [{ scope: "user", installPath: 42 }] });
     expect(run()).toEqual({ dirs: [join(ok, "bin")], warnings: [] });
   });
-  test("the user-scope entry is preferred over a project-scope one", () => {
-    const proj = install("ossify", "1.0.0");
-    const user = install("ossify", "1.15.0");
-    record(ompRecord, { [id("ossify")]: [{ scope: "project", installPath: proj }, { scope: "user", installPath: user }] });
-    expect(run().dirs).toEqual([join(user, "bin")]);
+  for (const source of ["OMP", "Claude"]) {
+    test(`${source} another project's entry is never used`, () => {
+      record(source === "OMP" ? ompRecord : claudeRecord, {
+        [id("merge-bar")]: [entry("project", install("merge-bar", "foreign"), source === "Claude" ? join(root, "other") : undefined)],
+      });
+      expect(run()).toEqual({ dirs: [], warnings: [] });
+    });
+    test(`${source} user entry survives beside a project entry (control)`, () => {
+      const user = install("merge-bar", "user");
+      record(source === "OMP" ? ompRecord : claudeRecord, {
+        [id("merge-bar")]: [entry("project", install("merge-bar", "project"), source === "Claude" ? process.cwd() : undefined), entry("user", user)],
+      });
+      expect(run()).toEqual({ dirs: [join(user, "bin")], warnings: [] });
+    });
+  }
+  test("Claude current-project entry is never used even when it is the only entry", () => {
+    record(claudeRecord, { [id("merge-bar")]: [entry("project", install("merge-bar", "current-project"), process.cwd())] });
+    expect(run()).toEqual({ dirs: [], warnings: [] });
   });
 });
 
 describe("installPaths", () => {
-  test("the user-scope entry wins, else the first; only this marketplace's entries", () => {
-    const proj = install("ossify", "1.0.0");
-    const user = install("ossify", "1.15.0");
-    const only = install("molt", "0.3.0");
-    const other = install("ossify", "9.9.9");
-    record(ompRecord, {
-      [id("ossify")]: [{ scope: "project", installPath: proj }, { scope: "user", installPath: user }],
-      [id("molt")]: [{ scope: "project", installPath: only }],
-      [id("ossify", "someone-else")]: [{ scope: "user", installPath: other }],
+  test("installPaths keeps user scope and rejects project-only plugins", () => {
+    const user = install("merge-bar", "user");
+    record(claudeRecord, {
+      [id("merge-bar")]: [entry("user", user), entry("project", install("merge-bar", "current-project"), process.cwd())],
+      [id("molt")]: [entry("project", install("molt", "foreign"), join(root, "other"))],
     });
-    expect(installPaths(ompRecord)).toEqual(new Map([["ossify", user], ["molt", only]]));
+    expect(installPaths(claudeRecord)).toEqual(new Map([["merge-bar", user]]));
   });
   test("installPaths prefers pulsestack over the legacy name", () => {
     const oldP = install("ossify", "1.0.0"), newP = install("ossify", "2.0.0");
