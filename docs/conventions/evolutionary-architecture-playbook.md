@@ -285,8 +285,9 @@ security controls, performance/resource budgets, every golden journey, and
 deploy/rollback smoke checks. Mark a category `not-applicable` rather than
 silently omitting it.
 
-Default to a modular single deployable. Extract a service only when evidence
-requires independent deployment, scaling, security isolation, failure
+Default to a modular single deployable. Add a separately deployed service,
+whether existing work moves into it or new work is created there, only when
+evidence requires independent deployment, scaling, security isolation, failure
 containment, or ownership. AI providers are volatile external boundaries and
 remain behind a product-owned swappable interface; this does not justify
 speculative interfaces around unrelated internal algorithms.
@@ -490,7 +491,8 @@ The playbook is internally consistent only if it produces these outcomes:
 3. A component demo cannot close a Product increment.
 4. A persistent schema or public API change becomes D2.
 5. Real-money or destructive behavior becomes Risk-3 at any maturity stage.
-6. A service split without measured pressure is rejected.
+6. A separately deployed service, split out or new, without measured pressure is
+   rejected.
 7. Feature accumulation alone does not justify v2.
 8. A headless library may define its journey as a downstream API round trip;
    no UI is invented.

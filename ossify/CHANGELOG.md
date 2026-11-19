@@ -9,6 +9,10 @@ The 1.24.0 entry's parenthesis about adopt and a marked stub, added in 1.35.0, s
 Some versions have no entry. The GitHub releases tagged `ossify-v*` carry notes for the versions
 they cover.
 
+## 1.45.3
+
+Since 1.45.3 (#1230), the README says the demo-walk holder walks each `user:` line (the human, or the orchestrator under a standing order that gives it the walk), not "a person", as `close/references/cumulative-demo.md` §3 says. The repo-root evolutionary-architecture playbook, which ossify cites, now holds a new separately deployed service to the same measured-pressure bar as an extracted one, as `codebase-design.md` §3 does since 1.44.0.
+
 ## 1.45.2
 
 Since 1.45.2 (#1232), plan-spine's tech-debt retirement checks the PR suffix before path evidence: another repo's line takes its own disposition, **another repo's**: named as not this repo's and never retired or deleted. Only unsuffixed lines and lines naming the planned repo can be retired.
