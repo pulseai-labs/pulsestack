@@ -111,8 +111,9 @@ tracker.
   takes on those controls as required work.
 - **Cumulative demo ledger.** Every spine adds at least one demo line. An `auto:` line is a command
   with an expected result, run again at every later spine close. A `user:` line is a journey, a verb
-  and an observable outcome, that a person walks at its own spine's close and again, with every
-  other line, at each release close. A spine's own line that cannot be walked yet is deferred to a
+  and an observable outcome, that the demo-walk holder walks at its own spine's close and again, with
+  every other line, at each release close: the human, or the orchestrator under a standing order that
+  gives it the walk. A spine's own line that cannot be walked yet is deferred to a
   named release. A user-facing spine must
   add at least one `user:` line.
 - **Fakes ledger.** A work item that adds or keeps a shell or a fake records it, with a reason, a

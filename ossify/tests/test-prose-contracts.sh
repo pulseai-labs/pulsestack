@@ -3154,5 +3154,9 @@ pin_prose "$_IL" 'after a merge, to the AI workspace'"'"'s routed memory bank (`
 # #1232: test repo ownership before a missing-path retirement in a shared bank.
 pin_prose "$_IL" '**another repo'"'"'s** — always, and only, for a line whose `(PR …)` suffix names another repo: name it as not this repo'"'"'s; never retire or delete it.' "#1232 retirement preserves another repo's line (its own disposition, #1234 r1 C8)"
 pin_prose "$_IL" 'Only an unsuffixed line or one naming the planned repo (`PR #N` for the workspace'"'"'s canonical, otherwise `PR <owner>/<repo>#N`) can be retired.' '#1232 retirement admits only unqualified or own-repo lines'
+# #1230: the README names the demo-walk holder; the playbook's deployment bar covers a new service too.
+pin_prose "$_OSSR/README.md" 'that the demo-walk holder walks at its own spine'"'"'s close and again, with every other line, at each release close: the human, or the orchestrator under a standing order that gives it the walk.' '#1230 the README names the demo-walk holder, not a person'
+pin_prose "$_OSSR/../docs/conventions/evolutionary-architecture-playbook.md" 'Add a separately deployed service, whether existing work moves into it or new work is created there, only when evidence requires independent deployment' '#1230 the playbook bar covers a new service as well as an extraction'
+pin_prose "$_OSSR/../docs/conventions/evolutionary-architecture-playbook.md" '6. A separately deployed service, split out or new, without measured pressure is rejected.' '#1230 acceptance scenario 6 covers a new service'
 
 t_summary
