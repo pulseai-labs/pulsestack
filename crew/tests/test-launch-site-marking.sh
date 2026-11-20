@@ -37,7 +37,9 @@
 #
 # A site carries a marking clause when its own region contains any of:
 # `SEAT_MODS_ROLE=`, `guarded`, `coordinator`, `orchestrator`, `step 2`, `Seat marking`.
-# Tokens have no adjacent letter, digit or `_`; `SEAT_MODS_ROLE=` ends at `=`.
+# Tokens have no adjacent letter, digit or `_`; `SEAT_MODS_ROLE=` ends at `=`. An `_` run at
+# a word edge is emphasis (`_guarded_`, `__coordinator__`) and is read as a blank; one
+# between two letters or digits (`is_guarded`) is part of the word.
 #
 # COVERED: the three placement commands; "launch(ed) from the … seat"; "launch
 # a/the/its … [fresh|new] seat|pair|…" including bold verbs and articles and the
@@ -65,7 +67,9 @@
 # line after it (the skip takes the body's first region with it); a nested list item
 # consumed into its parent region, where a parent's or sibling's clause satisfies an
 # unmarked nested launch; a tab after a list marker (`-\t…`) not recognized as a marker,
-# so adjacent items merge into one region; headings and frontmatter.
+# so adjacent items merge into one region; a TAB-indented continuation line, which the
+# space-only indent rule does not read as indented, so it leaves its item's region and is
+# judged without the item's clause (a false FAIL); headings and frontmatter.
 #
 # CLAUSE-SIDE LOOSENING, stated: any bare mention of the clause tokens in the region
 # satisfies the check (e.g. a site beside the words "the coordinator seats" passes
@@ -128,8 +132,9 @@ SITE_FLOOR=26
 #   FAIL <file>:<line> [<site kind>] :: <site text>   for each selected site with no clause
 #   SITES <n>                            the number of sites that file selected
 #   SCAN-ERROR <path>: <reason>          a path whose scan did not finish
-# `line` is the first line of the region that itself carries a launch token, so the
-# pointer lands on the sentence, not the paragraph's first line; `site kind` is the
+# `line` is the first line at which the region, read from its own first line, becomes a
+# site: the line where the selecting phrase ends, so the pointer lands on the launch
+# sentence, not on the paragraph's first line or on an earlier noun; `site kind` is the
 # pattern that selected the region; the printed site text is the whole joined region
 # with `**` stripped, capped at 400 characters. A file with no `SITES` line is a failed
 # scan, never a clean one, and the caller refuses any `SCAN-ERROR`.
@@ -190,22 +195,41 @@ scan_launch_sites() { # <root>
         if (region ~ /(^|[^[:alnum:]_])Seat marking([^[:alnum:]_]|$)/) return "Seat marking"
         return ""
       }
+      # Lines a..b joined as one region: whitespace squeezed, `**` stripped.
+      function joined(a, b,   k, r) {
+        r = ""
+        for (k = a; k <= b; k++) r = r " " L[k]
+        gsub(/[[:space:]]+/, " ", r)
+        gsub(/\*\*/, "", r)
+        sub(/^ /, "", r)
+        return r
+      }
+      # An `_` run at a word edge is emphasis and becomes blanks; a run between two
+      # letters or digits (`is_guarded`, `SEAT_MODS_ROLE`) stays part of the word.
+      function unemph(s,   out, i, j, n, run, before, after) {
+        out = ""; n = length(s); i = 1
+        while (i <= n) {
+          if (substr(s, i, 1) != "_") { out = out substr(s, i, 1); i++; continue }
+          j = i
+          while (j <= n && substr(s, j, 1) == "_") j++
+          run = substr(s, i, j - i)
+          before = (i > 1) ? substr(s, i - 1, 1) : ""
+          after = (j <= n) ? substr(s, j, 1) : ""
+          if (!(before ~ /[[:alnum:]]/ && after ~ /[[:alnum:]]/)) gsub(/_/, " ", run)
+          out = out run; i = j
+        }
+        return out
+      }
       function emit(a, b,   k, region, line, text, why) {
-        region = ""
-        for (k = a; k <= b; k++) region = region " " L[k]
-        gsub(/[[:space:]]+/, " ", region)
-        gsub(/\*\*/, "", region)
-        sub(/^ /, "", region)
+        region = joined(a, b)
         if (is_heading(L[a])) return
         if (a == 1 && L[1] == "---") return
         why = site_why(region)
         if (why == "") return
         sites++
-        if (clause_kind(region) != "") return
-        line = a
-        for (k = a; k <= b; k++) {
-          if (L[k] ~ /[Ll]aunch|[Dd]ispatch|[Cc]reate|[Rr]espawn/ || L[k] ~ /herdr (tab|worktree|workspace) create/) { line = k; break }
-        }
+        if (clause_kind(unemph(region)) != "") return
+        line = b
+        for (k = a; k <= b; k++) if (site_why(joined(a, k)) != "") { line = k; break }
         text = region
         if (length(text) > 400) text = substr(text, 1, 400) " …"
         printf "FAIL %s:%d [%s] :: %s\n", file, line, substr(why, 2), text
@@ -400,7 +424,7 @@ fi
 # cannot satisfy the negative control. ROLE= ends at `=`: its value may start a word.
 mkdir -p "$tmp2/tokens/skills" "$tmp2/tokens/commands"
 for token in 'SEAT_MODS_ROLE=reviewer' guarded coordinator orchestrator 'step 2' 'Seat marking'; do
-  for embedded in "x$token" "7$token" "_$token" "${token}x" "${token}7" "${token}_"; do
+  for embedded in "x$token" "7$token" "x_$token" "${token}x" "${token}7" "${token}_x"; do
     case "$token:$embedded" in
       SEAT_MODS_ROLE=*:SEAT_MODS_ROLE=*) continue ;;
     esac
@@ -416,6 +440,17 @@ for token in 'SEAT_MODS_ROLE=reviewer' guarded coordinator orchestrator 'step 2'
         "expected three sites and only line 1 unmarked; got: $tokens"
     fi
   done
+done
+# Underscore emphasis is not a word character: `_guarded_` and `__coordinator__` are the
+# words themselves, while `x_guarded` above stays refused (#1239 round 1, C2).
+for emphasized in _guarded_ __coordinator__ '_SEAT_MODS_ROLE=reviewer_'; do
+  printf 'launch a fresh reviewer seat, %s.\n' "$emphasized" > "$tmp2/tokens/skills/control.md"
+  tokens="$(scan_launch_sites "$tmp2/tokens")"
+  if [ "$(sites_count "$tokens")" -eq 1 ] && [ -z "$(scan_fails "$tokens")" ]; then
+    pass "control: emphasized clause $emphasized passes"
+  else
+    fail "control: emphasized clause $emphasized passes" "expected one marked site; got: $tokens"
+  fi
 done
 # The two issue spellings, including a numeric continuation of a multi-word token.
 for embedded in unguarded 'step 20'; do
@@ -471,6 +506,19 @@ for verb in respawn Respawn; do
   fi
 done
 
+# #1239 round 1, C1: an earlier line that only names a verb family — a noun, a negation,
+# an unrelated word — is not the launch line. Each reports line 2.
+for context in 'The operator created a plan.' 'Settle its dispatch first.' 'Dispatch nothing downstream.'; do
+  printf '%s\nLaunch a fresh reviewer seat.\n' "$context" > "$tmp2/verbs/skills/control.md"
+  locator="$(scan_launch_sites "$tmp2/verbs")"
+  if [ "$(sites_count "$locator")" -eq 1 ] \
+     && printf '%s\n' "$locator" | awk -v f="$tmp2/verbs/skills/control.md:2" \
+       '$1 == "FAIL" { n++; if ($2 == f) hit++ } END { exit(n == 1 && hit == 1 ? 0 : 1) }'; then
+    pass "control: [$context] does not take the pointer from the launch line"
+  else
+    fail "control: [$context] does not take the pointer from the launch line" "expected one failure at line 2; got: $locator"
+  fi
+done
 # #721: the first sentence is context, not the launch. Report line 2 for each verb.
 for verb in dispatch Dispatch create Create respawn Respawn; do
   printf 'The operator requests another opinion.\n%s a fresh reviewer seat.\n' "$verb" \
@@ -505,7 +553,7 @@ else
 fi
 chmod 700 "$tmp2/find/skills/locked"
 if printf '%s\n' "$find_scan" | awk -v p="$tmp2/find" \
-     '$1 == "SCAN-ERROR" && index($0, p ": find exited ") > 0 { hit++ } END { exit(hit == 1 ? 0 : 1) }'; then
+     '$1 == "SCAN-ERROR" && index($0, p ": find exited ") > 0 && $0 ~ /: find exited [1-9][0-9]* / { hit++ } END { exit(hit == 1 ? 0 : 1) }'; then
   pass "control: find failure is a named SCAN-ERROR ($find_branch)"
 else
   fail "control: find failure is a named SCAN-ERROR ($find_branch)" \
