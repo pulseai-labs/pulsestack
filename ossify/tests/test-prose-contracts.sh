@@ -354,11 +354,7 @@ if [ -n "$_ab_line" ] && [ -n "$_halt_line" ] && [ "$_ab_line" -lt "$_halt_line"
 else
   T_FAIL=$((T_FAIL+1)); echo "FAIL: work-item-close.md §1 does not test for 'abandoned' BEFORE the missing-worktree halt (ab=${_ab_line:-none} halt=${_halt_line:-none}) - an abandoned item is told the lane skipped work_item_exec"
 fi
-if grep -Fq 'status' "$_F" ; then
-  T_PASS=$((T_PASS+1))
-else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: work-item-close.md §1's block never reads .status - it cannot tell a withdrawn item from a skipped dispatch"
-fi
+pin "$_F" 'st="$(oss get ".work_items[] | select(.id==\"$wi\") | .status")"' 'work-item close reads the item status before diagnosing a missing worktree'
 # The TEST, not just the word: the block must COMPARE the status against
 # 'abandoned'. Asserting merely that "abandoned" appears in the block passes on
 # the message text alone, so a block that reads the status and then ignores it
@@ -379,13 +375,13 @@ fi
 # `spine_status`, i.e. the reopen that does not work; it was replaced when the
 # round-3 review proved it out, and updated again when 1.14.0's re-entry arm
 # replaced the halt.
-for _lit in 'work_item_status' 'spine_add' 'round-orchestration.md' 'decomposition.md'; do
-  if grep -Fq "$_lit" "$_F"; then
-    T_PASS=$((T_PASS+1))
-  else
-    T_FAIL=$((T_FAIL+1)); echo "FAIL: work-item-close.md §1's abandoned arm does not name '$_lit'"
-  fi
-done
+pin "$_F" 'To reverse the withdrawal: \"oss\" work_item_status $wi planned' 'work-item close withdrawal recovery names work_item_status'
+pin "$_F" 'Carry the work into a NEW spine instead - \"oss\" spine_add' 'work-item close withdrawal recovery names spine_add'
+pin "$_F" 'and round-orchestration.md §2'"'"'s re-entry arm would route the un-withdrawn item onto a branch nothing merges again' 'work-item close withdrawal recovery names round-orchestration.md and the branch nothing merges'
+pin "$_F" 'demo-ledger amendment it owes is plan-spine/references/decomposition.md §1' 'work-item close withdrawal recovery names decomposition.md'
+pin "$_F" 'reports its own halt - and where it cannot run, carry the work into a NEW spine: \"oss\" spine_add <release> <name> <class> <target-repo>, then \"oss\" work_item_add it there (plan-spine/references/decomposition.md §1'"'"'s whole-spine arm)' 'work-item close drift-arm recovery names spine_add and the whole-spine arm'
+pin "$_F" 'scribes (work-item/references/round-orchestration.md §2/§3) so it lands' 'work-item close drift-arm recovery resumes through round-orchestration.md'
+pin "$_F" 'instead - \"oss\" spine_add <release> <name> <class> <target-repo>, then \"oss\" work_item_add it there (plan-spine/references/decomposition.md §1'"'"'s whole-spine arm)' 'work-item close withdrawal recovery points the new spine at the whole-spine arm'
 # (c) THE ARM MAY NOT ASSUME THE ITEM HAS NO DISPATCH ANY MORE (P1-B, the operator's
 # ruling of 2026-09-23; round-3 finding at work-item-close.md:43). The arm used to
 # assert "it has no worktree by construction" and "nothing should be reconstructed
@@ -487,10 +483,11 @@ fi
 # The INVOCATION form, not the word: the block's own comment explains what the
 # oracle is, so a word-grep passes on the comment while the recipe no longer
 # calls it - measured by mutation.
-if grep -Fq 'oss touch_check' "$_SW" && grep -Fq 'ls-files' "$_SW"; then
+pin "$_SW" 'xargs -0 oss touch_check < "$listed" >> "$hits" || :' 'touch sweep invokes the oracle for the tracked-path batch'
+if grep -Fq 'ls-files' "$_SW"; then
   T_PASS=$((T_PASS+1))
 else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: the §5 sweep recipe does not INVOKE both the oracle (oss touch_check) and the corpus (git ls-files)"
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: the §5 sweep recipe does not INVOKE the corpus (git ls-files); the oracle half is pinned above"
 fi
 # D4: `not-applicable` occurs three times in the file (a comment and two prose
 # paragraphs), so the pin lands on the paragraph that states the exclusion - the
@@ -1243,7 +1240,8 @@ if [ -n "$_b_ref" ]; then
     t_assert_eq "$expected" "$actual" "B3 grammar table agrees with consumer: $ref"
   done
 fi
-t_assert_contains "$(cat "$_E_SVMD")" 'bones-registry.md §3 part 1' 'B1 doctor cites the ADR grammar authority'
+pin "$_E_SVMD" '**complete values** per bones-registry.md §3 part 1, never a numeric substring' 'B1 doctor cites the complete-value ADR grammar authority'
+pin "$_E_SVMD" 'the complete value must follow bones-registry.md §3 part 1 (the ADR identifier authority)' 'B1 the authority table row defers to the ADR grammar authority'
 t_assert_eq 1 "$(awk '/sv_fold\(\)/ {n++} END{print n+0}' "$_E_SV")" 'B2 key fold/drop-empty program defined once'
 t_assert_eq 1 "$(awk '/is_destination\(\)/ {n++} END{print n+0}' "$_SF")" 'B4 destination predicate stated once'
 t_assert_eq 0 "$(awk '/^while IFS=.*destination/ {f=1} f {print} f && /^done/ {exit}' "$HERE/test-prose-contracts.sh" | awk '/t_capture env / {n++} END{print n+0}')" 'B5 unset destination uses _o_next2'
@@ -1354,13 +1352,8 @@ fi
 # without the fallback, an install with no merge-bar has no loop at all; without
 # the route, merge-bar is never used from ossify.
 _WP="$HERE/../skills/work-pr/SKILL.md"
-for _lit in 'merge-bar:working-a-pr' 'references/loop.md'; do
-  if grep -Fq -- "$_lit" "$_WP"; then
-    T_PASS=$((T_PASS+1))
-  else
-    T_FAIL=$((T_FAIL+1)); echo "FAIL: skills/work-pr/SKILL.md no longer names '$_lit' - the router lost an arm"
-  fi
-done
+pin "$_WP" 'merge-bar:working-a-pr' 'work-pr routes to merge-bar when installed'
+pin "$_WP" '**Otherwise** — read `references/loop.md` end to' 'work-pr reads the bundled loop when merge-bar is absent'
 
 # 1.13.0 final review - four sentences whose absence was a finding.
 # (a) patch/SKILL.md: the separate worktree is cut BEFORE the reproduction and
@@ -1552,7 +1545,9 @@ _AD4="$_OSSR/skills/start/references/bones-registry.md"
 _r=1; grep -Fq 'joins the target repo' "$_AD4" && grep -Fq 'When that directory is **empty**' "$_AD4" && grep -Fq 'Never add the prefix to, or' "$_AD4" && _r=0
 _pin "$_r" "bones-registry §3 prescribes one filename form regardless of the repo's series - the rule contradicts the reason bone ADRs live in that repo"
 _HR4="$_OSSR/skills/close/references/harvest.md"
-_r=1; grep -Fq 'source: report|handoff|adoption' "$_HR4" && grep -Fq 'a source that is exactly `report`, `handoff` or' "$_HR4" && grep -Fq 'r0 baseline <sha>' "$_HR4" && _r=0
+pin "$_HR4" 'recorded — `r0 baseline <sha>`, or one' 'harvest adoption trailer carries the recorded baseline'
+pin "$_HR4" 'adoption'"'"'s baseline — `r0 baseline <sha>`, one' 'harvest accepted-entry source id names the adoption baseline'
+_r=1; grep -Fq 'source: report|handoff|adoption' "$_HR4" && grep -Fq 'a source that is exactly `report`, `handoff` or' "$_HR4" && _r=0
 _pin "$_r" "harvest's trailer grammar admits only report|handoff - an adopted series cannot be recorded honestly"
 _r=1; grep -Fq '`source: adoption`' "$_OSSR/skills/adopt/SKILL.md" && grep -Fq 'r0 baseline <sha>' "$_OSSR/skills/adopt/SKILL.md" && _r=0
 _pin "$_r" "adopt C5 routes to harvest's provenance trailer without naming its source - the actor's own site never says what to write"
@@ -2200,11 +2195,17 @@ pin "$_OD5" '`CODING_STANDARDS.md`' "occupied check covers the standards stub"
 pin "$_AS" 'then its `reviewer-home.md` §5 history pass' "adopt routes to the history pass"
 pin "$_RH" 'A finding becomes a proposal only when it recurs in two or more PRs.' "recurrence floor"
 pin "$_RH" 'Only accepted entries are written.' "operator accepts each entry"
-_r=1; grep -Fq "$_MARK" "$_OD5" && grep -Fq 'first line' "$_OD5" && grep -Fq 'counts as unoccupied' "$_OD5" && _r=0
+pin "$_OD5" 'An `AGENTS.md` whose first line is' 'workspace-init stub exception requires the marker on the first line'
+pin "$_OD5" 'The marker must be the first line.' 'workspace-init stub exception states the first-line rule'
+_r=1; grep -Fq "$_MARK" "$_OD5" && grep -Fq 'counts as unoccupied' "$_OD5" && _r=0
 _pin "$_r" "occupied-destinations has no workspace-init stub exception - /start leaves the marked stub in place, so it never becomes ossify's AGENTS.md (#554)"
 _r=1; grep -Fq 'leftover `CLAUDE.md`' "$_OD5" && grep -Fq 'ossify:doctor' "$_OD5" && _r=0
 _pin "$_r" "occupied-destinations is silent on a leftover CLAUDE.md - Claude Code keeps loading it over the AGENTS.md /start just wrote"
-_r=1; grep -Fq '### `claude_md`' "$_IC" && grep -Fq 'fail: claude_md' "$_IC" && grep -Fq '.claude/CLAUDE.md' "$_IC" && _r=0
+pin "$_IC" '| `fail: claude_md - <path> exists; Claude Code loads it and ignores AGENTS.md` |' 'claude_md declares the suppressing-file failure line'
+pin "$_IC" 'fail: claude_md - /path/CLAUDE.md exists; Claude Code loads it and ignores AGENTS.md' 'interop-check output example shows the root CLAUDE.md failure line'
+pin "$_IC" 'fail: claude_md - /path/.claude/CLAUDE.md exists; Claude Code loads it and ignores AGENTS.md' 'interop-check output example shows the dot-claude CLAUDE.md failure line'
+pin "$_IC" 'Look for `<ai_workspace.root>/CLAUDE.md`, `.claude/CLAUDE.md` under that root,' 'claude_md probes the workspace dot-claude instruction file'
+_r=1; grep -Fq '### `claude_md`' "$_IC" && _r=0
 _pin "$_r" "interop-check has no claude_md check - a leftover CLAUDE.md silently shadows AGENTS.md"
 _r=1; grep -Fq "## 5. The repair — only on the operator's explicit yes" "$_IC" && grep -Fq 'Never commit' "$_IC" && ! grep -Fq 'Do not write or edit `AGENTS.md` yourself' "$_IC" && _r=0
 _pin "$_r" "interop-check still forbids the repair, or runs it without the operator's yes, or commits it"
@@ -2216,7 +2217,10 @@ _pin "$_r" "interop-check's repair writes before the operator has seen it - work
 # yes-gated repair. The older "exactly one thing writes" claim is false.
 _r=1; ! grep -Fq 'Exactly one thing writes' "$_DS" && _r=0
 _pin "$_r" "doctor/SKILL.md claims 'Exactly one thing writes' again - §7's repair is a second write, so the count is wrong"
-_r=1; grep -Fq '`claude_md`' "$_DS" && ! grep -Fq 'do not edit `AGENTS.md` yourself' "$_DS" && _r=0
+pin_prose "$_DS" '**§7'"'"'s `claude_md` repair**, only on an explicit yes.' 'doctor names the explicit-yes claude_md repair'
+pin "$_DS" 'with §7'"'"'s `claude_md` repair it is one of the two writes.' 'doctor restates the claude_md repair as one of the two writes'
+pin "$_DS" 'is one of `doctor`'"'"'s two writes (§6 is the other).' 'doctor §7 restates the claude_md repair as one of its two writes'
+_r=1; ! grep -Fq 'do not edit `AGENTS.md` yourself' "$_DS" && _r=0
 _pin "$_r" "doctor/SKILL.md §7 does not name the claude_md check or still forbids the repair its reference ships"
 _r=1; grep -Fq '| `AGENTS.md` | merge ossify' "$_AS" && ! grep -Fq '| `CLAUDE.md` | merge' "$_AS" && _r=0
 _pin "$_r" "adopt merges its loop section into CLAUDE.md - an adopted workspace's AGENTS.md never names ossify"
@@ -2248,7 +2252,8 @@ _pin "$_r" "§5 has no hold - an unanswered disagreement re-emits ok: with the C
 # Round 2 (E1): the anchor moved from "only when the source is" to "Choose the
 # command **first**, by the tracking test" - the same claim, and the phrase E1's
 # no-fallback rule is built on. The grep below keeps the claim pinned.
-_r=1; grep -Fq 'ls-files --error-unmatch' "$_IC" && grep -Fq 'Choose the' "$_IC" \
+pin_prose "$_IC" '**Tracked** (`git -C "<ai_workspace.root>" ls-files --error-unmatch "<path>"` succeeds): `git -C "<ai_workspace.root>" mv' 'repair chooses git mv by the source tracking test'
+_r=1; grep -Fq 'Choose the' "$_IC" \
   && grep -Fq 'by the tracking test' "$_IC" \
   && ! grep -Fq 'plain `mv` if the workspace is not a git repo' "$_IC" && _r=0
 _pin "$_r" "git mv is chosen by git-repo-ness - an untracked .claude/CLAUDE.md in a git workspace fails 'not under version control' (D5)"
@@ -2267,11 +2272,14 @@ _r=1; ! grep -Fq 'Editing `AGENTS.md` or the pairing manifest' "$_DS" \
   && ! grep -Fq 'The one surface in this skill that' "$_PRA" && _r=0
 _pin "$_r" "doctor's never-do list still forbids editing AGENTS.md to make the interop check pass, or rule-authoring still calls itself the one writing surface (D7)"
 # D9: replacing the marked stub must carry the stub's git policy and trace filter.
-# The greps read the CARRY INSTRUCTION, not the section heading: a heading word
+# The pins read the sentence that names each safeguard, and the presence check reads the
+# CARRY INSTRUCTION, not the section heading: a heading word
 # `verbatim` satisfied an earlier form of this pin while the instruction itself
 # could be deleted (the mutation survived - PR #836 round-2 fix).
-_r=1; grep -Fq '## Git policy' "$_OD5" && grep -Fq '## AI-trace filter' "$_OD5" \
-  && grep -Fq 'copy both sections from it into' "$_OD5" && _r=0
+pin "$_OD5" '`## Git policy` is the default-deny rule' 'stub replacement identifies the Git policy safeguard'
+pin "$_OD5" '`## AI-trace filter` is why a hook' 'stub replacement identifies the AI-trace safeguard'
+pin_prose "$_OD5" 'the workspace-init stub was replaced and its `## Git policy` and `## AI-trace filter` sections were carried across' 'stub replacement hand-off names both carried sections'
+_r=1; grep -Fq 'copy both sections from it into' "$_OD5" && _r=0
 _pin "$_r" "/start's stub replacement drops the stub's Git policy and AI-trace filter sections - later agents lose the network-ops default-deny (D9)"
 
 # PR #836 round 2 (E1, E2). Both are defects in the repair's own move path.
@@ -2285,8 +2293,8 @@ _pin "$_r" "/start's stub replacement drops the stub's Git policy and AI-trace f
 _r=1; grep -Fq 'Run only the command you chose' "$_IC" \
   && grep -Fq 'Do not try the' "$_IC" \
   && ! grep -Fq 'git mv "<path>"' "$_IC" \
-  && ! grep -Fq '|| mv "<path>"' "$_IC" \
-  && grep -Fq 'git -C "<ai_workspace.root>" ls-files --error-unmatch' "$_IC" && _r=0
+  && ! grep -Fq '|| mv "<path>"' "$_IC" && _r=0
+pin "$_IC" 'if git -C "<ai_workspace.root>" ls-files --error-unmatch "<path>" >/dev/null 2>&1; then' 'repair executable tracking branch scopes git to the AI workspace'
 _pin "$_r" "the move falls back to plain mv after a failed git mv, or runs a bare git mv without -C - the fallback overwrites an AGENTS.md that appeared, and the bare form targets the wrong repo (E1)"
 # E2: the inputs are re-read after the yes, before any write - a plan approved
 # against different bytes is not an approval.
