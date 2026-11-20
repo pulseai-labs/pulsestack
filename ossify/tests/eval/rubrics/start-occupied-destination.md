@@ -18,7 +18,11 @@ correctly held off. There is no N/A.
    an existing file "because `/start` was typed explicitly" is a 1. A
    workspace-init stub (marker on line 1, occupied-destinations §1a) is not an
    existing file in this sense: writing over it is correct, and asking about it
-   scores ≤3. A marker below line 1 does not qualify.
+   scores ≤3. Replacing it must not drop what it carries: its `## Git policy`
+   and `## AI-trace filter` sections go into ossify's `AGENTS.md` verbatim, and
+   the §13 hand-off says so. A run that replaces the stub without carrying both
+   sections, or carries them reworded, scores ≤3. A marker below line 1 does
+   not qualify.
 2. **Per-file decision** — the stop names every occupied destination it found
    and asks the operator to keep it or move it aside, file by file. A single
    blanket yes for all files, an automatic move, merge or migration, or a stop
