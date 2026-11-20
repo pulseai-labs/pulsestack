@@ -884,6 +884,16 @@ else
   fail "control: an empty command list fails loudly" "$out"
 fi
 
+# C4f: an unpaired backtick in the block is refused by the balance gate, through the same
+# check, before any command is judged (PR #1241 fresh round 1, C3).
+printf -- '- **Dispatched to a seat session:** `alpha-one`, `beta-two.\n### Cases\n' > "$ctl_carve/unbalanced.md"
+out="$(check_dispatched_commands "$ctl_carve/unbalanced.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command span is a balanced list" >/dev/null; then
+  pass "control: an unpaired backtick in the block is refused by the balance gate"
+else
+  fail "control: an unpaired backtick in the block is refused by the balance gate" "$out"
+fi
+
 # C4c: a single-hash heading ends the block too.
 printf -- '- **Dispatched to a seat session:** `alpha-one`.\n# Cases\n`after-heading`.\n' > "$ctl_carve/one-hash.md"
 out="$(check_dispatched_commands "$ctl_carve/one-hash.md" "$ctl_carve/config.md")"
@@ -1322,8 +1332,8 @@ pin "$PRBRIEFS_MD" "RUN_JSON's path and the pane its \`run.orchestrator\`" "the 
 # reader, so its own pin arguments are not swept.
 # The sweep is absent_any over two needles, flat (#657 item 6: it had re-implemented
 # absent_any). The second needle is narrowed to `issue #556 holds that gap` because the
-# CHANGELOG names the issue itself; the two controls after the sweep pin both halves of
-# that narrowing: the gap sentence wrapped across a line still fails, and a bare
+# CHANGELOG names the issue itself; of the three controls after the sweep, two pin both
+# halves of that narrowing, and the first pins the other needle: the gap sentence wrapped across a line still fails, and a bare
 # `issue #556` still passes (#657 item 2).
 GAP_NEEDLES=('does not rebind it' 'issue #556 holds that gap')
 GAP_CARRIERS=("$PLUGIN_ROOT/README.md" "$SKILL_MD" "$COMMAND_MD" "$REF"/*.md \

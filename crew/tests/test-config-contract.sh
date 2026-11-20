@@ -610,6 +610,20 @@ for split_form in 'pin \|() {' 'pin () \|{'; do
       "got [$got], expected [1 pin 1]"
   fi
 done
+# PR #1241 fresh round 1, C1: two such chains in a row, where the join must start at a
+# different line in each run; and a brace-on-the-next-line signature whose brace line is
+# itself continued. Both are origin/main's `1 pin 1`.
+printf '%s\n' "cat <<'END\\'" 'd' 'END\' 'pin \' '()' '{ \' '  :; }' > "$ctl_sh/heredoc-two-chains.sh"
+printf '%s\n' "cat <<'END\\'" 'data' 'END\' 'pin()' '{ \' '  :; }' > "$ctl_sh/heredoc-continued-brace.sh"
+for chained in heredoc-two-chains heredoc-continued-brace; do
+  got="$(count_shadows "$ctl_sh/$chained.sh" pin)"
+  if [ "$got" = "1 pin 1" ]; then
+    pass "control: a definition after a backslash-ending terminator still counts [$chained]"
+  else
+    fail "control: a definition after a backslash-ending terminator still counts [$chained]" \
+      "got [$got], expected [1 pin 1]"
+  fi
+done
 printf "cat <<'SHELL_FIXTURE'\nfixture data only\nSHELL_FIXTURE\n" > "$ctl_sh/heredoc-data.sh"
 got="$(count_shadows "$ctl_sh/heredoc-data.sh" pin)"
 if [ "$got" = 0 ]; then

@@ -193,16 +193,17 @@ HOISTED_FNS="count_literal occurrences occurrences_flat count_of pin present"
 # half, below.
 #
 # Heredoc bodies are scanned as code (#603). A body line must then not hide the lines
-# after it: a heredoc terminator that ends in `\` is not joined by bash, but a text join
-# carries it onto the next line and pushes a definition there off its line start
-# (measured, #603 pre-PR review B1 and PR #1241 round 1 C1: bash's `declare -f` copy of
-# `pin` after `END\` counted 0, as did a signature split `pin \` + `() {` after it). So the
-# scan reads every backslash-joined run once from EACH of its lines — the run as bash
-# joins it, then without its first line, and so on — plus every line on its own, and
-# reports the largest count per name over those passes. Whichever line bash really starts
-# the join at, one pass starts there too, so removing the skip only raises counts. The
-# stated bound: a heredoc fixture whose body starts a line with a definition of a hoisted
-# name reads as a shadow — a loud false RED. Write such fixtures with printf instead.
+# after it. The one way it could: a heredoc terminator that ends in `\` is not joined by
+# bash, but a text join carries it onto the next line and pushes a definition there off
+# its line start (measured: bash's `declare -f` copy of `pin` after `END\`, and a split
+# signature after one or two such chains, each counted 0 under a plain join; #603 pre-PR
+# review B1, PR #1241 round 1 C1 and fresh round 1 C1). So the join pass reads each joined
+# run from every one of its lines and carries every name any reading leaves waiting (see
+# `scan_runs`): whichever line bash really starts the join at, one reading starts there,
+# so removing the skip only raises counts (measured against origin/main's skip on the two
+# review rounds' 29,000 generated files: none counts lower). The stated bound: a heredoc fixture
+# whose body starts a line with a definition of a hoisted name reads as a shadow — a loud
+# false RED. Write such fixtures with printf instead.
 #
 # WHICH HALF OWNS WHAT. This pass owns the COUNT — the exact per-name counts the
 # spelling controls' `1 pin 1` assert, which a structural answer cannot express:
@@ -239,70 +240,65 @@ HOISTED_FNS="count_literal occurrences occurrences_flat count_of pin present"
 count_shadows() { # <file> <fn>...
   awk -v names="$*" '
     BEGIN { n = split(names, a, " "); for (i = 1; i <= n; i++) want[a[i]] = 1 }
-    function see(code) {
+    # What one line of code is, for this rule: "blank" (empty, or a comment only), "brace"
+    # (it opens a `{` group), "def <name>" (a definition opening here: the `function`
+    # keyword, or `name()` with its `{` on this line), "wait <name>" (a bare `name()` whose
+    # `{` must come on the next line of code), or "other".
+    function kind(code,   name) {
       sub(/^[[:space:]]+/, "", code)          # an indented definition is a definition
       sub(/[[:space:]]*#.*$/, "", code)       # a trailing comment is not code
       sub(/[[:space:]]+$/, "", code)
-
-      if (waiting != "") {
-        if (code == "") return                # a blank or comment-only line: bash still waits for the brace
-        if (code ~ /^\{/) { if (waiting in want) hits[pj, waiting]++ }
-        waiting = ""
-        if (code ~ /^\{/) return
-      }
-      if (code == "") return
-
+      if (code == "") return "blank"
+      if (code ~ /^\{/) return "brace"
       if (code ~ /^function[[:space:]]+[A-Za-z_][A-Za-z0-9_]*/) {
         name = code; sub(/^function[[:space:]]+/, "", name); sub(/[^A-Za-z0-9_].*$/, "", name)
-        if (name in want) hits[pj, name]++
-        return
+        return "def " name
       }
       if (code ~ /^[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\([[:space:]]*\)[[:space:]]*\{/) {
         name = code; sub(/[[:space:]]*\(.*$/, "", name)
-        if (name in want) hits[pj, name]++
-        return
+        return "def " name
       }
       if (code ~ /^[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\([[:space:]]*\)[[:space:]]*$/) {
         name = code; sub(/[[:space:]]*\([[:space:]]*\)[[:space:]]*$/, "", name)
-        waiting = name
-        return
+        return "wait " name
       }
+      return "other"
     }
-    # Every line read on its own: pass key 0.
-    function scan_lines(   i) {
-      pj = 0; waiting = ""
-      for (i = 1; i <= nl; i++) see(L[i])
-    }
-    # The join bash performs on an unquoted backslash-newline, each run started d lines
-    # into itself (its last line when the run is shorter): pass key d + 1. A run is lines
-    # f..m where every line before m ends in `\`; a file that ends in `\` ends its run too.
-    function scan_runs(d,   r, k, start, line, piece) {
-      pj = d + 1; waiting = ""
+    # The backslash-newline join. A run is lines f..m where every line before m
+    # ends in `\` (a file that ends in `\` ends its run too). bash joins a run from the
+    # line after the last heredoc terminator inside it, which this scan does not locate,
+    # so it reads every suffix of the run — from each of its lines — as one view, and
+    # carries the SET of names any view leaves waiting into the next run. A name counts
+    # once per run when any view defines it, or opens a brace while it waits.
+    function scan_runs(   r, d, k, line, piece, nm, anyblank, got, nw, w) {
+      split("", w)
       for (r = 1; r <= nr; r++) {
-        start = RF[r] + d
-        if (start > RM[r]) start = RM[r]
-        line = ""
-        for (k = start; k <= RM[r]; k++) { piece = L[k]; sub(/\\$/, "", piece); line = line piece }
-        see(line)
+        split("", got); split("", nw); anyblank = 0
+        for (d = RF[r]; d <= RM[r]; d++) {
+          line = ""
+          for (k = d; k <= RM[r]; k++) { piece = L[k]; sub(/\\$/, "", piece); line = line piece }
+          k = kind(line)
+          if (k == "blank") { anyblank = 1; continue }
+          if (k == "brace") { for (nm in w) got[nm] = 1; continue }
+          if (k ~ /^def /) got[substr(k, 5)] = 1
+          else if (k ~ /^wait /) nw[substr(k, 6)] = 1
+        }
+        for (nm in got) if (nm in want) hits[nm]++
+        if (!anyblank) split("", w)            # a blank view keeps bash waiting; no blank view, no wait survives
+        for (nm in nw) w[nm] = 1
       }
     }
     { L[++nl] = $0 }
     END {
-      nr = 0; longest = 1
+      nr = 0
       for (i = 1; i <= nl; i++) {
         f = i
         while (i < nl && L[i] ~ /\\$/) i++
         RF[++nr] = f; RM[nr] = i
-        if (i - f + 1 > longest) longest = i - f + 1
       }
-      scan_lines()
-      for (d = 0; d < longest; d++) scan_runs(d)
+      scan_runs()
       total = 0; tail = ""
-      for (i = 1; i <= n; i++) {
-        c = 0
-        for (p = 0; p <= longest; p++) if (hits[p, a[i]] + 0 > c) c = hits[p, a[i]] + 0   # the largest count per name: no pass hides what another saw
-        if (c > 0) { total += c; tail = tail " " a[i] " " c }
-      }
+      for (i = 1; i <= n; i++) if (a[i] in hits) { total += hits[a[i]]; tail = tail " " a[i] " " hits[a[i]] }
       print total tail
     }' "$1"
 }
