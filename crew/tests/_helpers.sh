@@ -200,8 +200,11 @@ HOISTED_FNS="count_literal occurrences occurrences_flat count_of pin present"
 # review B1, PR #1241 round 1 C1 and fresh round 1 C1). So the join pass reads each joined
 # run from every one of its lines and carries every name any reading leaves waiting (see
 # `scan_runs`): whichever line bash really starts the join at, one reading starts there,
-# so removing the skip only raises counts (measured against origin/main's skip on the two
-# review rounds' 29,000 generated files: none counts lower). The stated bound: a heredoc fixture
+# so for a file bash accepts, removing the skip only raises counts (measured against
+# origin/main's skip on the review rounds' generated files: none counts lower). A file bash
+# rejects can count lower: a `\v`, `\f` or `\r` before `# <<EOF` made origin skip a body
+# this scan reads as code (`bash -n` exits 2 on each, so such a suite fails its own run;
+# PR #1241's third fresh round 1, C1). The stated bound: a heredoc fixture
 # whose body starts a line with a definition of a hoisted name reads as a shadow — a loud
 # false RED. Write such fixtures with printf instead.
 #

@@ -1353,8 +1353,8 @@ printf 'The rotate successor\ndoes not rebind it.\n' > "$gap_ctl/first-needle.md
 gap_out="$(gap_sweep "$gap_ctl/first-needle.md" "gap control")"
 case "$gap_out" in
   *"the claim is back: [does not rebind it x1]"*)
-    pass "control: the first gap sentence, wrapped, still fails the sweep" ;;
-  *) fail "control: the first gap sentence, wrapped, still fails the sweep" "got: $gap_out" ;;
+    pass "control: the first gap sentence still fails the sweep" ;;
+  *) fail "control: the first gap sentence still fails the sweep" "got: $gap_out" ;;
 esac
 gap_out="$(gap_sweep "$gap_ctl/wrapped.md" "gap control")"
 case "$gap_out" in
