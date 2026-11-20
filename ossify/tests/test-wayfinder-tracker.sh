@@ -67,6 +67,7 @@
 # an agent will actually copy-run, not a paraphrase of it.
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
+. "$HERE/lib/pin.sh"
 . "$HERE/lib/blocks.sh"
 SKILLS="$HERE/../skills"
 OSS="$HERE/../bin/oss"
@@ -76,11 +77,8 @@ trap 'rm -rf "$TMP"' EXIT
 
 LADDER="$TMP/ladder.sh"
 oss_block_extract "$TRACKER_MD" 'repo_root ai_workspace' "$LADDER"
-if [ -s "$LADDER" ] && grep -Fq 'repo_root ai_workspace' "$LADDER"; then
-  T_PASS=$((T_PASS+1))
-else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the tracker ladder block - every assertion below is vacuous"
-fi
+pin "$LADDER" 'AI_ROOT="$(oss repo_root ai_workspace 2>/dev/null || true)"' \
+  'tracker ladder resolves the AI workspace before choosing a branch'
 
 # The block invokes the dispatcher as `oss` by name — bind that name to the real
 # dispatcher so the extracted code runs the actual one rather than a stub.

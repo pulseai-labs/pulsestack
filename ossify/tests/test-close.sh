@@ -18,6 +18,7 @@
 # a fixture written to satisfy it proves nothing.
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
+. "$HERE/lib/pin.sh"
 
 # Sourced HERE, not beside the first spine-close extraction further down: the
 # impl-check halt-loop extraction at §Task-13 runs earlier in the file, and a
@@ -459,14 +460,14 @@ OPEN_BLOCK="$TMP/spine-open.sh";  _extract_block "$SPINE_CLOSE" 'work items that
 MERGE_BLOCK="$TMP/spine-merge.sh"; _extract_block "$SPINE_CLOSE" 'merge --no-ff' "$MERGE_BLOCK"
 PRRECORD_BLOCK="$TMP/spine-prrecord.sh"; _extract_block "$SPINE_CLOSE" 'mergeCommit' "$PRRECORD_BLOCK"
 TOUCH_BLOCK="$TMP/spine-touch.sh"; _extract_block "$SPINE_CLOSE" 'touch_check' "$TOUCH_BLOCK"
-for _pair in "$OPEN_BLOCK:work_items" "$MERGE_BLOCK:merge --no-ff" "$PRRECORD_BLOCK:mergeCommit" "$TOUCH_BLOCK:touch_check"; do
-  _bf="${_pair%%:*}"; _bn="${_pair#*:}"
-  if [ -s "$_bf" ] && grep -Fq "$_bn" "$_bf"; then
-    T_PASS=$((T_PASS+1))
-  else
-    T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract '$_bn' from spine-close.md - the assertions below are vacuous"
-  fi
-done
+pin "$OPEN_BLOCK" 'open="$(oss get "[.work_items[]' 'extracted spine-close.md keeps the work_items clause'
+pin "$PRRECORD_BLOCK" '--json state,baseRefName,mergeCommit,headRefOid,body' 'extracted spine-close.md keeps the mergeCommit clause'
+pin "$TOUCH_BLOCK" 'tc=0; touch_hits="$(oss touch_check "$@")" || tc=$?' 'extracted spine-close.md keeps the touch_check clause'
+if [ -s "$MERGE_BLOCK" ] && grep -Fq 'merge --no-ff' "$MERGE_BLOCK"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract 'merge --no-ff' from spine-close.md - the assertions below are vacuous"
+fi
 
 # E1. Step 1 refuses and NAMES the offenders. `oss get` is jq -r without -e: a
 # select matching nothing exits 0, so a block testing the rc instead of the
@@ -885,14 +886,10 @@ SPINEGATE_BLOCK="$TMP/rel-spinegate.sh"; _extract_block "$RELEASE_CLOSE" 'spines
 FAKEGATE_BLOCK="$TMP/rel-fakegate.sh";   _extract_block "$RELEASE_CLOSE" 'expired_fakes' "$FAKEGATE_BLOCK"
 QUARGATE_BLOCK="$TMP/rel-quargate.sh";   _extract_block "$RELEASE_CLOSE" 'expired_quarantines' "$QUARGATE_BLOCK"
 PATCH_BLOCK="$TMP/patch-touch.sh";       _extract_block "$PATCH_LANE"    'touch_check'         "$PATCH_BLOCK"
-for _pair in "$SPINEGATE_BLOCK:open_spines" "$FAKEGATE_BLOCK:expired_fakes" "$QUARGATE_BLOCK:expired_quarantines" "$PATCH_BLOCK:touch_check"; do
-  _bf="${_pair%%:*}"; _bn="${_pair#*:}"
-  if [ -s "$_bf" ] && grep -Fq "$_bn" "$_bf"; then
-    T_PASS=$((T_PASS+1))
-  else
-    T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract '$_bn' - the assertions below are vacuous"
-  fi
-done
+pin "$SPINEGATE_BLOCK" 'open_spines="$(oss get "[.spines[]' 'extracted release-close.md keeps the open_spines clause'
+pin "$FAKEGATE_BLOCK" 'ef=0; fakes_due="$(oss expired_fakes "$rel")" || ef=$?' 'extracted release-close.md keeps the expired_fakes clause'
+pin "$QUARGATE_BLOCK" 'eq=0; quarantines_due="$(oss expired_quarantines "$rel")" || eq=$?' 'extracted release-close.md keeps the expired_quarantines clause'
+pin "$PATCH_BLOCK" 'tc=0; hits="$(oss touch_check "$@")" || tc=$?' 'extracted patch-lane.md keeps the touch_check clause'
 
 # Step 1's gate. `oss get` is jq -r without -e, so a select matching nothing
 # exits 0 - a block testing the rc closes a release with every spine still open.
@@ -959,14 +956,12 @@ W_GUARD="$TMP/wi-guard.sh"; _extract_block "$WIC" 'abbrev-ref' "$W_GUARD"
 # it as ambiguous (rc 2). `repo_bases` is scaffolding: it is created before the
 # checks and consumed after them, so it survives the guards this test removes.
 W_CUT="$TMP/spine-cut.sh";  _extract_block "$ROUND" 'repo_bases' "$W_CUT"
-for _pair in "$W_GUARD:rev-parse --abbrev-ref" "$W_CUT:repo_bases"; do
-  _bf="${_pair%%:*}"; _bn="${_pair#*:}"
-  if [ -s "$_bf" ] && grep -Fq "$_bn" "$_bf"; then
-    T_PASS=$((T_PASS+1))
-  else
-    T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract '$_bn' - the W1/W2 assertions below are vacuous"
-  fi
-done
+pin "$W_CUT" 'repo_list=""; repo_bases=""' 'extracted round-orchestration.md keeps the repo_bases clause'
+if [ -s "$W_GUARD" ] && grep -Fq 'rev-parse --abbrev-ref' "$W_GUARD"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract 'rev-parse --abbrev-ref' - the W1/W2 assertions below are vacuous"
+fi
 
 # Both blocks resolve `canonical` via `oss repo_root`, so a caller-injected
 # value is overwritten. Shim the resolver verbs to point at the scratch repo
@@ -1088,7 +1083,7 @@ t_assert_eq "" "$(git -C "$W2C" branch --list 'spine/*')" \
 # W5 — the ARM SELECTOR (#362): an existing spine branch in any hosting repo
 # selects re-entry; none selects fresh. Extracted from the shipped prose.
 W_ARM="$TMP/arm.sh"; _extract_block "$ROUND" 'arm=' "$W_ARM"
-[ -s "$W_ARM" ] && grep -Fq 'arm=' "$W_ARM" && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the arm selector - W5 is vacuous"; }
+pin "$W_ARM" 'echo "arm=$arm"' 'extracted round-orchestration.md keeps the arm= clause'
 W5="$TMP/w5"; mkdir -p "$W5"; git -C "$W5" init -q; git -C "$W5" config user.email t@t; git -C "$W5" config user.name t
 echo s > "$W5/f"; git -C "$W5" add .; git -C "$W5" commit -qm s
 _wshim "$W5" "spine/r0.s9-demo" "canonical" "$TMP/shim-w5"
@@ -1209,11 +1204,7 @@ t_assert_contains "$T_OUT" "within the 60s budget" "D4: ...and the timing is sti
 # survives the regression under test (a missing disposal).
 # ---------------------------------------------------------------------------
 QBLOCK="$TMP/quar-block.sh"; _extract_block "$CUMDEMO" 'evd=' "$QBLOCK"
-if [ -s "$QBLOCK" ] && grep -Fq 'oss-head.txt' "$QBLOCK"; then
-  T_PASS=$((T_PASS+1))
-else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the quarantine-comparison block - the F3 tests are vacuous"
-fi
+pin "$QBLOCK" 'diff "$evd/oss-head.txt" "$evd/oss-parent.txt"' 'extracted cumulative-demo.md keeps the oss-head.txt clause'
 
 # A real repo with a merge commit: side changes f.txt, main adds main.txt, the
 # --no-ff merge has a clean first parent. `cat f.txt` differs between the
