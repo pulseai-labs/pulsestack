@@ -35,79 +35,46 @@ PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 PINS=0
 
-# Occurrences of a literal substring in a file. Literal, not regex: index().
-# An empty needle is refused, not counted: index(line, "") always returns 1
-# and substr(line, 1) returns the whole line, so the loop never advances —
-# the count climbs forever and the suite hangs instead of failing.
-occurrences() {
-  if [ -z "$2" ]; then
-    printf 'empty needle\n' >&2
-    return 1
-  fi
-  awk -v needle="$2" '
-    {
-      line = $0
-      while ((i = index(line, needle)) > 0) {
-        n++
-        line = substr(line, i + length(needle))
-      }
-    }
-    END { print n+0 }
-  ' "$1"
-}
-
-# pin <relative-path> <literal substring> <what it guards>
-pin() {
-  rel="$1"; needle="$2"; label="$3"
+# Count the five rules without shadowing the shared pin implementation.
+counted_pin() { # <relative-path> <needle> <label>
   PINS=$((PINS+1))
-  path="$PLUGIN_ROOT/$rel"
-
-  if [ ! -f "$path" ]; then
-    fail "$label" "no such file: $rel"
-    return 0
-  fi
-
-  count="$(occurrences "$path" "$needle")" || {
-    fail "$label" "pin needle is empty or the count failed — a pin must be a non-empty literal"
-    return 0
-  }
-  if [ "$count" -eq 1 ]; then
-    pass "$label"
-  elif [ "$count" -eq 0 ]; then
-    fail "$label" "not found in $rel — either the rule was reworded away, or the pin now spans a line wrap and is checking nothing. pin: $needle"
-  else
-    fail "$label" "found $count times in $rel — a pin must be unique, or it guards an ambiguous occurrence. pin: $needle"
-  fi
+  pin "$PLUGIN_ROOT/$1" "$2" "$3"
 }
 
 printf '%screw fidelity pins — five load-bearing rules%s\n\n' "$DIM" "$RST"
 
-pin "skills/orchestrate/SKILL.md" \
+counted_pin "skills/orchestrate/SKILL.md" \
   "if the answer needs more than one command's output, dispatch it" \
   "1/5  the delegation test survives"
 
-pin "skills/orchestrate/SKILL.md" \
+counted_pin "skills/orchestrate/SKILL.md" \
   'No `Agent` tool from the orchestrator.' \
   "2/5  the Agent-tool ban survives"
 
-pin "skills/orchestrate/references/roles.md" \
+counted_pin "skills/orchestrate/references/roles.md" \
   'A seat is a name, never `--model`.' \
   "3/5  seat-name-not-model survives"
 
-pin "skills/orchestrate/references/lifecycle.md" \
+counted_pin "skills/orchestrate/references/lifecycle.md" \
   "exactly once per PR" \
   "4/5  review-once-per-PR survives"
 
-pin "skills/orchestrate/references/lifecycle.md" \
+counted_pin "skills/orchestrate/references/lifecycle.md" \
   "Merge only on that word" \
   "5/5  the operator merge word survives"
 
 # The cap is the point of this file, so it is asserted rather than trusted.
 printf '\n'
-if [ "$PINS" -eq 5 ]; then
+# Every pin leaves exactly one pass or fail, and nothing else has reported yet, so the
+# results are counted too: a sixth pin written with the shared `pin` instead of
+# counted_pin is caught here (#603 pre-PR review, B3).
+results=$((PASS + FAIL))
+if [ "$PINS" -eq 5 ] && [ "$results" -eq 5 ]; then
   pass "pin list is capped at 5 (found $PINS)"
 else
-  fail "pin list is capped at 5" "found $PINS. Adding a pin means replacing one, not appending. See the header."
+  fail "pin list is capped at 5" "found $PINS counted pins and $results pin results. Adding a pin means replacing one, not appending. See the header."
 fi
+
+assert_hoisted_counters
 
 report

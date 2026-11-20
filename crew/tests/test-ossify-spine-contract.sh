@@ -94,9 +94,9 @@ REF_BUDGET=236          # 2026-11-14 (0.13.0): self-report removal lowers the lo
 # occurrences, occurrences_flat, count_of and pin are _helpers.sh's (#514, L1);
 # this suite's pin already took <file> <needle> <label> [line|flat], which is the
 # shape the other suites adopted when their copies were hoisted. What is left here
-# is this suite's own ten: absent, absent_any, assert_set, budget, keys, n_eq,
-# nonempty, and — further down, beside the check they serve — span_of,
-# commands_in_span and span_balanced.
+# is this suite's own checks: absent, absent_any, assert_set, budget, keys, n_eq,
+# nonempty, and — further down, beside the check they serve — heading_span,
+# commands_in_span, span_balanced and check_dispatched_commands.
 #
 # `flat` is the fourth argument of pin/present, and it is used only where the
 # clause's own text is split by a line wrap today: a per-line pin could assert
@@ -640,206 +640,36 @@ n_eq "$CONFIG_MD" 'doctor session' 3 \
   "doctor session is a project-file role and in the capability table"
 pin "$ROLES_MD" 'A `doctor session` — one fresh tab and pane' \
   "the seat budget grants a doctor session" flat
-# Next-instance gate: every command SKILL.md lists as dispatched to a herdr
-# session must name its `/ossify:` invocation in config.md — a dispatched
-# command with no role to fill is the same defect. An anchor that no longer
-# matches, or a list that parses to nothing, would pass with nothing checked,
-# so both are failures here.
-#
-# Three pieces, each with its own control below, because this extractor's failure
-# mode is a RED that names the wrong fault (#514, L5).
-# The bullet's own lines, up to the ITEM's end — following markdown's rule rather than
-# stopping at the first line that looks like a break. A blank line ends the item only when
-# the next non-blank line is not indented (an indented continuation paragraph is the same
-# item), a heading ends the section, and a sibling LIST ITEM at column 0 ends the item.
-#
-# Two rules are CommonMark's and are not approximations of it, because each was a P1 on its own:
-# a heading is the ATX form (0-3 spaces, then 1-6 `#`, then a blank, a tab or the end of the
-# line) and never a line inside a fenced code block (#602 F1), and a list item is any bullet
-# (`-`, `*`, `+`) or any ordered marker (`N.`, `N)`, 1-9 digits, then a blank, a tab or the end
-# of the line), read the same way by the carve AND by the block below, because a marker this
-# missed let a dispatched command through in silence (#602 F2). The fence gate comes FIRST in
-# every loop that walks lines — the carve, the scan that picks the block's first line, and the
-# block scan itself — so a fenced line is read by that check alone and no classifier below it can
-# be reached with one: not a heading, not a list item, not a blank line, not an indented
-# continuation and not the column-0 line that ends a block (#602 F9). Gating the classifiers one
-# at a time is what left the blank test ABOVE the gate, and a blank line inside a code sample
-# then ended the item and dropped the command after it with rc 0 (#602 F13): the ordering is the
-# rule, not another predicate. `heading_at` and `list_item_at` keep their own gate as well, for
-# the lines the loops do not walk — the `j + 1` lookahead of both blank branches, and `follow` in
-# the refusal test.
-#
-# A carve that stops while a backticked token still sits after the span, in a position the
-# carve cannot certify as outside this bullet, REFUSES: rc 1, with a message naming the carve,
-# the file and the line it refused on. TWO concepts decide it, one rule each:
-#
-#   the BLOCK after the span — the first non-blank line after it, plus the lines that still
-#   belong to the same markdown block: a list run continues across a blank line (a loose
-#   list) and over indented continuations, and a paragraph continues over indented lines but
-#   ends at a blank one. A heading ends the block, and so does a column-0 line that is neither
-#   a list item nor an indented continuation.
-#
-#   the PREDICATE — the block's lines JOINED to one text (the join commands_in_span performs)
-#   carrying a backticked PAIR. Joining is what makes a token the wrap splits still one token:
-#   a per-line test missed the second half of `- `gamma-` / `  three`, dispatched…` and let a
-#   command in a later item of the same list through (#602 review round 1, finding 3).
-#
-# The block is exempt when a heading ends the span, or when the block's first line IS a heading:
-# a heading is where the document says a section ends, whether or not a blank line came first
-# (#602 review round 1, finding 2). Two bounds are measured rather than implied. The BLOCK's
-# end: a list item after an intervening column-0 prose line is outside it only when a BLANK line
-# separates them — a list item directly under prose is still part of the block and its command is
-# still refused, which is the conservative direction — and reading past column-0 prose would
-# refuse the shipped file, whose own later bullets name `run-spine`, `/ossify:close <spine-id>`
-# and `references/…`. C11 pins the blank-separated case. The PREDICATE's: a lone unpaired
-# backtick in the block is not a token and does not refuse (C14); the balance gate is where an
-# unpaired backtick inside the SPAN is caught.
-#
-# THE MARKDOWN SHAPES THIS CARVE CERTIFIES, each one pinned by a control in this file rather than
-# asserted here in prose alone:
-#
-#   a blank line ends the item unless the next non-blank line is indented       C4
-#   a sibling list item ends it, in every CommonMark marker (`- * +`, `N. N)`)  C20, C22
-#   an ATX heading ends the section, 0-3 spaces in, and is exempt there         C8, C12, C15, C16
-#   `#597 backlog note` and `####### seven` are not headings                    C17
-#   fenced code is no structure at all — not a heading, not a list item         C18, C19, C24
-#   a blank line INSIDE fenced code ends nothing, in the carve or the block     C28, C30, C33, C34
-#   a list item directly under prose is in the block; a blank line fixes that   C23, C11, C23b
-#   the block's JOINED text decides the refusal                                 C13, C14
-#
-# OUTSIDE THAT MODEL, named here rather than modelled, both deferred to #603: an HTML comment
-# (`<!--`, `# not a heading`, `-->`) stops the block scan at its `#`-shaped line, and a list item
-# directly under a MULTI-LINE prose paragraph is not read, because the scan breaks on the second
-# consecutive prose line. Measured on this tree, both come back rc 0 with the command in the list
-# under them never checked — the same silent shape, in constructs this carve does not model. They
-# are the class #603 exists for, and this round states them and changes neither.
-span_of() { # <file> <start-line>
+# Next-instance gate: every command SKILL.md lists as dispatched to a seat
+# session must name its `/ossify:` invocation in config.md. Missing anchors,
+# empty command lists and missing heading boundaries all fail loudly.
+# Every backticked token before the next heading is checked; over-capture fails closed as a missing role.
+# The boundary is exactly a column-zero ATX heading, 1–6 hashes then a space. A fence or
+# an HTML comment inside the block is refused, not modelled: a `# ` line inside one would
+# otherwise end the carve early and drop the commands after it in silence (#603 pre-PR
+# review, B2). No list or paragraph model is needed: a list item or a prose line is just
+# more of the block, and its backticked tokens are checked.
+heading_span() { # <file> <anchor-line>
   awk -v s="$2" '
-    # An ATX heading by CommonMark: up to three leading spaces, then one to six `#`, then a
-    # blank, a tab or the end of the line. `#597 backlog note` and `####### seven` are neither
-    # of them headings, and treating them as ones ended the span and exempted what followed
-    # (#602 F1).
-    function is_heading(s,   k, h, c) {
-      k = 0
-      while (k < 3 && substr(s, k + 1, 1) == " ") k++
-      h = 0
-      while (substr(s, k + h + 1, 1) == "#") h++
-      if (h < 1 || h > 6) return 0
-      c = substr(s, k + h + 1, 1)
-      return c == "" || c == " " || c == "\t"
-    }
-    # The fence a line opens with — three or more backticks or tildes, up to three spaces in —
-    # or "" for a line that opens none.
-    function fence_marker(s,   k, c, n, r) {
-      k = 0
-      while (k < 3 && substr(s, k + 1, 1) == " ") k++
-      c = substr(s, k + 1, 1)
-      if (c != "`" && c != "~") return ""
-      n = 0
-      while (substr(s, k + n + 1, 1) == c) n++
-      if (n < 3) return ""
-      r = ""
-      while (n-- > 0) r = r c
-      return r
-    }
-    # A list item marker at column 0: `-`, `*` or `+`, or 1-9 digits then `.` or `)`, each
-    # followed by a blank, a tab or the end of the line. `2.NoSpace` is not a marker (#602 F2).
-    function is_list_item(s,   c, n, d) {
-      c = substr(s, 1, 1)
-      if (c == "-" || c == "*" || c == "+") {
-        d = substr(s, 2, 1)
-        return d == "" || d == " " || d == "\t"
-      }
-      n = 0
-      while (n < 9 && substr(s, n + 1, 1) ~ /[0-9]/) n++
-      if (n == 0) return 0
-      c = substr(s, n + 1, 1)
-      if (c != "." && c != ")") return 0
-      d = substr(s, n + 2, 1)
-      return d == "" || d == " " || d == "\t"
-    }
-    function heading_at(i) { return !fenced[i] && is_heading(line[i]) }
-    # A list item, by the same rule and with the same fence gate: a `- ` line INSIDE fenced code
-    # is code, not Markdown structure, so it neither ends the carve nor extends the block. The
-    # gate belongs on every predicate that classifies a line — the round-1 fix gated the heading
-    # test and left this one open, which is exactly the defect #602 F9 names.
-    function list_item_at(i) { return !fenced[i] && is_list_item(line[i]) }
-    { line[NR] = $0
-      # Fenced code first, over the whole file: a line between a fence and its close is code,
-      # and code is never a heading. The close is a fence of the same character, at least as
-      # long as the opener, with nothing but blanks after it; an unclosed fence runs to the end
-      # of the file, which is what CommonMark does too.
-      if (in_fence == 0) {
-        f = fence_marker($0)
-        if (f != "") { in_fence = 1; fence_char = substr(f, 1, 1); fence_len = length(f); fenced[NR] = 1 }
-      } else {
-        k = 0
-        while (k < 3 && substr($0, k + 1, 1) == " ") k++
-        n = 0
-        while (substr($0, k + n + 1, 1) == fence_char) n++
-        if (n >= fence_len && substr($0, k + n + 1) ~ /^[[:space:]]*$/) in_fence = 0
-        fenced[NR] = 1
-      }
-    }
+    NR < s { next }
+    NR == s { text = $0 ORS; if ($0 ~ /<!--/) { modelled = 1; exit }; next }
+    /^ ? ? ?(```|~~~)/ || /<!--/ { modelled = 1; exit }
+    /^#[#]?[#]?[#]?[#]?[#]? / { ended = 1; exit }
+    { text = text $0 ORS }
     END {
       if (s < 1 || s > NR) {
-        printf "span_of refuses: %s has no line %d to carve from — no span, and an empty span certifies nothing\n", FILENAME, s
+        printf "heading_span refuses: %s has no anchor at line %d\n", FILENAME, s
         exit 1
       }
-      end_at = NR; stopped_at_heading = 0
-      for (i = s + 1; i <= NR; i++) {
-        # FIRST, in every loop that walks lines: a fenced line is handled by this check ALONE.
-        # Here it is absorbed into the span and no classifier below it ever sees the line — which
-        # is the point, because gating the classifiers one at a time left the blank test ungated
-        # and a blank line inside a code sample ended the item (#602 F13).
-        if (fenced[i]) continue
-        if (heading_at(i)) { end_at = i - 1; stopped_at_heading = 1; break }
-        if (line[i] ~ /^[[:space:]]*$/) {
-          j = i
-          while (j < NR && line[j + 1] ~ /^[[:space:]]*$/) j++
-          if (j < NR && !heading_at(j + 1) && line[j + 1] ~ /^[[:space:]]/) { i = j; continue }
-          end_at = i - 1; break
-        }
-        if (list_item_at(i)) { end_at = i - 1; break }
-      }
-      follow = 0
-      # The first line of the block is its first non-blank, NON-FENCED line: a fence there is
-      # code like any other fenced line, and taking it for the start of the block hid the line
-      # behind it — measured, a blank between the fence and the bullet then left the bullet and
-      # its command unread (#602 F13).
-      for (i = end_at + 1; i <= NR; i++) if (!fenced[i] && line[i] !~ /^[[:space:]]*$/) { follow = i; break }
-      region_end = 0
-      if (follow > 0) {
-        region_end = follow
-        in_run = list_item_at(follow)
-        for (i = follow + 1; i <= NR; i++) {
-          # FIRST here too: a fenced line neither ends the block nor joins it, and no classifier
-          # below — the blank test, the heading, the list item, the indent, the column-0 prose
-          # break — runs on it. The blank test was above this check until #602 F13, and a blank
-          # line inside a code sample ended the block.
-          if (fenced[i]) continue
-          if (line[i] ~ /^[[:space:]]*$/) {
-            if (!in_run) break                       # a paragraph ends at a blank line; a list does not
-            j = i
-            while (j < NR && line[j + 1] ~ /^[[:space:]]*$/) j++
-            if (j < NR && (list_item_at(j + 1) || line[j + 1] ~ /^[[:space:]]/)) { i = j; region_end = j; continue }
-            break
-          }
-          if (heading_at(i)) break                   # a heading ends the section
-          if (list_item_at(i) || line[i] ~ /^[[:space:]]/) { region_end = i; continue }
-          break                                      # column-0 prose ends the block
-        }
-      }
-      text = ""
-      # Fenced lines contribute NO text either: the backticks a fence is made of are code, and
-      # letting them into the joined text would make the predicate fire on the fence instead of
-      # on a command (#602 F9, the second half of the gate).
-      for (i = follow; i <= region_end; i++) if (!fenced[i]) text = text " " line[i]
-      if (!stopped_at_heading && region_end > 0 && !heading_at(follow) && text ~ /`[^`]*`/) {
-        printf "span_of refuses: the bullet at %s:%d ends at line %d, and the block after it (from line %d) carries a backticked token — the carve cannot tell whether that command belongs to this bullet, so it stops here rather than certify the commands before the break\n", FILENAME, s, end_at, follow
+      if (modelled) {
+        printf "heading_span refuses: a fence or an HTML comment inside the block that starts at the anchor at %s:%d — the carve does not model either, so it stops rather than end inside one\n", FILENAME, s
         exit 1
       }
-      for (i = s; i <= end_at; i++) print line[i]
+      if (!ended) {
+        printf "heading_span refuses: no column-0 ATX heading after anchor at %s:%d\n", FILENAME, s
+        exit 1
+      }
+      printf "%s", text
     }' "$1"
 }
 # One backticked command per line. The span is joined to ONE line first, so a
@@ -856,10 +686,8 @@ commands_in_span() { # the span arrives on stdin
 # rather than parsed. Measured: the live span is even (10). An odd count is ONE way
 # to produce a misleading RED — every token after the stray backtick pairs wrongly,
 # so prose fragments reach the config.md check and the per-command failures name a
-# fault that is not there. It is the way this gate covers, not the only way a span
-# can mislead: `span_of`'s own carve can drop a command with the check still green,
-# and that is decided by the carve's own controls below — C4 to C8 — where the carve
-# captures a continuation and refuses a break it cannot certify.
+# fault that is not there. The heading carve controls below independently guard
+# which lines reach this balance check and the command check.
 # `grep -o` alone does NOT remove the odd case: on a fixture with one unpaired
 # backtick, measured, both spellings lose the real tokens and both feed a prose
 # fragment to the check. The balance gate is what turns that into a RED naming the
@@ -869,35 +697,33 @@ span_balanced() { # the span arrives on stdin
   [ $((_ticks % 2)) -eq 0 ] || { printf '%s' "$_ticks"; return 1; }
   return 0
 }
-start=$(awk '/Dispatched to a seat session/{print NR; exit}' "$SKILL_MD")
-missing=0
-parsed=0
-span=""
-if [ -z "$start" ]; then
-  fail "SKILL.md's dispatched-command list is found" "no line reads 'Dispatched to a seat session'"
-elif ! span="$(span_of "$SKILL_MD" "$start")"; then
-  # The carve refused, and its message names the carve, the file and both line numbers.
-  # Nothing below runs: the per-command check would otherwise certify the commands before
-  # the break, which is the silent truncation the refusal exists to prevent.
-  fail "SKILL.md's dispatched-command bullet is carved whole" "$span"
+check_dispatched_commands() { # <skill-file> <config-file>
+  local skill_file="$1" config_file="$2" start missing parsed ticks cmd
+  start=$(awk '/Dispatched to a seat session/{print NR; exit}' "$skill_file")
+  missing=0
+  parsed=0
   span=""
-elif [ -z "$span" ]; then
-  fail "SKILL.md's dispatched-command bullet is carved whole" \
-    "span_of returned nothing for the anchor at line $start — an empty span certifies no command"
-elif ! ticks="$(printf '%s\n' "$span" | span_balanced)"; then
-  fail "SKILL.md's dispatched-command span is a balanced list" \
-    "$ticks backticks — an unpaired one flips every token after it, so the per-command failures below would name the wrong fault"
-else
-  for cmd in $(printf '%s\n' "$span" | commands_in_span); do
-    [ -n "$cmd" ] || continue
-    parsed=$((parsed+1))
-    if [ "$(occurrences "$CONFIG_MD" "/ossify:$cmd")" -eq 0 ]; then
-      missing=$((missing+1)); fail "dispatched command '$cmd' resolves to a role" "no /ossify:$cmd in config.md"
-    fi
-  done
-  if [ "$parsed" -eq 0 ]; then fail "SKILL.md's dispatched-command list parses" "no backticked command after the anchor"
-  elif [ "$missing" -eq 0 ]; then pass "every dispatched command resolves to a role in config.md ($parsed)"; fi
-fi
+  if [ -z "$start" ]; then
+    fail "SKILL.md's dispatched-command list is found" "no line reads 'Dispatched to a seat session'"
+  elif ! span="$(heading_span "$skill_file" "$start")"; then
+    fail "SKILL.md's dispatched-command block is carved whole" "$span"
+    span=""
+  elif ! ticks="$(printf '%s\n' "$span" | span_balanced)"; then
+    fail "SKILL.md's dispatched-command span is a balanced list" \
+      "$ticks backticks — an unpaired one flips every token after it, so the per-command failures below would name the wrong fault"
+  else
+    for cmd in $(printf '%s\n' "$span" | commands_in_span); do
+      [ -n "$cmd" ] || continue
+      parsed=$((parsed+1))
+      if [ "$(occurrences "$config_file" "/ossify:$cmd")" -eq 0 ]; then
+        missing=$((missing+1)); fail "dispatched command '$cmd' resolves to a role" "no /ossify:$cmd in config.md"
+      fi
+    done
+    if [ "$parsed" -eq 0 ]; then fail "SKILL.md's dispatched-command list parses" "no backticked command after the anchor"
+    elif [ "$missing" -eq 0 ]; then pass "every dispatched command resolves to a role in config.md ($parsed)"; fi
+  fi
+}
+check_dispatched_commands "$SKILL_MD" "$CONFIG_MD"
 
 # ── the extractor's controls ────────────────────────────────────────────────
 #
@@ -907,13 +733,8 @@ fi
 # the next legitimate command). They are fed straight to the extractor as span text,
 # so the controls below decide the token extraction and the balance gate.
 #
-# What they do NOT decide is `span_of`'s own carve — a command on a line the carve takes
-# for the break used to be dropped with the check still green — so the carve has controls
-# of its own below: C4 the continuation a blank line does not end, and C5/C6 the two ways a
-# command can sit after the carve's break, which the carve must REFUSE rather than certify
-# around. C7 and C8 are their adjacent controls: the two shapes that must NOT be refused,
-# because a carve that refused everything would satisfy C5 and C6 just as well. Those
-# controls are what #597 asked for; the carve was fixed with them.
+# The heading carve has its own file fixtures below; these three controls keep
+# deciding only the token extraction and balance gate.
 # Every expected value below is a literal, not something the code under test wrote.
 
 # C1 — the wrap. A token the line wrap splits is recovered WHOLE, and its halves
@@ -998,547 +819,137 @@ else
     "the shipped span measures unbalanced — the gate is refusing a valid state, and the check above would be skipped"
 fi
 
-# ── the carve's own controls (#597) ─────────────────────────────────────────
-#
-# `span_of` decides which lines the check above even looks at, so a carve that stops early
-# certifies the commands before the break and reports the list green. Each fixture below is
-# a synthetic bullet in the shipped shape, written to a file because the carve reads a file;
-# the expectations are literals, never something the carve wrote.
+# ── heading-bounded carve controls (#603) ───────────────────────────────────
+# Each fixture runs the same carve, balance gate and role check as SKILL.md.
+# No match joins a ✓/✗ glyph to the label after it: on a terminal the colour reset sits
+# between the two. A bare `✗` alone is safe and is used as an absence test.
 ctl_carve="$(mktemp -d)"
+printf '/ossify:alpha-one\n/ossify:beta-two\n/ossify:gamma-three\n' > "$ctl_carve/config.md"
 
-# C4 — a continuation paragraph after a blank line is the SAME bullet in markdown, so the
-# command in it is captured. Measured before this change: the carve stopped at the blank line
-# and emitted `alpha-one` and `beta-two` only, with rc 0 — the command below it was never
-# checked and the shipping check stayed green.
-printf -- '- **Dispatched to a seat session:** `alpha-one`, `beta-two`.\n\n  `gamma-three` is also dispatched to a herdr session.\n' \
-  > "$ctl_carve/continuation.md"
-if c4_span="$(span_of "$ctl_carve/continuation.md" 1)"; then
-  c4="$(printf '%s\n' "$c4_span" | commands_in_span | tr '\n' '|')"
-  if [ "$c4" = 'alpha-one|beta-two|gamma-three|' ]; then
-    pass "control: a command in an indented continuation paragraph is captured"
-  else
-    fail "control: a command in an indented continuation paragraph is captured" \
-      "emitted [$c4], expected [alpha-one|beta-two|gamma-three|] — the carve truncated the bullet"
-  fi
+# C4: neither a blank line nor a sibling list item ends the dispatched-command block.
+printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n  `beta-two`.\n- `gamma-three`\n### Cases\n' > "$ctl_carve/two-lines.md"
+out="$(check_dispatched_commands "$ctl_carve/two-lines.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F 'every dispatched command resolves to a role in config.md (3)' >/dev/null &&
+   ! printf '%s' "$out" | grep -F '✗' >/dev/null; then
+  pass "control: blank-separated commands and a sibling item before the heading are all checked"
 else
-  fail "control: a command in an indented continuation paragraph is captured" \
-    "the carve refused a continuation it has to capture: $c4_span"
+  fail "control: blank-separated commands and a sibling item before the heading are all checked" "$out"
 fi
 
-# C5 and C6 — the two ways a command can sit after the carve's break. Neither can be
-# captured: the first is a command in a new paragraph the bullet does not indent, the second
-# one in a SIBLING bullet, which is a different item — and folding the rest of the section
-# into the span would feed this file's own later prose and file paths to the per-command
-# check (measured: SKILL.md's section names `/ossify:close <spine-id>`, `references/…` and
-# `commit …; push; open the PR` after the span). So the carve REFUSES, and what the control
-# decides is that the refusal names the carve rather than returning a quiet rc 0.
-printf -- '- **Dispatched to a seat session:** `alpha-one`, `beta-two`.\n\n`gamma-three` is also dispatched to a herdr session.\n' \
-  > "$ctl_carve/after-blank.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`, `beta-two`.\n- `gamma-three`, dispatched to a herdr session.\n' \
-  > "$ctl_carve/sibling-bullet.md"
-for c5_fixture in after-blank sibling-bullet; do
-  case "$c5_fixture" in
-    after-blank)      c5_label="a command after a blank line" ;;
-    sibling-bullet)   c5_label="a command in a sibling bullet" ;;
+# C4b: a fence or an HTML comment inside the block is refused, whatever it holds.
+for shape in tilde backtick4 comment indented-tilde mid-line-comment; do
+  case "$shape" in
+    tilde)            opener='~~~sh';        closer='~~~' ;;
+    backtick4)        opener='````sh';       closer='````' ;;
+    comment)          opener='<!--';         closer='-->' ;;
+    indented-tilde)   opener='   ~~~sh';     closer='   ~~~' ;;
+    mid-line-comment) opener='See below <!--'; closer='-->' ;;
   esac
-  if c5_out="$(span_of "$ctl_carve/$c5_fixture.md" 1)"; then
-    fail "control: the carve refuses $c5_label it cannot certify" \
-      "it returned [$c5_out] with rc 0 — the command after the break is dropped in silence"
-  elif printf '%s' "$c5_out" | grep -F 'span_of refuses' >/dev/null &&
-       printf '%s' "$c5_out" | grep -F 'the carve cannot tell' >/dev/null; then
-    pass "control: the carve refuses $c5_label it cannot certify"
+  printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n%s\n# how to dispatch one\n%s\n\n  `bogus-cmd`.\n\n### Cases\n' \
+    "$opener" "$closer" > "$ctl_carve/modelled-$shape.md"
+  out="$(check_dispatched_commands "$ctl_carve/modelled-$shape.md" "$ctl_carve/config.md")"
+  if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command block is carved whole" >/dev/null &&
+     printf '%s' "$out" | grep -F 'a fence or an HTML comment inside the block' >/dev/null; then
+    pass "control: a $shape inside the block is refused, not ended inside"
   else
-    fail "control: the carve refuses $c5_label it cannot certify" \
-      "it refused, but not with a message naming the carve and the line: [$c5_out]"
+    fail "control: a $shape inside the block is refused, not ended inside" "$out"
   fi
 done
 
-# C7 and C8 — the adjacent controls, the two shapes that must NOT be refused. C5/C6 alone
-# would be satisfied by a carve that refused every span, so the same call has to come back
-# with a span here. C8 is the heading rule: this fixture's heading line carries the backtick
-# that would otherwise refuse it, and the control asserts that fixture property itself, so it
-# cannot pass by accident on a heading that carries none.
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n- Runs in this session instead.\n' \
-  > "$ctl_carve/sibling-plain.md"
-if c7_span="$(span_of "$ctl_carve/sibling-plain.md" 1)" &&
-   [ "$(printf '%s\n' "$c7_span" | commands_in_span | tr '\n' '|')" = 'alpha-one|' ]; then
-  pass "control: a sibling bullet that carries no command does not refuse the span"
+# C4d: an HTML comment opened on the anchor line itself is refused too (PR #1241 round 1, C2).
+printf -- '- **Dispatched to a seat session:** `alpha-one`. <!--\n# x\n-->\n  `bogus-cmd`.\n### Cases\n' > "$ctl_carve/anchor-comment.md"
+out="$(check_dispatched_commands "$ctl_carve/anchor-comment.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command block is carved whole" >/dev/null &&
+   printf '%s' "$out" | grep -F 'a fence or an HTML comment inside the block' >/dev/null; then
+  pass "control: an HTML comment opened on the anchor line is refused"
 else
-  fail "control: a sibling bullet that carries no command does not refuse the span" \
-    "got [$c7_span] — a carve that refuses every bullet after the anchor cannot be told from one that refuses only the ones carrying a command"
+  fail "control: an HTML comment opened on the anchor line is refused" "$out"
 fi
-ctl_carve_heading='- **Dispatched to a seat session:** `alpha-one`.
-## `Refusals`
-- `herdr status` fails: say so and stop.'
-printf '%s\n' "$ctl_carve_heading" > "$ctl_carve/heading-break.md"
-if ! printf '%s\n' "$ctl_carve_heading" | awk 'NR == 2 { exit !index($0, "`") }'; then
-  fail "control: a span whose end a heading caused is not refused" \
-    "the fixture's heading line carries no backtick — this control would pass without deciding the heading rule"
-elif c8_span="$(span_of "$ctl_carve/heading-break.md" 1)"; then
-  pass "control: a span whose end a heading caused is not refused"
+
+# C4e: a missing anchor and an empty command list each fail loudly.
+printf -- '- **Runs in this session:** `alpha-one`.\n### Cases\n' > "$ctl_carve/no-anchor.md"
+out="$(check_dispatched_commands "$ctl_carve/no-anchor.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command list is found" >/dev/null &&
+   printf '%s' "$out" | grep -F "no line reads 'Dispatched to a seat session'" >/dev/null; then
+  pass "control: a missing anchor fails loudly"
 else
-  fail "control: a span whose end a heading caused is not refused" "$c8_span"
+  fail "control: a missing anchor fails loudly" "$out"
 fi
+printf -- '- **Dispatched to a seat session:** none yet.\n### Cases\n' > "$ctl_carve/empty-list.md"
+out="$(check_dispatched_commands "$ctl_carve/empty-list.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command list parses" >/dev/null &&
+   printf '%s' "$out" | grep -F 'no backticked command after the anchor' >/dev/null; then
+  pass "control: an empty command list fails loudly"
+else
+  fail "control: an empty command list fails loudly" "$out"
+fi
+
+# C4f: an unpaired backtick in the block is refused by the balance gate, through the same
+# check, before any command is judged (PR #1241 fresh round 1, C3).
+printf -- '- **Dispatched to a seat session:** `alpha-one`, `beta-two.\n### Cases\n' > "$ctl_carve/unbalanced.md"
+out="$(check_dispatched_commands "$ctl_carve/unbalanced.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command span is a balanced list" >/dev/null; then
+  pass "control: an unpaired backtick in the block is refused by the balance gate"
+else
+  fail "control: an unpaired backtick in the block is refused by the balance gate" "$out"
+fi
+
+# C4c: a single-hash heading ends the block too.
+printf -- '- **Dispatched to a seat session:** `alpha-one`.\n# Cases\n`after-heading`.\n' > "$ctl_carve/one-hash.md"
+out="$(check_dispatched_commands "$ctl_carve/one-hash.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F 'every dispatched command resolves to a role in config.md (1)' >/dev/null &&
+   ! printf '%s' "$out" | grep -F '✗' >/dev/null; then
+  pass "control: a single-hash heading ends the block"
+else
+  fail "control: a single-hash heading ends the block" "$out"
+fi
+
+# C5: over-captured non-role tokens fail through the actual role check.
+printf -- '- **Dispatched to a seat session:** `alpha-one`.\nExtra `not-a-role`.\n### Cases\n' > "$ctl_carve/extra-token.md"
+out="$(check_dispatched_commands "$ctl_carve/extra-token.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F 'no /ossify:not-a-role in config.md' >/dev/null; then
+  pass "control: an extra backticked token before the heading fails as a missing role"
+else
+  fail "control: an extra backticked token before the heading fails as a missing role" "$out"
+fi
+
+# C6: no heading is a loud refusal, never an end-of-file fallback.
+printf -- '- **Dispatched to a seat session:** `alpha-one`.\n  `beta-two`.\n' > "$ctl_carve/no-heading.md"
+out="$(check_dispatched_commands "$ctl_carve/no-heading.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command block is carved whole" >/dev/null &&
+   printf '%s' "$out" | grep -F 'no column-0 ATX heading after anchor' >/dev/null; then
+  pass "control: a missing heading after the anchor is refused loudly"
+else
+  fail "control: a missing heading after the anchor is refused loudly" "$out"
+fi
+
+# C7: the heading and everything after it are outside the command block.
+printf -- '- **Dispatched to a seat session:** `alpha-one`.\n### Cases `heading-token`\n`after-heading`.\n' > "$ctl_carve/after-heading.md"
+out="$(check_dispatched_commands "$ctl_carve/after-heading.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F 'every dispatched command resolves to a role in config.md (1)' >/dev/null &&
+   ! printf '%s' "$out" | grep -F '✗' >/dev/null; then
+  pass "control: tokens at and after the heading are not checked"
+else
+  fail "control: tokens at and after the heading are not checked" "$out"
+fi
+
+# C8: the boundary is exactly 1–6 hashes plus a space at column zero.
+for not_heading in '####### x' '#x' ' ### x' '#\tx'; do
+  printf -- '- **Dispatched to a seat session:** `alpha-one`.\n%b\n  `beta-two`.\n###### Cases\n' "$not_heading" > "$ctl_carve/not-heading.md"
+  out="$(check_dispatched_commands "$ctl_carve/not-heading.md" "$ctl_carve/config.md")"
+  if printf '%s' "$out" | grep -F 'every dispatched command resolves to a role in config.md (2)' >/dev/null &&
+     ! printf '%s' "$out" | grep -F '✗' >/dev/null; then
+    pass "control: a non-heading stays inside the block [$not_heading]"
+  else
+    fail "control: a non-heading stays inside the block [$not_heading]" "$out"
+  fi
+done
 
 rm -rf "$ctl_carve"
 if [ ! -e "$ctl_carve" ]; then
-  pass "control: the carve controls leave no fixture behind"
+  pass "control: the heading carve controls leave no fixture behind"
 else
-  fail "control: the carve controls leave no fixture behind" \
-    "$ctl_carve survived its cleanup — a fixture was not removed"
-fi
-
-# C9 and C10 — the bullet RUN, from #602's review round 1 finding 2. C5/C6 decided the first
-# line after the break; measured before this change, a command in a LATER item of the same
-# list came back rc 0 with only the anchor, so it was never checked. C9 is that case and C10
-# is its adjacent control, because a carve that refused every bullet run would satisfy C9
-# alone and would refuse the shipped file the day its bullet grows a sibling.
-ctl_run="$(mktemp -d)"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-- Runs in this session instead.
-- `gamma-three`, dispatched to a herdr session.
-' > "$ctl_run/run-with-command.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-- Runs in this session instead.
-- Another item of this list, carrying no command.
-' > "$ctl_run/run-plain.md"
-if c9_span="$(span_of "$ctl_run/run-with-command.md" 1)"; then
-  fail "control: the carve refuses a command in a later item of the same bullet run" \
-    "rc 0 with [$c9_span] — the later item's command is dropped in silence"
-elif printf '%s' "$c9_span" | grep -F 'span_of refuses' >/dev/null; then
-  pass "control: the carve refuses a command in a later item of the same bullet run"
-else
-  fail "control: the carve refuses a command in a later item of the same bullet run" "$c9_span"
-fi
-if c10_span="$(span_of "$ctl_run/run-plain.md" 1)" &&
-   [ "$(printf '%s\n' "$c10_span" | commands_in_span | tr '\n' '|')" = 'alpha-one|' ]; then
-  pass "control: a bullet run that carries no command does not refuse the span"
-else
-  fail "control: a bullet run that carries no command does not refuse the span" \
-    "got [$c10_span] — refusing every run cannot be told from refusing the ones that carry a command"
-fi
-# C11 — the BOUND, pinned rather than implied: a command in a bullet after an intervening
-# column-0 prose line is NOT refused, because reading past that prose is what would refuse the
-# shipped file (measured: its own later bullets name `run-spine`, `/ossify:close <spine-id>`
-# and `references/…`). If a later change widens the carve past prose, this control goes RED
-# and the bound in span_of's comment has to move with it, deliberately.
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-
-These cases are named because they look like clashes and are not:
-
-- `gamma-four`, dispatched to a herdr session.
-' > "$ctl_run/prose-then-bullet.md"
-if c11_span="$(span_of "$ctl_run/prose-then-bullet.md" 1)" &&
-   [ "$(printf '%s\n' "$c11_span" | commands_in_span | tr '\n' '|')" = 'alpha-one|' ]; then
-  pass "control: the carve's bound holds — a bullet after column-0 prose is not read"
-else
-  fail "control: the carve's bound holds — a bullet after column-0 prose is not read" \
-    "got [$c11_span] — the shipped file's own section has this shape, so reading past it refuses the live span"
-fi
-rm -rf "$ctl_run"
-if [ ! -e "$ctl_run" ]; then
-  pass "control: the bullet-run controls leave no fixture behind"
-else
-  fail "control: the bullet-run controls leave no fixture behind" \
-    "$ctl_run survived its cleanup — a fixture was not removed"
-fi
-
-# C12–C14 — review round 1's findings 2 and 3 on the refusal's reach, and the predicate's own
-# bound. C12: a heading exempts the block whether or not a blank line came first (its heading
-# line carries the backtick that would otherwise refuse it, and the control asserts that
-# fixture property itself). Measured before this change: rc 1, the heading refused — a FALSE
-# refusal, so C12 is a loosening, and C5 is its adjacent control: a command line after a blank
-# line, which is not a heading and must still refuse. C13: a token the WRAP splits, in a later
-# item of the run, is still a token — measured before this change, only a per-line pair was
-# seen, so the command came back rc 0 with the anchor alone. C14: a lone unpaired backtick in
-# the block is not a token (C9 is its adjacent control: a pair on one line still refuses).
-ctl_block="$(mktemp -d)"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-
-## `Refusals`
-- `herdr status` fails: say so and stop.
-' > "$ctl_block/blank-then-heading.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-- Runs in this session instead.
-- `gamma-
-  three`, dispatched to a herdr session.
-' > "$ctl_block/wrapped-in-run.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-- Runs in this session instead.
-- A stray ` backtick opens no pair.
-' > "$ctl_block/lone-backtick.md"
-if ! printf -- '- **Dispatched to a seat session:** `alpha-one`.
-
-## `Refusals`
-- `herdr status` fails: say so and stop.
-' | awk 'NR == 3 { exit !index($0, "`") }'; then
-  fail "control: a heading exempts the block across a blank line" \
-    "the fixture's heading line carries no backtick — this control would pass without deciding the rule"
-elif c12_span="$(span_of "$ctl_block/blank-then-heading.md" 1)" &&
-     [ "$(printf '%s\n' "$c12_span" | commands_in_span | tr '\n' '|')" = 'alpha-one|' ]; then
-  pass "control: a heading exempts the block across a blank line"
-else
-  fail "control: a heading exempts the block across a blank line" \
-    "got [$c12_span] — a heading is where the section ends, blank line or not"
-fi
-if c13_span="$(span_of "$ctl_block/wrapped-in-run.md" 1)"; then
-  fail "control: the carve refuses a token the wrap splits in a later item" \
-    "rc 0 with [$c13_span] — a per-line test sees half a token and certifies the list"
-elif printf '%s' "$c13_span" | grep -F 'span_of refuses' >/dev/null; then
-  pass "control: the carve refuses a token the wrap splits in a later item"
-else
-  fail "control: the carve refuses a token the wrap splits in a later item" "$c13_span"
-fi
-if c14_span="$(span_of "$ctl_block/lone-backtick.md" 1)" &&
-   [ "$(printf '%s\n' "$c14_span" | commands_in_span | tr '\n' '|')" = 'alpha-one|' ]; then
-  pass "control: a lone unpaired backtick in the block is not a token"
-else
-  fail "control: a lone unpaired backtick in the block is not a token" \
-    "got [$c14_span] — the predicate is a backticked PAIR; the span's balance gate owns unpaired ticks"
-fi
-rm -rf "$ctl_block"
-if [ ! -e "$ctl_block" ]; then
-  pass "control: the block controls leave no fixture behind"
-else
-  fail "control: the block controls leave no fixture behind" \
-    "$ctl_block survived its cleanup — a fixture was not removed"
-fi
-
-# C15 — an INDENTED heading, from #602 review round 2 finding 4. An ATX heading may carry up to
-# three leading spaces, and this one ends the section like any other: measured before the fix,
-# the carve read `   ## `Refusals`` as an indented continuation, swallowed the next section, and
-# refused on its first bullet — a false refusal of a valid document. C12 is the adjacent
-# control (a column-0 heading after a blank line, which must stay exempt).
-ctl_indent="$(mktemp -d)"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-
-   ## `Refusals`
-- `herdr status` fails: say so and stop.
-' > "$ctl_indent/indented-heading.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-
-    ## `Refusals`
-' > "$ctl_indent/four-space-line.md"
-if c15_span="$(span_of "$ctl_indent/indented-heading.md" 1)" &&
-   [ "$(printf '%s\n' "$c15_span" | commands_in_span | tr '\n' '|')" = 'alpha-one|' ]; then
-  pass "control: an indented heading ends the section, so the span stops at the anchor"
-else
-  fail "control: an indented heading ends the section, so the span stops at the anchor" \
-    "got [$c15_span] — the span swallowed the next section and its tokens read as commands"
-fi
-# The adjacent control for the indentation rule: four spaces is NOT a heading (markdown's own
-# limit), so this line is item content and the carve keeps it. Without this, widening the heading
-# test to any indent would pass the control above and swallow indented content.
-if c16_span="$(span_of "$ctl_indent/four-space-line.md" 1)" &&
-   [ "$(printf '%s\n' "$c16_span" | commands_in_span | tr '\n' '|')" = 'alpha-one|Refusals|' ]; then
-  pass "control: four leading spaces is not a heading, so the line stays in the span"
-else
-  fail "control: four leading spaces is not a heading, so the line stays in the span" \
-    "got [$c16_span] — markdown's three-space limit is part of the rule, not an implementation detail"
-fi
-rm -rf "$ctl_indent"
-if [ ! -e "$ctl_indent" ]; then
-  pass "control: the heading controls leave no fixture behind"
-else
-  fail "control: the heading controls leave no fixture behind" \
-    "$ctl_indent survived its cleanup — a fixture was not removed"
-fi
-
-# C17–C19 — #602 F1: the heading test is CommonMark's ATX rule and nothing looser. Measured on
-# faa3dd3, each of these pseudo-headings ended the span and EXEMPTED the block, so the command
-# under it was dropped with rc 0 — the silent direction the refusal exists to close. C8 and C12
-# are the adjacent controls: a real ATX heading still ends the span and is still exempt.
-ctl_atx="$(mktemp -d)"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-
-#597 backlog note, and `gamma-three` is dispatched to a herdr session.
-' > "$ctl_atx/hash-then-digit.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-
-####### seven hashes, and `gamma-three` is dispatched to a herdr session.
-' > "$ctl_atx/seven-hashes.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-
-  ```
-  # init is code here
-  ```
-  `gamma-three`, dispatched to a herdr session.
-' > "$ctl_atx/fenced-init.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.
-
-  ~~~
-  # init is code here
-  ~~~
-  `gamma-three`, dispatched to a herdr session.
-' > "$ctl_atx/fenced-init-tilde.md"
-for c17 in hash-then-digit seven-hashes; do
-  if c17_out="$(span_of "$ctl_atx/$c17.md" 1)"; then
-    fail "control: a pseudo-heading does not exempt the block ($c17)" \
-      "rc 0 with [$c17_out] — the command under it is dropped and never checked"
-  elif printf '%s' "$c17_out" | grep -F 'span_of refuses' >/dev/null; then
-    pass "control: a pseudo-heading does not exempt the block ($c17)"
-  else
-    fail "control: a pseudo-heading does not exempt the block ($c17)" "$c17_out"
-  fi
-done
-# The backtick fence is asserted by CONTAINMENT, not by tokens: the fence itself is three
-# backticks inside the span, and the tokenizer pairs them like any other pair, which is the
-# extractor's own property and not this carve's. The tilde fence has no backticks, so there the
-# token list is the whole assertion.
-if c18_span="$(span_of "$ctl_atx/fenced-init.md" 1)" &&
-   printf '%s\n' "$c18_span" | grep -F 'gamma-three' >/dev/null; then
-  pass "control: a # line inside a backtick-fenced block is not a heading, so the span keeps going"
-else
-  fail "control: a # line inside a backtick-fenced block is not a heading, so the span keeps going" \
-    "got [$c18_span] — a fenced line ended the span early and the command after the fence was lost"
-fi
-if c19_span="$(span_of "$ctl_atx/fenced-init-tilde.md" 1)" &&
-   [ "$(printf '%s\n' "$c19_span" | commands_in_span | tr '\n' '|')" = 'alpha-one|gamma-three|' ]; then
-  pass "control: the same fence rule holds for a tilde fence"
-else
-  fail "control: the same fence rule holds for a tilde fence" \
-    "got [$c19_span] — the fence character is not the deciding factor"
-fi
-rm -rf "$ctl_atx"
-if [ ! -e "$ctl_atx" ]; then
-  pass "control: the ATX controls leave no fixture behind"
-else
-  fail "control: the ATX controls leave no fixture behind" \
-    "$ctl_atx survived its cleanup — a fixture was not removed"
-fi
-
-# C20–C22 — #602 F2: every CommonMark list marker ends the carve and extends the block, in both
-# places `span_of` reads one. Measured on faa3dd3, and the two shapes differed: the four RUN
-# fixtures below (ordered `1.`, its `1)`, `*` and `+`) came back rc 0 with only the anchor, so the
-# command in the second item was never checked, while the `*` SIBLING fixture came back rc 0 with
-# the item swallowed INTO the span instead — two lines, over-capture rather than a drop, and still
-# not a refusal. C22 is the adjacent control: a column-0 line that merely starts with digits and a
-# dot is NOT a marker, so a rule that dropped the blank/tab/end-of-line requirement would refuse a
-# document that is not ambiguous.
-ctl_marker="$(mktemp -d)"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n1. ordinary item\n2. `gamma-three`, dispatched to a herdr session.\n' > "$ctl_marker/ordered-dot.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n1) ordinary item\n2) `gamma-three`, dispatched to a herdr session.\n' > "$ctl_marker/ordered-paren.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n* ordinary item\n* `gamma-three`, dispatched to a herdr session.\n' > "$ctl_marker/star.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n+ ordinary item\n+ `gamma-three`, dispatched to a herdr session.\n' > "$ctl_marker/plus.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n* `gamma-three`, dispatched to a herdr session.\n' > "$ctl_marker/star-sibling.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n1. ordinary item\n2.NoSpace `gamma-three`, dispatched to a herdr session.\n' > "$ctl_marker/no-space-after-dot.md"
-for c20 in ordered-dot ordered-paren star plus star-sibling; do
-  if c20_out="$(span_of "$ctl_marker/$c20.md" 1)"; then
-    fail "control: every list marker is read as one ($c20)" \
-      "rc 0 with [$c20_out] — the second item's command is dropped and never checked"
-  elif printf '%s' "$c20_out" | grep -F 'span_of refuses' >/dev/null; then
-    pass "control: every list marker is read as one ($c20)"
-  else
-    fail "control: every list marker is read as one ($c20)" "$c20_out"
-  fi
-done
-if c22_span="$(span_of "$ctl_marker/no-space-after-dot.md" 1)" &&
-   [ "$(printf '%s\n' "$c22_span" | commands_in_span | tr '\n' '|')" = 'alpha-one|' ]; then
-  pass "control: digits and a dot without a blank after it are not a list marker"
-else
-  fail "control: digits and a dot without a blank after it are not a list marker" \
-    "got [$c22_span] — the marker rule needs its blank, a tab or the end of the line"
-fi
-rm -rf "$ctl_marker"
-if [ ! -e "$ctl_marker" ]; then
-  pass "control: the marker controls leave no fixture behind"
-else
-  fail "control: the marker controls leave no fixture behind" \
-    "$ctl_marker survived its cleanup — a fixture was not removed"
-fi
-
-# C23 — the behaviour half of the sentence #602 F8 corrected, pinned as behaviour rather than
-# left in prose: a list item DIRECTLY under a column-0 prose line is still part of the block, so
-# its command is refused. C11 is the adjacent control for the other side: with a BLANK line
-# between the prose and the item the block has ended and the span is certified, which is the
-# shape the shipped file has.
-ctl_prose="$(mktemp -d)"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\nProse line with no backticks.\n- `gamma-three`, dispatched to a herdr session.\n'   > "$ctl_prose/direct.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\nProse line with no backticks.\n\n- `gamma-three`, dispatched to a herdr session.\n' > "$ctl_prose/blank-separated.md"
-if c23_out="$(span_of "$ctl_prose/direct.md" 1)"; then
-  fail "control: a list item directly under prose is still in the block" \
-    "rc 0 with [$c23_out] — reading it as outside the block would certify the list without it"
-elif printf '%s' "$c23_out" | grep -F 'span_of refuses' >/dev/null; then
-  pass "control: a list item directly under prose is still in the block"
-else
-  fail "control: a list item directly under prose is still in the block" "$c23_out"
-fi
-if c23b_span="$(span_of "$ctl_prose/blank-separated.md" 1)" &&
-   [ "$(printf '%s\n' "$c23b_span" | commands_in_span | tr '\n' '|')" = 'alpha-one|' ]; then
-  pass "control: a blank line between the prose and a list item ends the block"
-else
-  fail "control: a blank line between the prose and a list item ends the block" \
-    "got [$c23b_span] — a blank line is what the shipped file has, and it must not refuse"
-fi
-rm -rf "$ctl_prose"
-if [ ! -e "$ctl_prose" ]; then
-  pass "control: the prose controls leave no fixture behind"
-else
-  fail "control: the prose controls leave no fixture behind" \
-    "$ctl_prose survived its cleanup — a fixture was not removed"
-fi
-
-# C24 — #602 F9: a line inside fenced code is never Markdown structure, so it is not a heading,
-# not a list item and not the column-0 line that ends a block. Measured on 411997c, where only
-# the heading test carried the fence gate: the `- code bullet` INSIDE the fence ended the carve,
-# the span came back two lines long, and `gamma-three` under the fence was never checked against
-# config.md. C25 is the adjacent control, the same fixture with a code line that is not list
-# shaped, whose verdict must not move.
-ctl_fence="$(mktemp -d)"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n```\n- code bullet\n```\n`gamma-three`, dispatched to a herdr session.\n' > "$ctl_fence/fence-list-under-anchor.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n```\nx code bullet\n```\n`gamma-three`, dispatched to a herdr session.\n' > "$ctl_fence/fence-plain-under-anchor.md"
-c24_out="$(span_of "$ctl_fence/fence-list-under-anchor.md" 1)" && c24_rc=0 || c24_rc=$?
-if [ "$c24_rc" -ne 0 ] || printf '%s\n' "$c24_out" | grep -F 'gamma-three' >/dev/null; then
-  pass "control: a list-shaped line inside a fence does not end the carve, so the command after it is checked"
-else
-  fail "control: a list-shaped line inside a fence does not end the carve, so the command after it is checked" \
-    "rc 0 with [$c24_out] — the span ends inside the fence and gamma-three is never checked"
-fi
-c25_out="$(span_of "$ctl_fence/fence-plain-under-anchor.md" 1)" && c25_rc=0 || c25_rc=$?
-if [ "$c25_rc" -eq 0 ] && printf '%s\n' "$c25_out" | grep -F 'gamma-three' >/dev/null; then
-  pass "control: the same fixture with a non-list code line keeps its verdict"
-else
-  fail "control: the same fixture with a non-list code line keeps its verdict" \
-    "rc=$c25_rc, out=[$c25_out] — the fence gate must not change a verdict it was not aimed at"
-fi
-rm -rf "$ctl_fence"
-if [ ! -e "$ctl_fence" ]; then
-  pass "control: the fence-gate controls leave no fixture behind"
-else
-  fail "control: the fence-gate controls leave no fixture behind" \
-    "$ctl_fence survived its cleanup — a fixture was not removed"
-fi
-
-# C26 and C27 — the second half of F9, in the BLOCK scan. Fenced lines are skipped there rather
-# than ending the block, and they contribute no text to the predicate either: a fence is code, and
-# the backticks it is made of are not a command. Measured on 411997c and on the first cut of this
-# fix, both fixture below REFUSED for that wrong reason — the predicate paired the fence own
-# backticks — so C27 is the control for the exclusion and C26 is its adjacent pair: with the
-# exclusion, the item that carries a command still refuses and the one that carries none does not.
-ctl_fenceblock="$(mktemp -d)"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n```\nx code\n```\n- `gamma-three`, dispatched to a herdr session.\n' > "$ctl_fenceblock/fence-then-bullet.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n```\nx code\n```\n- an item carrying no command\n' > "$ctl_fenceblock/fence-then-plain.md"
-if c26_out="$(span_of "$ctl_fenceblock/fence-then-bullet.md" 1)"; then
-  fail "control: a bullet after a fence is still read as the block's own" \
-    "rc 0 with [$c26_out] — the fence hid the item and its command went unchecked"
-elif printf '%s' "$c26_out" | grep -F 'span_of refuses' >/dev/null; then
-  pass "control: a bullet after a fence is still read as the block's own"
-else
-  fail "control: a bullet after a fence is still read as the block's own" "$c26_out"
-fi
-if c27_span="$(span_of "$ctl_fenceblock/fence-then-plain.md" 1)"; then
-  pass "control: a fence in the block contributes no text, so an item with no command does not refuse"
-else
-  fail "control: a fence in the block contributes no text, so an item with no command does not refuse" \
-    "refused: [$c27_span] — the backticks the fence is made of were read as a backticked token"
-fi
-rm -rf "$ctl_fenceblock"
-if [ ! -e "$ctl_fenceblock" ]; then
-  pass "control: the block-fence controls leave no fixture behind"
-else
-  fail "control: the block-fence controls leave no fixture behind" \
-    "$ctl_fenceblock survived its cleanup — a fixture was not removed"
-fi
-
-# C28–C34 — #602 F13: the blank-line predicate was the one classifier still ungated, because
-# two rounds of gating the classifiers one at a time never moved the gate. The fix is the ORDER:
-# the fence check comes first in every loop in `span_of` that walks lines — the carve, the scan
-# that picks the block's first line, and the block scan itself — so a blank line inside a fenced
-# code sample is handled by that check alone and no classifier below it ever reads the line.
-# Measured on 2d9c389 before the fix: a fence holding a blank line dropped the dispatched command
-# after it with rc 0, in paragraph mode (the `!in_run` break) and in list-run mode (the blank
-# branch's lookahead, on a non-indented fence), and the carve stopped inside the fence on an item
-# whose continuation carried the command — a false refusal. The paragraph and list-run fixtures
-# each differ from their refusing control only by the fenced blank, C26's shape.
-#
-# C28 is the paragraph fixture: measured on 2d9c389, rc 0 with a one-line span and `gamma-three`
-# never read. C29 is its adjacent control — the same fixture without the fenced blank, which
-# refused there and must keep refusing: the fenced blank is the whole difference between them, so
-# the verdict cannot be read as following the fence instead of the blank line above the gate.
-ctl_f13="$(mktemp -d)"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n```\n\n```\n- `gamma-three`, dispatched to a herdr session.\n' > "$ctl_f13/fence-blank-para.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n```\n```\n- `gamma-three`, dispatched to a herdr session.\n' > "$ctl_f13/fence-noblank-para.md"
-if c28_out="$(span_of "$ctl_f13/fence-blank-para.md" 1)"; then
-  fail "control: a blank line inside a fence does not end the block (paragraph)" \
-    "rc 0 with [$c28_out] — the fence hid the bullet after it and its command went unchecked"
-elif printf '%s' "$c28_out" | grep -F 'span_of refuses' >/dev/null; then
-  pass "control: a blank line inside a fence does not end the block (paragraph)"
-else
-  fail "control: a blank line inside a fence does not end the block (paragraph)" "$c28_out"
-fi
-if c29_out="$(span_of "$ctl_f13/fence-noblank-para.md" 1)"; then
-  fail "control: the paragraph fixture without the fenced blank still refuses" \
-    "rc 0 with [$c29_out] — the blank line is what the verdict must not hang on"
-elif printf '%s' "$c29_out" | grep -F 'span_of refuses' >/dev/null; then
-  pass "control: the paragraph fixture without the fenced blank still refuses"
-else
-  fail "control: the paragraph fixture without the fenced blank still refuses" "$c29_out"
-fi
-
-# C30–C32 decide the list-run half, where the fence sits INSIDE the scanned block rather than in
-# front of it. C30 measured on 2d9c389: rc 0 with a one-line span and `delta-nine` never read.
-# C31 is the same run with no command after the fence, and it is what keeps the fence's own
-# backticks out of the joined text with the fence inside the scanned range — C27's property one
-# position along: measured, letting fenced lines into the text refuses it. C32 is C30's adjacent
-# control without the fenced blank.
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n- an item carrying no command\n```\n\n```\n- `delta-nine`, dispatched to a herdr session.\n' > "$ctl_f13/fence-blank-run.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n- an item carrying no command\n```\n\n```\n- an item carrying no command either\n' > "$ctl_f13/fence-blank-run-plain.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n- an item carrying no command\n```\n```\n- `delta-nine`, dispatched to a herdr session.\n' > "$ctl_f13/fence-noblank-run.md"
-if c30_out="$(span_of "$ctl_f13/fence-blank-run.md" 1)"; then
-  fail "control: a blank line inside a fence does not end the block (list run)" \
-    "rc 0 with [$c30_out] — the fence hid the item after it and its command went unchecked"
-elif printf '%s' "$c30_out" | grep -F 'span_of refuses' >/dev/null; then
-  pass "control: a blank line inside a fence does not end the block (list run)"
-else
-  fail "control: a blank line inside a fence does not end the block (list run)" "$c30_out"
-fi
-if c31_span="$(span_of "$ctl_f13/fence-blank-run-plain.md" 1)"; then
-  pass "control: a fence inside the scanned block contributes no text, so an item with no command does not refuse"
-else
-  fail "control: a fence inside the scanned block contributes no text, so an item with no command does not refuse" \
-    "refused: [$c31_span] — the backticks the fence is made of were read as a backticked token"
-fi
-if c32_out="$(span_of "$ctl_f13/fence-noblank-run.md" 1)"; then
-  fail "control: the list-run fixture without the fenced blank still refuses" \
-    "rc 0 with [$c32_out] — the blank line is what the verdict must not hang on"
-elif printf '%s' "$c32_out" | grep -F 'span_of refuses' >/dev/null; then
-  pass "control: the list-run fixture without the fenced blank still refuses"
-else
-  fail "control: the list-run fixture without the fenced blank still refuses" "$c32_out"
-fi
-
-# C33 and C34 pin the fix's other two loops, which the same finding names and which neither the
-# paragraph nor the list-run fixture reaches. C33 is the CARVE: a fenced blank, then an indented
-# continuation of the item carrying the command. Measured on 2d9c389, where the carve loop had no
-# gate at all: rc 1, a false refusal of a valid document — the carve stopped at the fence, and the
-# item's own continuation was then read as the block after it. Measured after the fix: rc 0 with
-# `gamma-three` inside the span, which is the command the document dispatches.
-# C34 is the scan that picks the block's FIRST line: the paragraph fixture with a BLANK between
-# the fence and the command bullet. Measured on 2d9c389: rc 0 with the command never read, the
-# same silent shape by the other route.
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n```\n\n```\n   `gamma-three`, dispatched to a herdr session.\n' > "$ctl_f13/fence-blank-carve.md"
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n```\n\n```\n\n- `gamma-three`, dispatched to a herdr session.\n' > "$ctl_f13/fence-blank-separated.md"
-c33_out="$(span_of "$ctl_f13/fence-blank-carve.md" 1)" && c33_rc=0 || c33_rc=$?
-if [ "$c33_rc" -eq 0 ] && printf '%s\n' "$c33_out" | grep -F 'gamma-three' >/dev/null; then
-  pass "control: a fenced blank does not end the carve, so an indented continuation keeps its command"
-else
-  fail "control: a fenced blank does not end the carve, so an indented continuation keeps its command" \
-    "rc=$c33_rc, out=[$c33_out] — the carve stopped inside the fence and read the item's own continuation as the block after it"
-fi
-if c34_out="$(span_of "$ctl_f13/fence-blank-separated.md" 1)"; then
-  fail "control: a blank line between the fence and the bullet does not hide the bullet's command" \
-    "rc 0 with [$c34_out] — the scan took the fence for the block's first line and the command after it went unchecked"
-elif printf '%s' "$c34_out" | grep -F 'span_of refuses' >/dev/null; then
-  pass "control: a blank line between the fence and the bullet does not hide the bullet's command"
-else
-  fail "control: a blank line between the fence and the bullet does not hide the bullet's command" "$c34_out"
-fi
-rm -rf "$ctl_f13"
-if [ ! -e "$ctl_f13" ]; then
-  pass "control: the fenced-blank controls leave no fixture behind"
-else
-  fail "control: the fenced-blank controls leave no fixture behind" \
-    "$ctl_f13 survived its cleanup — a fixture was not removed"
+  fail "control: the heading carve controls leave no fixture behind" "$ctl_carve survived its cleanup"
 fi
 
 section "the handoff carries the approved seats"
@@ -1919,22 +1330,45 @@ pin "$PRBRIEFS_MD" "RUN_JSON's path and the pane its \`run.orchestrator\`" "the 
 # every shipped carrier plus the manifests, fixtures and rubric — CHANGELOG included
 # (its 0.2.4 entry names the issue, never the sentence). This test file is the
 # reader, so its own pin arguments are not swept.
-gap_absent() { # <file>
-  gap_rel="${1#"$PLUGIN_ROOT"/}"
-  if [ ! -r "$1" ]; then fail "no #556 gap text in $gap_rel" "missing or unreadable: $1"; return 0; fi
-  gap_hits=0
-  for gap_needle in 'does not rebind it' 'issue #556 holds that gap'; do
-    gap_c="$(occurrences_flat "$1" "$gap_needle")" || { fail "no #556 gap text in $gap_rel" "unreadable file: $1"; return 0; }
-    gap_hits=$((gap_hits + gap_c))
-  done
-  if [ "$gap_hits" -eq 0 ]; then pass "no #556 gap text in $gap_rel"
-  else fail "no #556 gap text in $gap_rel" "$gap_hits occurrence(s)"; fi
-}
+# The sweep is absent_any over two needles, flat (#657 item 6: it had re-implemented
+# absent_any). The second needle is narrowed to `issue #556 holds that gap` because the
+# CHANGELOG names the issue itself; of the three controls after the sweep, two pin both
+# halves of that narrowing, and the first pins the other needle: the gap sentence wrapped across a line still fails, and a bare
+# `issue #556` still passes (#657 item 2).
+GAP_NEEDLES=('does not rebind it' 'issue #556 holds that gap')
 GAP_CARRIERS=("$PLUGIN_ROOT/README.md" "$SKILL_MD" "$COMMAND_MD" "$REF"/*.md \
   "$PLUGIN_ROOT/CHANGELOG.md" "$PLUGIN_ROOT/.claude-plugin/plugin.json" \
   "$PLUGIN_ROOT/.codex-plugin/plugin.json" \
   "$EVAL_DIR"/fixtures/ossify-spine-execution/*.md "$EVAL_RUBRIC_MD")
-for gap_f in "${GAP_CARRIERS[@]}"; do gap_absent "$gap_f"; done
+# One function is the sweep, so the controls below exercise its mode and its needle list,
+# not a copy of them (#603 pre-PR review, B4a).
+gap_sweep() { absent_any "$1" "$2" flat "${GAP_NEEDLES[@]}"; } # <file> <label>
+for gap_f in "${GAP_CARRIERS[@]}"; do
+  gap_sweep "$gap_f" "no #556 gap text in ${gap_f#"$PLUGIN_ROOT"/}"
+done
+gap_ctl="$(mktemp -d)"
+printf 'The rotate successor binds it,\nbut issue #556 holds\nthat gap open.\n' > "$gap_ctl/wrapped.md"
+printf '## 0.2.4\n\n- The rebind rule closes issue #556.\n' > "$gap_ctl/names-issue.md"
+printf 'The rotate successor\ndoes not rebind it.\n' > "$gap_ctl/first-needle.md"
+gap_out="$(gap_sweep "$gap_ctl/first-needle.md" "gap control")"
+case "$gap_out" in
+  *"the claim is back: [does not rebind it x1]"*)
+    pass "control: the first gap sentence still fails the sweep" ;;
+  *) fail "control: the first gap sentence still fails the sweep" "got: $gap_out" ;;
+esac
+gap_out="$(gap_sweep "$gap_ctl/wrapped.md" "gap control")"
+case "$gap_out" in
+  *"the claim is back: [issue #556 holds that gap x1]"*)
+    pass "control: the gap sentence wrapped across lines still fails the sweep" ;;
+  *) fail "control: the gap sentence wrapped across lines still fails the sweep" "got: $gap_out" ;;
+esac
+gap_out="$(gap_sweep "$gap_ctl/names-issue.md" "gap control")"
+case "$gap_out" in
+  *"✗"*|"") fail "control: a bare mention of issue #556 passes the sweep" "got: $gap_out" ;;
+  *"gap control"*) pass "control: a bare mention of issue #556 passes the sweep" ;;
+  *) fail "control: a bare mention of issue #556 passes the sweep" "got: $gap_out" ;;
+esac
+rm -f "$gap_ctl/wrapped.md" "$gap_ctl/names-issue.md" "$gap_ctl/first-needle.md"; rmdir "$gap_ctl"
 
 # #556 round 1, finding 1: the work-PR `open:` successor's dispatch must carry the
 # predecessor's RUN_JSON path, or its continue branch and rebind are unreachable and
@@ -1949,6 +1383,23 @@ pin "$NESTED_MD" 'the `RUN_JSON` path that return named' \
   "nested-run §4 carries RUN_JSON into a resumed work-PR dispatch" flat
 pin "$EXEC_MD" 'the `RUN_JSON` path that record'"'"'s return named' \
   "ossify-execution's top column carries RUN_JSON into a resumed work-PR dispatch" flat
+# #657 item 1: the pointer phrases above do not carry the clause that makes the carried
+# path usable. Two of the four sites state it (lifecycle step 1b and nested-run §4); the
+# rotation paragraph and the execution table point at those. Deleting the clause at
+# either site must fail.
+pin "$LIFECYCLE_MD" 'dispatch continues and rebinds that file; a first dispatch names a fresh one' \
+  "lifecycle step 1b: a resumed dispatch continues and rebinds RUN_JSON, a first names a fresh one" flat
+pin "$NESTED_MD" 'a resumed successor continues and rebinds that file, a first dispatch names a fresh one' \
+  "nested-run §4: a resumed successor continues and rebinds RUN_JSON, a first names a fresh one" flat
+# #657 item 3: the receiving end of that chain. The brief's own step 1 must keep its
+# continue branch, or a carried RUN_JSON has nowhere to land.
+pin "$PRBRIEFS_MD" 'Create RUN_JSON for your two seats, or continue it if it exists.' \
+  "the work-PR brief continues an existing RUN_JSON" flat
+pin "$BRIEFS_MD" 'Create RUN_JSON for your item tasks, or continue it if it exists.' \
+  "the spine brief continues an existing RUN_JSON" flat
+# #657 item 5: the rubric scores the RUN_JSON demands fixture 16's answer key makes.
+pin "$EVAL_RUBRIC_MD" 'A resumed dispatch carries the `RUN_JSON` path the PR'"'"'s last `open:` return named' \
+  "rubric criterion 5 scores the carried RUN_JSON" flat
 
 section "the run file carries the live facts (#810, #816, #819)"
 # Spec §3/§5: each fact a successor needs is written at the step that learns it.

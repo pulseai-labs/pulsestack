@@ -414,11 +414,9 @@ fi
 rm -f "$tmp_clean"
 
 # Control: the hoisted counter refuses a file it cannot open INSTEAD of returning
-# a count (#514, L1). This is the guard the copy in test-fidelity-pins.sh does not
-# carry, and it is the same failure mode as the unreadable-file control above: a
-# count is what a clean file returns, so a counter answering 0 for a file nobody
-# opened would certify it. The message is checked too, so a failure for another
-# reason does not read as the guard firing.
+# a count (#514, L1). A count is what a clean file returns, so a counter answering
+# 0 for a file nobody opened would certify it. The message is checked too, so a
+# failure for another reason does not read as the guard firing.
 ctl_dir="$(mktemp -d)"
 tmp_absent="$ctl_dir/absent.md"   # never created: the path is the fixture
 if out="$(occurrences "$tmp_absent" 'anything' 2>&1)"; then
@@ -525,13 +523,10 @@ else
 fi
 
 # #514, L1: a counter re-copied into any suite shadows the hoisted one and keeps
-# passing, so the shape is asserted rather than assumed. The per-suite half runs from every suite
-# that CALLS it — five of the six. All six SOURCE _helpers.sh, test-fidelity-pins.sh included;
-# what that sixth file does not do is call either half, because it is the exemption
-# HOISTED_EXEMPT names and it is the one file that defines these names deliberately. The
-# directory-wide half is called ONCE, here — its answer cannot differ between callers, and
-# running it from three suites repeated the same violation three times for ~31 awk spawns
-# each (fix round 1, finding 12).
+# passing, so the shape is asserted: every suite's report() compares the resolved
+# definitions, most suites also call assert_hoisted_counters, and the directory scan
+# below reads every suite's text. The directory-wide half runs
+# once here because its answer cannot differ between callers.
 section "the hoisted counters are not re-copied"
 assert_hoisted_counters
 assert_hoist_shape
@@ -579,146 +574,63 @@ else
   fail "control: count_shadows counts no call, comment, or brace-less signature" "got [$got], expected [0]"
 fi
 
-# Controls, #599: a definition inside a heredoc BODY is not a definition of the file that
-# carries the heredoc. Bash is the judge here and a bash that sources these three defines
-# nothing (`declare -F pin`: absent, measured) while the line scan counted the body before
-# this change. The quoted and the unquoted delimiter are both measured — the issue's probe
-# used both — and `<<-` is the third because its terminator line is tab-stripped first.
-printf "cat <<'SHELL_FIXTURE'\npin() {\n  :\n}\nSHELL_FIXTURE\n" > "$ctl_sh/heredoc-quoted.sh"
-printf 'cat <<UNQUOTED\npin() {\n  :\n}\nUNQUOTED\n'             > "$ctl_sh/heredoc-unquoted.sh"
-printf 'cat <<-TABBED\n\tpin() {\n\t:\n\t}\n\tTABBED\n'          > "$ctl_sh/heredoc-tabbed.sh"
-for spelling in heredoc-quoted heredoc-unquoted heredoc-tabbed; do
-  got="$(count_shadows "$ctl_sh/$spelling.sh" pin)"
-  if [ "$got" = 0 ]; then pass "control: no definition is read inside the $spelling body"
-  else fail "control: no definition is read inside the $spelling body" "got [$got], expected [0]"; fi
-done
-# Adjacent control: the skip must END at the delimiter line. Without this one, a skip that
-# ran to the end of the file would satisfy all three controls above and disable the gate —
-# and its own expected count is measured, not assumed: the trailing definition is the only
-# one this file has, and a bash that sources it defines `pin` (`declare -F`: present).
-printf "cat <<'SHELL_FIXTURE'\npin() {\n  :\n}\nSHELL_FIXTURE\npin() {\n  :\n}\n" \
-  > "$ctl_sh/heredoc-then-definition.sh"
-got="$(count_shadows "$ctl_sh/heredoc-then-definition.sh" pin)"
+# #603: heredoc bodies are scanned as code. A line-start definition in fixture
+# data is the accepted loud false RED; adjacent data-only input must still be clean.
+printf "cat <<'SHELL_FIXTURE'\npin() {\n  :\n}\nSHELL_FIXTURE\n" > "$ctl_sh/heredoc-definition.sh"
+got="$(count_shadows "$ctl_sh/heredoc-definition.sh" pin)"
 if [ "$got" = "1 pin 1" ]; then
-  pass "control: the skip ends at the delimiter, so a definition after the body counts"
+  pass "control: a heredoc body with a line-start definition counts as a shadow (the loud bound)"
 else
-  fail "control: the skip ends at the delimiter, so a definition after the body counts" \
+  fail "control: a heredoc body with a line-start definition counts as a shadow (the loud bound)" \
     "got [$got], expected [1 pin 1]"
 fi
-# Adjacent control, the other direction: a `<<` inside a quoted string is text, not an
-# operator, so it opens no body to skip. A skip that started on any `<<` would run to the
-# end of this fixture and the definition under it would go uncounted.
-printf 'echo "a <<not-a-heredoc, inside a quoted string"\npin() {\n  :\n}\n' \
-  > "$ctl_sh/quoted-operator.sh"
-got="$(count_shadows "$ctl_sh/quoted-operator.sh" pin)"
+# #603 pre-PR B1: bash does not join a terminator that ends in `\` to the next line, so the
+# definition after it (bash's own `declare -f` rendering, brace on its own line) starts its
+# line. The joined pass alone counted 0 here; the line-by-line pass counts it.
+printf '%s\n' "cat <<'END\\'" 'fixture data' 'END\' 'pin ()' '{' '    :' '}' \
+  > "$ctl_sh/heredoc-backslash-terminator.sh"
+got="$(count_shadows "$ctl_sh/heredoc-backslash-terminator.sh" pin)"
 if [ "$got" = "1 pin 1" ]; then
-  pass "control: a << inside a quoted string opens no body to skip"
+  pass "control: a definition after a terminator that ends in a backslash still counts"
 else
-  fail "control: a << inside a quoted string opens no body to skip" "got [$got], expected [1 pin 1]"
-fi
-# Adjacent control, the same failure class in the one place this suite itself trips it: a
-# `<<` in a COMMENT is not an operator either. Measured under the mutation that drops the
-# code projection the operator scan shares with `see()`: the comment lines of this very
-# block start a skip whose delimiter is a backtick, the scan then reads nothing to the end
-# of the file, and a definition appended after those lines counts 0 — in silence.
-printf '# a <<comment-heredoc is text\npin() {\n  :\n}\n' > "$ctl_sh/comment-operator.sh"
-got="$(count_shadows "$ctl_sh/comment-operator.sh" pin)"
-if [ "$got" = "1 pin 1" ]; then
-  pass "control: a << in a comment opens no body to skip"
-else
-  fail "control: a << in a comment opens no body to skip" "got [$got], expected [1 pin 1]"
-fi
-# Controls, #602 review round 1 finding 1: the comment a line carries must be removed by
-# BASH's rule, not by the first `#` on the line — a `#` that is part of a word is part of
-# that word. Measured before the fix: both fixtures below counted 0, because the strip took
-# the delimiter down to `EOF` / `A ` and the skip then read nothing to the end of the file.
-printf 'cat <<EOF#tag\npin() {\n  :\n}\nEOF#tag\npin() {\n  :\n}\n' > "$ctl_sh/hash-in-delimiter.sh"
-printf 'cat <<"A #B"\npin() {\n  :\n}\nA #B\npin() {\n  :\n}\n'  > "$ctl_sh/hash-in-quoted-delimiter.sh"
-for ctl_delim in hash-in-delimiter hash-in-quoted-delimiter; do
-  got="$(count_shadows "$ctl_sh/$ctl_delim.sh" pin)"
-  if [ "$got" = "1 pin 1" ]; then
-    pass "control: a delimiter holding a # is read whole, so the skip ends where bash ends it ($ctl_delim)"
-  else
-    fail "control: a delimiter holding a # is read whole, so the skip ends where bash ends it ($ctl_delim)" \
-      "got [$got], expected [1 pin 1] — a truncated delimiter makes the skip run past the body"
-  fi
-done
-# Adjacent control for the same rule, the other direction: a `#` that DOES begin a comment,
-# in the one word-start position that is not a blank — after `;`. A rule that kept it would
-# leave the `<<` in that comment as an operator and skip the rest of the fixture.
-printf 'x=1;# a <<comment, after a semicolon\npin() {\n  :\n}\n' > "$ctl_sh/comment-after-semicolon.sh"
-got="$(count_shadows "$ctl_sh/comment-after-semicolon.sh" pin)"
-if [ "$got" = "1 pin 1" ]; then
-  pass "control: a comment that starts a word after ; is removed, so its << opens nothing"
-else
-  fail "control: a comment that starts a word after ; is removed, so its << opens nothing" \
+  fail "control: a definition after a terminator that ends in a backslash still counts" \
     "got [$got], expected [1 pin 1]"
 fi
-# Controls, #602 review round 1 finding 3: an EMPTY delimiter is still a delimiter, and bash
-# ends that body at the first empty line. Measured before the fix: both fixtures counted
-# `2 pin 2`, while a bash that sources them defines `pin` ONCE — the trailing definition — so
-# the body's copy was a shadow this scan invented. Each fixture keeps the trailing definition,
-# which is what makes the skip's END measured rather than assumed: a skip that ran to the end
-# of the file would count 0.
-printf "cat <<''\npin() {\n  :\n}\n\npin() {\n  :\n}\n" > "$ctl_sh/empty-delimiter-single.sh"
-printf 'cat <<""\npin() {\n  :\n}\n\npin() {\n  :\n}\n' > "$ctl_sh/empty-delimiter-double.sh"
-for ctl_empty in empty-delimiter-single empty-delimiter-double; do
-  got="$(count_shadows "$ctl_sh/$ctl_empty.sh" pin)"
+# PR #1241 round 1, C1: the same terminator before a signature split by backslash-newline.
+# A pass that reads each line alone cannot see the split signature; the run read from its
+# second line can.
+for split_form in 'pin \|() {' 'pin () \|{'; do
+  printf '%s\n' "cat <<'END\\'" 'fixture data' 'END\' "${split_form%%|*}" "${split_form#*|}" '    :' '}' \
+    > "$ctl_sh/heredoc-backslash-split.sh"
+  got="$(count_shadows "$ctl_sh/heredoc-backslash-split.sh" pin)"
   if [ "$got" = "1 pin 1" ]; then
-    pass "control: an empty delimiter ends its body at the empty line ($ctl_empty)"
+    pass "control: a split signature after a terminator that ends in a backslash still counts [${split_form%%|*}]"
   else
-    fail "control: an empty delimiter ends its body at the empty line ($ctl_empty)" \
-      "got [$got], expected [1 pin 1] — the body's definition is data and the trailing one is not"
+    fail "control: a split signature after a terminator that ends in a backslash still counts [${split_form%%|*}]" \
+      "got [$got], expected [1 pin 1]"
   fi
 done
-# Controls, #602 review round 2 findings 1 and 2: the two operators that are NOT heredocs and
-# were taken for one. Each fixture was measured twice — `bash -n` accepts it and a bash that
-# sources it defines `pin` — and each counted 0 before the fix, because a phantom body
-# swallowed the definition under it.
-printf 'case x in\n  x)# <<MISSING\n  ;;\nesac\npin() {\n  :\n}\n' > "$ctl_sh/comment-after-paren.sh"
-printf 'x=$(( 1 << 2 ))\npin() {\n  :\n}\n'                    > "$ctl_sh/arith-shift-expansion.sh"
-printf '(( 1 << 2 ))\npin() {\n  :\n}\n'                        > "$ctl_sh/arith-shift-command.sh"
-printf 'if (( 1 << 2 )); then :; fi\npin() {\n  :\n}\n'        > "$ctl_sh/arith-shift-in-if.sh"
-for spelling in comment-after-paren arith-shift-expansion arith-shift-command arith-shift-in-if; do
-  got="$(count_shadows "$ctl_sh/$spelling.sh" pin)"
+# PR #1241 fresh round 1, C1: two such chains in a row, where the join must start at a
+# different line in each run; and a brace-on-the-next-line signature whose brace line is
+# itself continued. Both are origin/main's `1 pin 1`.
+printf '%s\n' "cat <<'END\\'" 'd' 'END\' 'pin \' '()' '{ \' '  :; }' > "$ctl_sh/heredoc-two-chains.sh"
+printf '%s\n' "cat <<'END\\'" 'data' 'END\' 'pin()' '{ \' '  :; }' > "$ctl_sh/heredoc-continued-brace.sh"
+for chained in heredoc-two-chains heredoc-continued-brace; do
+  got="$(count_shadows "$ctl_sh/$chained.sh" pin)"
   if [ "$got" = "1 pin 1" ]; then
-    pass "control: the definition under a non-heredoc << still counts ($spelling)"
+    pass "control: a definition after a backslash-ending terminator still counts [$chained]"
   else
-    fail "control: the definition under a non-heredoc << still counts ($spelling)" \
-      "got [$got], expected [1 pin 1] — the << opened a body that swallowed the definition"
+    fail "control: a definition after a backslash-ending terminator still counts [$chained]" \
+      "got [$got], expected [1 pin 1]"
   fi
 done
-# The adjacent control for that class: when a body really has no end, the scan must REFUSE
-# rather than print a count, because everything after the operator is uncertified. This is the
-# fail-closed half — a misclassified operator can only cost a loud RED, never silence — and the
-# fixture is the one bash itself only warns about: measured, `bash -n` ACCEPTS an unterminated
-# heredoc (rc 0) and reports `here-document at line 1 delimited by end-of-file`, and a bash that
-# sources the fixture runs it with the same warning. The scan refuses it for that reason.
-printf 'cat <<NEVER_ENDED\npin() {\n  :\n}\n' > "$ctl_sh/unterminated-body.sh"
-got="$(count_shadows "$ctl_sh/unterminated-body.sh" pin)"
-case "$got" in
-  *"heredoc body opened at line 1 never ends"*) pass "control: an unterminated body is refused, not counted" ;;
-  *) fail "control: an unterminated body is refused, not counted" \
-       "got [$got] — a zero here would certify lines the scan never read" ;;
-esac
-# Controls, #602 review round 2 finding 2 (the second half): a backslash inside a DOUBLE-quoted
-# delimiter is not part of it — bash removes it before `$`, a backtick, a quote or another
-# backslash. Measured before the fix: `cat <<"A\$B"` was waited for as `A\$B`, the body never
-# ended and the scan REFUSED the file. The adjacent controls are the other two kinds of quoting:
-# a single-quoted delimiter keeps its backslash, and a bare one loses it, so a rule that removed
-# every backslash would break the first of those.
-printf 'cat <<"A\\$B"\npin() {\n  :\n}\nA$B\npin() {\n  :\n}\n'  > "$ctl_sh/delim-backslash-double.sh"
-printf "cat <<'A\\\\\$B'\npin() {\n  :\n}\nA\\\\\$B\npin() {\n  :\n}\n" > "$ctl_sh/delim-backslash-single.sh"
-printf 'cat <<A\\B\npin() {\n  :\n}\nAB\npin() {\n  :\n}\n'      > "$ctl_sh/delim-backslash-bare.sh"
-for spelling in delim-backslash-double delim-backslash-single delim-backslash-bare; do
-  got="$(count_shadows "$ctl_sh/$spelling.sh" pin)"
-  if [ "$got" = "1 pin 1" ]; then
-    pass "control: a backslash in a delimiter is read the way bash reads it ($spelling)"
-  else
-    fail "control: a backslash in a delimiter is read the way bash reads it ($spelling)" \
-      "got [$got], expected [1 pin 1] — the delimiter does not match the line bash terminates on"
-  fi
-done
+printf "cat <<'SHELL_FIXTURE'\nfixture data only\nSHELL_FIXTURE\n" > "$ctl_sh/heredoc-data.sh"
+got="$(count_shadows "$ctl_sh/heredoc-data.sh" pin)"
+if [ "$got" = 0 ]; then
+  pass "control: a data-only heredoc body counts no shadow"
+else
+  fail "control: a data-only heredoc body counts no shadow" "got [$got], expected [0]"
+fi
 rm -f "$ctl_sh"/*.sh
 if rmdir "$ctl_sh"; then
   pass "control: the spelling controls leave no fixture behind"
@@ -727,41 +639,28 @@ else
     "$ctl_sh survived its cleanup — a fixture was not removed before the directory"
 fi
 
-# Controls: the shape scan reports a planted shadow, passes a tree with none, and
-# FAILS a suite it cannot read rather than skipping it. All three run the real scan
-# through its optional directory argument, captured in a command substitution so the
-# counters it moves stay the subshell's.
+# Controls: every real suite basename participates in the directory scan. A
+# planted shadow must fail for each one, then a clean tree must pass.
 ctl_tree="$(mktemp -d)"
-printf 'occurrences() {\n  :\n}\npin() {\n  :\n}\n' > "$ctl_tree/$HOISTED_EXEMPT"
-printf 'pin() {\n  :\n}\n' > "$ctl_tree/test-with-shadow.sh"
-out="$(assert_hoist_shape "$ctl_tree")"
-if printf '%s' "$out" | grep -F 'no copy of a hoisted counter in test-with-shadow.sh' >/dev/null; then
-  pass "control: the shape scan reports a planted shadow"
-else
-  fail "control: the shape scan reports a planted shadow" "$out"
-fi
-rm -f "$ctl_tree/test-with-shadow.sh"
+for suite in "$SCRIPT_DIR"/test-*.sh; do
+  suite_name="${suite##*/}"
+  printf 'pin() {\n  :\n}\n' > "$ctl_tree/$suite_name"
+  out="$(assert_hoist_shape "$ctl_tree")"
+  if printf '%s' "$out" | grep -F "no copy of a hoisted counter in $suite_name" >/dev/null; then
+    pass "control: the shape scan reports a planted shadow in $suite_name"
+  else
+    fail "control: the shape scan reports a planted shadow in $suite_name" "$out"
+  fi
+  rm -f "$ctl_tree/$suite_name"
+done
 printf 'nothing here defines anything\n' > "$ctl_tree/test-clean.sh"
 out="$(assert_hoist_shape "$ctl_tree")"
-if printf '%s' "$out" | grep -F 'no suite outside the exemption re-defines a hoisted counter' >/dev/null; then
+if printf '%s' "$out" | grep -F 'no suite re-defines a hoisted counter' >/dev/null; then
   pass "control: the shape scan passes a tree with no shadow"
 else
   fail "control: the shape scan passes a tree with no shadow" "$out"
 fi
 rm -f "$ctl_tree/test-clean.sh"
-# Control, #599's own reproduction at the level the issue measured it: a tree whose only
-# suite embeds a fixture in a heredoc defines nothing, so the directory scan must not
-# redden it. Measured before this change: it reported `1 pin 1` for that suite, which is
-# the RED this control exists to keep out. The planted-shadow control above is its
-# adjacent control — a scan that reported nothing at all would pass this one and fail that.
-printf "cat <<'SHELL_FIXTURE'\npin() {\n  :\n}\nSHELL_FIXTURE\n" > "$ctl_tree/test-embeds-fixture.sh"
-out="$(assert_hoist_shape "$ctl_tree")"
-if printf '%s' "$out" | grep -F 'no suite outside the exemption re-defines a hoisted counter' >/dev/null; then
-  pass "control: the shape scan reads no shadow from a suite that embeds a fixture in a heredoc"
-else
-  fail "control: the shape scan reads no shadow from a suite that embeds a fixture in a heredoc" "$out"
-fi
-rm -f "$ctl_tree/test-embeds-fixture.sh"
 # The unreadable case: on a root container no mode makes a file unreadable for this
 # uid — the sweep's control above documents the same constraint — so the fixture
 # falls back to a dangling symlink. Both fail the same `-r` guard, and the message
@@ -777,7 +676,7 @@ else
   fail "control: the shape scan fails a suite it cannot read" "$out"
 fi
 chmod 644 "$ctl_tree/test-locked.sh" 2>/dev/null
-rm -f "$ctl_tree/test-locked.sh" "$ctl_tree/$HOISTED_EXEMPT"
+rm -f "$ctl_tree/test-locked.sh"
 if rmdir "$ctl_tree"; then
   pass "control: the scan controls leave no fixture behind"
 else
@@ -913,8 +812,8 @@ else
   fail "control: a suite that defines no shadow still reports clean at report" \
     "output: [$out]"
 fi
-# The adjacent control for that call, from #602 F7: `report` reads its caller's name to skip the
-# exempted file, and a shell with no caller frame at all — `bash -c` — has no BASH_SOURCE[1].
+# The adjacent control for that call, from #602 F7: `report` reads its caller's name for
+# the label, and a shell with no caller frame at all — `bash -c` — has no BASH_SOURCE[1].
 # Measured on faa3dd3: `. _helpers.sh` then `report` under `set -u` aborted with
 # "BASH_SOURCE[1]: unbound variable" instead of reporting.
 if out="$(bash -c "set -u; . '$SCRIPT_DIR/_helpers.sh'; report" 2>&1)" &&
