@@ -2219,6 +2219,7 @@ _r=1; ! grep -Fq 'Exactly one thing writes' "$_DS" && _r=0
 _pin "$_r" "doctor/SKILL.md claims 'Exactly one thing writes' again - §7's repair is a second write, so the count is wrong"
 pin_prose "$_DS" '**§7'"'"'s `claude_md` repair**, only on an explicit yes.' 'doctor names the explicit-yes claude_md repair'
 pin "$_DS" 'with §7'"'"'s `claude_md` repair it is one of the two writes.' 'doctor restates the claude_md repair as one of the two writes'
+pin "$_DS" 'is one of `doctor`'"'"'s two writes (§6 is the other).' 'doctor §7 restates the claude_md repair as one of its two writes'
 _r=1; ! grep -Fq 'do not edit `AGENTS.md` yourself' "$_DS" && _r=0
 _pin "$_r" "doctor/SKILL.md §7 does not name the claude_md check or still forbids the repair its reference ships"
 _r=1; grep -Fq '| `AGENTS.md` | merge ossify' "$_AS" && ! grep -Fq '| `CLAUDE.md` | merge' "$_AS" && _r=0
