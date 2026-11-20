@@ -42,6 +42,12 @@ printf '%s\n' '' '---' 'expected: .gitleaks.toml' '---' "${body/.gitleaks.toml/c
 expect 'X2 leading blank before frontmatter cannot declare a body input' 1 'I10'
 printf '%s\n' '--- ' 'expected: .gitleaks.toml' '---' "${body/.gitleaks.toml/config file}" > "$fixture"
 expect 'X3 trailing whitespace on frontmatter cannot declare a body input' 1 'I10'
+printf '\xef\xbb\xbf---\nexpected: .gitleaks.toml\n---\n%s\n' "${body/.gitleaks.toml/config file}" > "$fixture"
+expect 'C4 a byte-order mark before frontmatter cannot declare a body input' 1 'I10'
+printf '%s — an em dash the ASCII codec cannot decode\n' "$body" > "$fixture"
+out_c5=0; LC_ALL=C PYTHONCOERCECLOCALE=0 PYTHONUTF8=0 python3 "$CHECK" "$WORK" >/dev/null 2>&1 || out_c5=$?
+if [[ "$out_c5" == 0 ]]; then PASS=$((PASS+1)); printf 'ok: %s\n' 'C5 an ASCII locale still reads UTF-8 fixtures'
+else FAIL=$((FAIL+1)); printf 'FAIL: %s (rc %s)\n' 'C5 an ASCII locale still reads UTF-8 fixtures' "$out_c5"; fi
 printf '%s\n' "${body/git ls-files -v/git ls-files
 -v}" > "$fixture"
 expect 'line wrapping is not a different phrasing' 0 '1 fixture(s)'

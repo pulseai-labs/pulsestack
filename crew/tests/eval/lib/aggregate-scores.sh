@@ -15,6 +15,8 @@ FIXTURES_DIR="${EVAL_DIR}/fixtures"
 # Freshness covers exactly the fixture and the surface rubric the judge reads.
 # Stated limit: skill files are NOT checked; changed skills still owe a rerun.
 # A result committed with its input edit counts as current; this is not provenance.
+# "Judged at" is the result's LAST commit: a later commit that only moves,
+# re-modes or reformats the result counts as a refresh. Git order, not a rerun.
 # Symlink inputs compare target bytes against link-text blobs and can report STALE.
 # Committed, unchanged results compare clean-filtered inputs with their blobs
 # at the result's last commit. Fresh (modified/untracked) results use mtimes.

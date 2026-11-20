@@ -129,7 +129,8 @@ Freshness covers fixture and rubric content, not skill files. An unchanged,
 committed result is STALE if either input differs from its blob at the result's
 last commit, including working-tree edits and inputs absent at that commit.
 Content restored to its earlier bytes stays current regardless of merge or
-commit dates. An untracked or modified result instead uses input mtimes: write
+commit dates. The result's last commit is taken as the moment it was judged, so a
+later commit that only moves, re-modes or reformats a result counts as a refresh. An untracked or modified result instead uses input mtimes: write
 the fresh judgment after its inputs. Outside a git work tree, in a shallow clone,
 or on a failed git read, the gate reports `STALE-CHECK UNAVAILABLE` and stops. It
 aggregates existing judgments only; a green aggregate does not execute an evaluation.

@@ -15,7 +15,7 @@ CLASSES = {"I2", "I4", "I6", "I10", "I23", "I26", "I27"}
 
 
 def check(eval_dir: Path) -> int:
-    contract = (eval_dir / "derived-inputs" / f"{SURFACE}.md").read_text()
+    contract = (eval_dir / "derived-inputs" / f"{SURFACE}.md").read_text(encoding="utf-8")
     section = contract.split("<!-- presence-contract -->", 1)[1].split(
         "<!-- /presence-contract -->", 1
     )[0]
@@ -40,7 +40,7 @@ def check(eval_dir: Path) -> int:
         raise ValueError("no fixtures found")
     missing = 0
     for fixture in fixtures:
-        body = fixture.read_text()
+        body = fixture.read_text(encoding="utf-8").removeprefix("\ufeff")
         opener = re.match(r"(?:[ \t]*\n)*---[ \t]*(?:\n|$)", body)
         if opener is not None:
             end = re.search(r"^---[ \t]*$", body[opener.end():], re.MULTILINE)
