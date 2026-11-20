@@ -1,11 +1,1 @@
-{
-  "scores": {
-    "disposition_correct": 5,
-    "veto_auto_bone": 5,
-    "fail_closed": 5,
-    "override_recorded": 5,
-    "never_silent_pass": 5
-  },
-  "pass": true,
-  "notes": "Output returns `escalate`, matching the fixture answer key, and every citation it makes checks out against the real skill sources (critic-veto.md \u00a73 fail-closed clause, \u00a74.4 stale trigger with the identical `src/legacy/adapter.rs` example, \u00a74.5 record shape with the trigger named in the reason plus in-conversation surfacing, \u00a74.6's three closure paths including the unresolved\u2192bone default, \u00a75 override shape, bone-touch-judge.md \u00a71 independence and rc 0/1/2 semantics, class-declaration.md rung 4's flesh\u2192bone-only direction, SKILL.md \u00a711 anti-patterns); the two unexercised criteria (auto-bone, override) are handled consistently rather than absently \u2014 auto-bone is rejected with the correct \u00a74.1 specific/current/decidable test and named as \"manufacturing a veto\", and override is rejected as user-initiated-only while still stating the correct dual `class_set` + `veto_add \u2026 override` recording shape; no silent pass and no fabricated veto (the finding genuinely reached Gate B, so escalation is not manufactured)."
-}
+{"scores":{"disposition_correct":5,"veto_auto_bone":5,"fail_closed":5,"override_recorded":5,"never_silent_pass":5},"pass":true,"notes":"The output resolves the stale finding to ESCALATE, records it with veto_add escalate, does not auto-pass or auto-bone it, and holds the spine open pending a user ruling. It also records any later override with the user's reason and falls back to bone if the user declines to rule."}

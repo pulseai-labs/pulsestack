@@ -1,11 +1,1 @@
-{
-  "scores": {
-    "disposition_correct": 5,
-    "veto_auto_bone": 5,
-    "fail_closed": 5,
-    "override_recorded": 5,
-    "never_silent_pass": 5
-  },
-  "pass": true,
-  "notes": "Output returns `escalate`, matching the fixture answer key, and derives it correctly through Gate A (veto-grade: public contract/consumer compatibility) then Gate B \u00a74.3 contradictory, explicitly ruling out clear/ambiguous/stale with sound reasons; it records BOTH findings via `oss veto_add \u2026 escalate \"contradictory - fail-closed\"` per \u00a74.5's trigger-named template, surfaces to the user, and correctly states per \u00a74.6 that the escalate record does not move the class and the pass must end in one of the three `class_set` calls (including the fail-closed `bone` default if the user declines). The two criteria this fixture does not exercise are fully consistent: it does not auto-bone (correct \u2014 not a \u00a74.1 clear finding) and its described override path matches \u00a75 exactly (`class_set \u2026 flesh` + `veto_add \u2026 override` with the user's reason, never self-initiated); nothing is silently passed and no disposition is manufactured. Only blemish is a narrated `critic_detect` result the fixture never supplies, inferred from the presence of findings \u2014 harmless and touching no criterion."
-}
+{"scores":{"disposition_correct":5,"veto_auto_bone":5,"fail_closed":5,"override_recorded":5,"never_silent_pass":5},"pass":true,"notes":"The output resolves the contradictory pair on r0.s6 to ESCALATE, which matches expected_disposition. It records the escalate with both findings, holds the class open, surfaces the question to the user, and applies the fail-closed bone default if the user declines to rule."}

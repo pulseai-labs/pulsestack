@@ -1,0 +1,1 @@
+{"scores":{"verbatim_refusal":5,"authoring_only_at_a1":5,"full_reprobe_coverage":5,"never_overwrite":5},"pass":true,"notes":"The skill correctly recognized that the probe resolves, printed no refusal, authored and re-probed nothing, left topology.json untouched, and treated the later mobile-app remark as vision prose rather than a trigger to edit."}
