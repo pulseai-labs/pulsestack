@@ -1919,22 +1919,35 @@ pin "$PRBRIEFS_MD" "RUN_JSON's path and the pane its \`run.orchestrator\`" "the 
 # every shipped carrier plus the manifests, fixtures and rubric — CHANGELOG included
 # (its 0.2.4 entry names the issue, never the sentence). This test file is the
 # reader, so its own pin arguments are not swept.
-gap_absent() { # <file>
-  gap_rel="${1#"$PLUGIN_ROOT"/}"
-  if [ ! -r "$1" ]; then fail "no #556 gap text in $gap_rel" "missing or unreadable: $1"; return 0; fi
-  gap_hits=0
-  for gap_needle in 'does not rebind it' 'issue #556 holds that gap'; do
-    gap_c="$(occurrences_flat "$1" "$gap_needle")" || { fail "no #556 gap text in $gap_rel" "unreadable file: $1"; return 0; }
-    gap_hits=$((gap_hits + gap_c))
-  done
-  if [ "$gap_hits" -eq 0 ]; then pass "no #556 gap text in $gap_rel"
-  else fail "no #556 gap text in $gap_rel" "$gap_hits occurrence(s)"; fi
-}
+# The sweep is absent_any over two needles, flat (#657 item 6: it had re-implemented
+# absent_any). The second needle is narrowed to `issue #556 holds that gap` because the
+# CHANGELOG names the issue itself; the two controls after the sweep pin both halves of
+# that narrowing: the gap sentence wrapped across a line still fails, and a bare
+# `issue #556` still passes (#657 item 2).
+GAP_NEEDLES=('does not rebind it' 'issue #556 holds that gap')
 GAP_CARRIERS=("$PLUGIN_ROOT/README.md" "$SKILL_MD" "$COMMAND_MD" "$REF"/*.md \
   "$PLUGIN_ROOT/CHANGELOG.md" "$PLUGIN_ROOT/.claude-plugin/plugin.json" \
   "$PLUGIN_ROOT/.codex-plugin/plugin.json" \
   "$EVAL_DIR"/fixtures/ossify-spine-execution/*.md "$EVAL_RUBRIC_MD")
-for gap_f in "${GAP_CARRIERS[@]}"; do gap_absent "$gap_f"; done
+for gap_f in "${GAP_CARRIERS[@]}"; do
+  absent_any "$gap_f" "no #556 gap text in ${gap_f#"$PLUGIN_ROOT"/}" flat "${GAP_NEEDLES[@]}"
+done
+gap_ctl="$(mktemp -d)"
+printf 'The rotate successor binds it,\nbut issue #556 holds\nthat gap open.\n' > "$gap_ctl/wrapped.md"
+printf '## 0.2.4\n\n- The rebind rule closes issue #556.\n' > "$gap_ctl/names-issue.md"
+gap_out="$(absent_any "$gap_ctl/wrapped.md" "gap control" flat "${GAP_NEEDLES[@]}")"
+case "$gap_out" in
+  *"the claim is back: [issue #556 holds that gap x1]"*)
+    pass "control: the gap sentence wrapped across lines still fails the sweep" ;;
+  *) fail "control: the gap sentence wrapped across lines still fails the sweep" "got: $gap_out" ;;
+esac
+gap_out="$(absent_any "$gap_ctl/names-issue.md" "gap control" flat "${GAP_NEEDLES[@]}")"
+case "$gap_out" in
+  *"✗"*|"") fail "control: a bare mention of issue #556 passes the sweep" "got: $gap_out" ;;
+  *"gap control"*) pass "control: a bare mention of issue #556 passes the sweep" ;;
+  *) fail "control: a bare mention of issue #556 passes the sweep" "got: $gap_out" ;;
+esac
+rm -f "$gap_ctl/wrapped.md" "$gap_ctl/names-issue.md"; rmdir "$gap_ctl"
 
 # #556 round 1, finding 1: the work-PR `open:` successor's dispatch must carry the
 # predecessor's RUN_JSON path, or its continue branch and rebind are unreachable and
@@ -1949,6 +1962,23 @@ pin "$NESTED_MD" 'the `RUN_JSON` path that return named' \
   "nested-run §4 carries RUN_JSON into a resumed work-PR dispatch" flat
 pin "$EXEC_MD" 'the `RUN_JSON` path that record'"'"'s return named' \
   "ossify-execution's top column carries RUN_JSON into a resumed work-PR dispatch" flat
+# #657 item 1: the pointer phrases above do not carry the clause that makes the carried
+# path usable. Two of the four sites state it (lifecycle step 1b and nested-run §4); the
+# rotation paragraph and the execution table point at those. Deleting the clause at
+# either site must fail.
+pin "$LIFECYCLE_MD" 'dispatch continues and rebinds that file; a first dispatch names a fresh one' \
+  "lifecycle step 1b: a resumed dispatch continues and rebinds RUN_JSON, a first names a fresh one" flat
+pin "$NESTED_MD" 'a resumed successor continues and rebinds that file, a first dispatch names a fresh one' \
+  "nested-run §4: a resumed successor continues and rebinds RUN_JSON, a first names a fresh one" flat
+# #657 item 3: the receiving end of that chain. The brief's own step 1 must keep its
+# continue branch, or a carried RUN_JSON has nowhere to land.
+pin "$PRBRIEFS_MD" 'Create RUN_JSON for your two seats, or continue it if it exists.' \
+  "the work-PR brief continues an existing RUN_JSON" flat
+pin "$BRIEFS_MD" 'Create RUN_JSON for your item tasks, or continue it if it exists.' \
+  "the spine brief continues an existing RUN_JSON" flat
+# #657 item 5: the rubric scores the RUN_JSON demands fixture 16's answer key makes.
+pin "$EVAL_RUBRIC_MD" 'A resumed dispatch carries the `RUN_JSON` path the PR'"'"'s last `open:` return named' \
+  "rubric criterion 5 scores the carried RUN_JSON" flat
 
 section "the run file carries the live facts (#810, #816, #819)"
 # Spec §3/§5: each fact a successor needs is written at the step that learns it.

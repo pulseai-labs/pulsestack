@@ -1,7 +1,7 @@
 ---
 scenario_id: 16-open-pr-resumes-prior-review
 expected_outcome: proceed
-expected_reason: 'Three states, each scored on its own - a later state never rides on
+expected_reason: 'Four states, each scored on its own - a later state never rides on
   an earlier one''s answer. (a) The open: result persists the review record - whether
   the delegated review ran, its reviewed head, its clean/findings state and summary,
   and the durable ledger/comment references - and it carries the RUN_JSON path it
