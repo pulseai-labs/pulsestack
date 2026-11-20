@@ -377,8 +377,9 @@ fi
 # replaced the halt.
 pin "$_F" 'To reverse the withdrawal: \"oss\" work_item_status $wi planned' 'work-item close withdrawal recovery names work_item_status'
 pin "$_F" 'Carry the work into a NEW spine instead - \"oss\" spine_add' 'work-item close withdrawal recovery names spine_add'
-pin "$_F" 'and round-orchestration.md §2'"'"'s re-entry arm would route' 'work-item close withdrawal recovery names round-orchestration.md'
+pin "$_F" 'and round-orchestration.md §2'"'"'s re-entry arm would route the un-withdrawn item onto a branch nothing merges again' 'work-item close withdrawal recovery names round-orchestration.md and the branch nothing merges'
 pin "$_F" 'demo-ledger amendment it owes is plan-spine/references/decomposition.md §1' 'work-item close withdrawal recovery names decomposition.md'
+pin "$_F" 'instead - \"oss\" spine_add <release> <name> <class> <target-repo>, then \"oss\" work_item_add it there (plan-spine/references/decomposition.md §1'"'"'s whole-spine arm)' 'work-item close withdrawal recovery points the new spine at the whole-spine arm'
 # (c) THE ARM MAY NOT ASSUME THE ITEM HAS NO DISPATCH ANY MORE (P1-B, the operator's
 # ruling of 2026-09-23; round-3 finding at work-item-close.md:43). The arm used to
 # assert "it has no worktree by construction" and "nothing should be reconstructed
@@ -484,7 +485,7 @@ pin "$_SW" 'xargs -0 oss touch_check < "$listed" >> "$hits" || :' 'touch sweep i
 if grep -Fq 'ls-files' "$_SW"; then
   T_PASS=$((T_PASS+1))
 else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: the §5 sweep recipe does not INVOKE both the oracle (oss touch_check) and the corpus (git ls-files)"
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: the §5 sweep recipe does not INVOKE the corpus (git ls-files); the oracle half is pinned above"
 fi
 # D4: `not-applicable` occurs three times in the file (a comment and two prose
 # paragraphs), so the pin lands on the paragraph that states the exclusion - the
@@ -1238,6 +1239,7 @@ if [ -n "$_b_ref" ]; then
   done
 fi
 pin "$_E_SVMD" '**complete values** per bones-registry.md §3 part 1, never a numeric substring' 'B1 doctor cites the complete-value ADR grammar authority'
+pin "$_E_SVMD" 'the complete value must follow bones-registry.md §3 part 1 (the ADR identifier authority)' 'B1 the authority table row defers to the ADR grammar authority'
 t_assert_eq 1 "$(awk '/sv_fold\(\)/ {n++} END{print n+0}' "$_E_SV")" 'B2 key fold/drop-empty program defined once'
 t_assert_eq 1 "$(awk '/is_destination\(\)/ {n++} END{print n+0}' "$_SF")" 'B4 destination predicate stated once'
 t_assert_eq 0 "$(awk '/^while IFS=.*destination/ {f=1} f {print} f && /^done/ {exit}' "$HERE/test-prose-contracts.sh" | awk '/t_capture env / {n++} END{print n+0}')" 'B5 unset destination uses _o_next2'
@@ -1542,6 +1544,7 @@ _r=1; grep -Fq 'joins the target repo' "$_AD4" && grep -Fq 'When that directory 
 _pin "$_r" "bones-registry §3 prescribes one filename form regardless of the repo's series - the rule contradicts the reason bone ADRs live in that repo"
 _HR4="$_OSSR/skills/close/references/harvest.md"
 pin "$_HR4" 'recorded — `r0 baseline <sha>`, or one' 'harvest adoption trailer carries the recorded baseline'
+pin "$_HR4" 'adoption'"'"'s baseline — `r0 baseline <sha>`, one' 'harvest accepted-entry source id names the adoption baseline'
 _r=1; grep -Fq 'source: report|handoff|adoption' "$_HR4" && grep -Fq 'a source that is exactly `report`, `handoff` or' "$_HR4" && _r=0
 _pin "$_r" "harvest's trailer grammar admits only report|handoff - an adopted series cannot be recorded honestly"
 _r=1; grep -Fq '`source: adoption`' "$_OSSR/skills/adopt/SKILL.md" && grep -Fq 'r0 baseline <sha>' "$_OSSR/skills/adopt/SKILL.md" && _r=0
@@ -2191,6 +2194,7 @@ pin "$_AS" 'then its `reviewer-home.md` §5 history pass' "adopt routes to the h
 pin "$_RH" 'A finding becomes a proposal only when it recurs in two or more PRs.' "recurrence floor"
 pin "$_RH" 'Only accepted entries are written.' "operator accepts each entry"
 pin "$_OD5" 'An `AGENTS.md` whose first line is' 'workspace-init stub exception requires the marker on the first line'
+pin "$_OD5" 'The marker must be the first line.' 'workspace-init stub exception states the first-line rule'
 _r=1; grep -Fq "$_MARK" "$_OD5" && grep -Fq 'counts as unoccupied' "$_OD5" && _r=0
 _pin "$_r" "occupied-destinations has no workspace-init stub exception - /start leaves the marked stub in place, so it never becomes ossify's AGENTS.md (#554)"
 _r=1; grep -Fq 'leftover `CLAUDE.md`' "$_OD5" && grep -Fq 'ossify:doctor' "$_OD5" && _r=0
@@ -2209,7 +2213,7 @@ _pin "$_r" "interop-check's repair writes before the operator has seen it - work
 # yes-gated repair. The older "exactly one thing writes" claim is false.
 _r=1; ! grep -Fq 'Exactly one thing writes' "$_DS" && _r=0
 _pin "$_r" "doctor/SKILL.md claims 'Exactly one thing writes' again - §7's repair is a second write, so the count is wrong"
-pin "$_DS" '**§7'"'"'s `claude_md` repair**, only on an explicit' 'doctor names the explicit-yes claude_md repair'
+pin_prose "$_DS" '**§7'"'"'s `claude_md` repair**, only on an explicit yes.' 'doctor names the explicit-yes claude_md repair'
 _r=1; ! grep -Fq 'do not edit `AGENTS.md` yourself' "$_DS" && _r=0
 _pin "$_r" "doctor/SKILL.md §7 does not name the claude_md check or still forbids the repair its reference ships"
 _r=1; grep -Fq '| `AGENTS.md` | merge ossify' "$_AS" && ! grep -Fq '| `CLAUDE.md` | merge' "$_AS" && _r=0
@@ -2242,7 +2246,7 @@ _pin "$_r" "§5 has no hold - an unanswered disagreement re-emits ok: with the C
 # Round 2 (E1): the anchor moved from "only when the source is" to "Choose the
 # command **first**, by the tracking test" - the same claim, and the phrase E1's
 # no-fallback rule is built on. The grep below keeps the claim pinned.
-pin "$_IC" '**Tracked** (`git -C "<ai_workspace.root>" ls-files --error-unmatch "<path>"`' 'repair chooses git mv by the source tracking test'
+pin_prose "$_IC" '**Tracked** (`git -C "<ai_workspace.root>" ls-files --error-unmatch "<path>"` succeeds): `git -C "<ai_workspace.root>" mv' 'repair chooses git mv by the source tracking test'
 _r=1; grep -Fq 'Choose the' "$_IC" \
   && grep -Fq 'by the tracking test' "$_IC" \
   && ! grep -Fq 'plain `mv` if the workspace is not a git repo' "$_IC" && _r=0
@@ -2262,11 +2266,13 @@ _r=1; ! grep -Fq 'Editing `AGENTS.md` or the pairing manifest' "$_DS" \
   && ! grep -Fq 'The one surface in this skill that' "$_PRA" && _r=0
 _pin "$_r" "doctor's never-do list still forbids editing AGENTS.md to make the interop check pass, or rule-authoring still calls itself the one writing surface (D7)"
 # D9: replacing the marked stub must carry the stub's git policy and trace filter.
-# The pins and presence check read the CARRY INSTRUCTION, not the section heading: a heading word
+# The pins read the sentence that names each safeguard, and the presence check reads the
+# CARRY INSTRUCTION, not the section heading: a heading word
 # `verbatim` satisfied an earlier form of this pin while the instruction itself
 # could be deleted (the mutation survived - PR #836 round-2 fix).
 pin "$_OD5" '`## Git policy` is the default-deny rule' 'stub replacement identifies the Git policy safeguard'
 pin "$_OD5" '`## AI-trace filter` is why a hook' 'stub replacement identifies the AI-trace safeguard'
+pin_prose "$_OD5" 'the workspace-init stub was replaced and its `## Git policy` and `## AI-trace filter` sections were carried across' 'stub replacement hand-off names both carried sections'
 _r=1; grep -Fq 'copy both sections from it into' "$_OD5" && _r=0
 _pin "$_r" "/start's stub replacement drops the stub's Git policy and AI-trace filter sections - later agents lose the network-ops default-deny (D9)"
 
