@@ -379,6 +379,8 @@ pin "$_F" 'To reverse the withdrawal: \"oss\" work_item_status $wi planned' 'wor
 pin "$_F" 'Carry the work into a NEW spine instead - \"oss\" spine_add' 'work-item close withdrawal recovery names spine_add'
 pin "$_F" 'and round-orchestration.md §2'"'"'s re-entry arm would route the un-withdrawn item onto a branch nothing merges again' 'work-item close withdrawal recovery names round-orchestration.md and the branch nothing merges'
 pin "$_F" 'demo-ledger amendment it owes is plan-spine/references/decomposition.md §1' 'work-item close withdrawal recovery names decomposition.md'
+pin "$_F" 'reports its own halt - and where it cannot run, carry the work into a NEW spine: \"oss\" spine_add <release> <name> <class> <target-repo>, then \"oss\" work_item_add it there (plan-spine/references/decomposition.md §1'"'"'s whole-spine arm)' 'work-item close drift-arm recovery names spine_add and the whole-spine arm'
+pin "$_F" 'scribes (work-item/references/round-orchestration.md §2/§3) so it lands' 'work-item close drift-arm recovery resumes through round-orchestration.md'
 pin "$_F" 'instead - \"oss\" spine_add <release> <name> <class> <target-repo>, then \"oss\" work_item_add it there (plan-spine/references/decomposition.md §1'"'"'s whole-spine arm)' 'work-item close withdrawal recovery points the new spine at the whole-spine arm'
 # (c) THE ARM MAY NOT ASSUME THE ITEM HAS NO DISPATCH ANY MORE (P1-B, the operator's
 # ruling of 2026-09-23; round-3 finding at work-item-close.md:43). The arm used to
@@ -2200,6 +2202,8 @@ _pin "$_r" "occupied-destinations has no workspace-init stub exception - /start 
 _r=1; grep -Fq 'leftover `CLAUDE.md`' "$_OD5" && grep -Fq 'ossify:doctor' "$_OD5" && _r=0
 _pin "$_r" "occupied-destinations is silent on a leftover CLAUDE.md - Claude Code keeps loading it over the AGENTS.md /start just wrote"
 pin "$_IC" '| `fail: claude_md - <path> exists; Claude Code loads it and ignores AGENTS.md` |' 'claude_md declares the suppressing-file failure line'
+pin "$_IC" 'fail: claude_md - /path/CLAUDE.md exists; Claude Code loads it and ignores AGENTS.md' 'interop-check output example shows the root CLAUDE.md failure line'
+pin "$_IC" 'fail: claude_md - /path/.claude/CLAUDE.md exists; Claude Code loads it and ignores AGENTS.md' 'interop-check output example shows the dot-claude CLAUDE.md failure line'
 pin "$_IC" 'Look for `<ai_workspace.root>/CLAUDE.md`, `.claude/CLAUDE.md` under that root,' 'claude_md probes the workspace dot-claude instruction file'
 _r=1; grep -Fq '### `claude_md`' "$_IC" && _r=0
 _pin "$_r" "interop-check has no claude_md check - a leftover CLAUDE.md silently shadows AGENTS.md"
@@ -2214,6 +2218,7 @@ _pin "$_r" "interop-check's repair writes before the operator has seen it - work
 _r=1; ! grep -Fq 'Exactly one thing writes' "$_DS" && _r=0
 _pin "$_r" "doctor/SKILL.md claims 'Exactly one thing writes' again - §7's repair is a second write, so the count is wrong"
 pin_prose "$_DS" '**§7'"'"'s `claude_md` repair**, only on an explicit yes.' 'doctor names the explicit-yes claude_md repair'
+pin "$_DS" 'with §7'"'"'s `claude_md` repair it is one of the two writes.' 'doctor restates the claude_md repair as one of the two writes'
 _r=1; ! grep -Fq 'do not edit `AGENTS.md` yourself' "$_DS" && _r=0
 _pin "$_r" "doctor/SKILL.md §7 does not name the claude_md check or still forbids the repair its reference ships"
 _r=1; grep -Fq '| `AGENTS.md` | merge ossify' "$_AS" && ! grep -Fq '| `CLAUDE.md` | merge' "$_AS" && _r=0
