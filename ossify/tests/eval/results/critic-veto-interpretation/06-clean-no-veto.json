@@ -1,11 +1,1 @@
-{
-  "scores": {
-    "disposition_correct": 5,
-    "veto_auto_bone": 5,
-    "fail_closed": 5,
-    "override_recorded": 4,
-    "never_silent_pass": 5
-  },
-  "pass": true,
-  "notes": "Output returns `none` matching the fixture answer key, writes no disposition record, and leaves the declared `flesh` class untouched; its Gate A reasoning (positively placing the cosmetic/`alternative` remark as class-irrelevant so the fail-closed clause does not engage) matches critic-veto.md \u00a73 and the \u00a76 last worked-disposition row. All cited references resolve as claimed (bone-touch-judge.md \u00a71 independence, \u00a75 \"On no hit\", rc 0=matched / 1=clean / 2=could-not-check per line 49; class-declaration.md \u00a71 ladder rungs, \u00a72 rationale shape, \u00a73 worked-contrast row). It correctly states `none` is never an argument to `oss veto_add` (exit 2), keeps the bone-touch verdict independent of the critic, and surfaces the \u00a77 digest \u2014 so it neither silent-passes nor manufactures a veto/escalation. Auto-bone and the three escalate triggers are correctly identified and correctly withheld. The override criterion is unexercised by this fixture and appears only as a one-clause \"no user \u00a75 override\" note \u2014 consistent, but not demonstrated, hence 4."
-}
+{"scores":{"disposition_correct":5,"veto_auto_bone":5,"fail_closed":5,"override_recorded":5,"never_silent_pass":5},"pass":true,"notes":"The output resolves to `none` with no disposition record written, correctly treats the cosmetic alternative-severity remark as non-veto-grade, and avoids both silent-pass and a manufactured veto."}

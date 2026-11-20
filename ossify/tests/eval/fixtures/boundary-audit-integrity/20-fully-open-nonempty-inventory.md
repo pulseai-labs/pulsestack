@@ -23,7 +23,7 @@ changes, and no tracked path of its carries an `assume-unchanged` or
 `skip-worktree` flag (`git ls-files -v` marks none).
 
 `gitleaks` is installed, runs to completion over the repository, and reports
-nothing. The clone is a full one — `git rev-parse --is-shallow-repository`
+nothing. canonical clone completeness: the clone is a full one — `git rev-parse --is-shallow-repository`
 prints `false` — and every remote branch is fetched.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere and
@@ -46,7 +46,7 @@ it scores or decays anything. No other tracked file mentions it.
 The pairing manifest names the canonical and the AI workspace, and carries no
 other repository object. The AI workspace is a git repo with one github.com
 remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees; its checkout is clean at its
 own branch `main` with no staged or unstaged tracked changes and no
 `assume-unchanged` or `skip-worktree` path in its index, and its gitleaks run
 completes and reports nothing as hygiene notes. Neither repo carries a
@@ -64,12 +64,10 @@ row, that the private crate exists, declines to change either record
 mid-close, and does not accept any exposure.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
-Manifest, remote and clone state, stated so nothing above infers it: the
-manifest's canonical entry records `visibility: public`, agreeing with the
-observed read; `git remote -v` in the canonical lists exactly one remote,
-`origin`, on github.com; the AI workspace is a full clone too — `git
+Manifest, remote and clone state, stated so nothing above infers it: canonical manifest visibility is `public`, agreeing with the observed read; `git remote -v` in the canonical lists exactly one remote,
+`origin`, on github.com; AI workspace clone completeness: the AI workspace is a full clone too — `git
 rev-parse --is-shallow-repository` prints `false` in it and every remote
 branch of its is fetched.

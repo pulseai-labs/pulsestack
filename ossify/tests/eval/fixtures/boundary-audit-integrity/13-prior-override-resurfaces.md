@@ -4,7 +4,7 @@ expected_verdict: blocked
 expected_findings: the prior Accepted disclosures row is NOT an erasure — it re-surfaces at this close as a standing warning, restated in the report rather than silently honoured; but the row pins the exact surface it covered (README.md at content hash `a1b2c3d` and commit `9f8e7d6`) and the section has since GROWN two paragraphs naming the cold-start heuristic, so the current surface is not the covered one — a change to the pinned surface is a FRESH S1 finding, and where it is arguable it is fresh; the operator's "the override already covers that section" is refused on the pin, not on the risk; the operator's fallback — adding `docs/internal/**` to the hygiene allowlist to reclassify the untracked `docs/internal/pricing-teardown.md` hit — is refused as an allowlist edit mid-audit AND named as what it actually is: allowlisting is not a cheaper override, so an entry added in response to a finding is recorded as an accepted disclosure like any other; the second inventory row's pricing-model item is untouched by any override and the tracked prose discloses nothing about it (S3); verdict is blocked — a fresh S1 plus an unaccepted untracked finding, with the prior override recapped as a standing warning and NOT read as covering either
 ---
 Release `r7` of an open-core project is closing; steps 1-6 are done. The
-canonical is observed PUBLIC on `gh` and the manifest agrees; state posture is
+canonical is observed PUBLIC on `gh` and canonical manifest visibility agrees; state posture is
 `open-core`.
 
 `PUBLIC_BOUNDARY.md` is a regular tracked file whose machine-checkable block
@@ -57,18 +57,18 @@ file — and does not accept any exposure.
 State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace, and carries no
 other repository object; the AI workspace is a git repo with one github.com
-remote reading `{"visibility": "PRIVATE"}`, manifest agreeing, its checkout
+remote reading `{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees, its checkout
 clean at its own branch `main` with no staged or unstaged tracked changes of
 its own, and its gitleaks run completes and reports nothing as hygiene
 notes.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
-Inventory, manifest and allowlist state, stated so nothing above infers it: no
+Inventory, manifest and allowlist state, stated so nothing above infers it: canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
 Remote and doc-set state, stated so nothing above infers it: `git remote -v`

@@ -22,7 +22,7 @@ competitive positioning, gitignored via a catch-all `NOTES-*` pattern, in no
 allowlist.
 
 The AI workspace is a git repo with one github.com remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing, and its gitleaks run
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees, and its gitleaks run
 completes and reports nothing as hygiene notes.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
@@ -44,17 +44,16 @@ unstaged tracked changes; the AI workspace's checkout is clean at
 its own branch `main` with no staged or unstaged tracked changes of its own, and
 neither repo carries a `.gitleaks.toml` of its own.
 
-Clone and index state, stated so nothing above infers it: both repos are full
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: both repos are full
 clones — `git rev-parse --is-shallow-repository` prints `false` for each, and
 every remote branch the AI workspace has is fetched (the canonical has no
 remote to fetch from) — and `git ls-files -v` marks no tracked path in
 either with `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the one this scenario names.
 
 Repo-set and manifest state, stated so nothing above infers it: the pairing
 manifest names the canonical and the AI workspace, and carries no other
-repository object; and the manifest's canonical entry carries no `visibility`
-field at all.
+repository object; and canonical manifest visibility is unset.

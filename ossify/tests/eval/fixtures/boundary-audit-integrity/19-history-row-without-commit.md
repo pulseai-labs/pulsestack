@@ -5,10 +5,10 @@ expected_findings: the canonical's **History passes** row carries a release id a
 ---
 
 Release `r19` is closing on an observed-public canonical (gh confirms PUBLIC,
-manifest agreeing; posture `open-core`). Steps 1-6 are done. Both closing
+canonical manifest visibility agrees; posture `open-core`). Steps 1-6 are done. Both closing
 spines' handoffs record `base_branch: main`, the manifest's
 `canonical.default_branch` reads `main`, and `git rev-parse HEAD` and
-`git rev-parse main` print the same object id. The clone is a full one:
+`git rev-parse main` print the same object id. canonical clone completeness: the clone is a full one:
 `git rev-parse --is-shallow-repository` prints `false`, every remote branch is
 fetched, and the remote's only refs are `main` and the release tags.
 
@@ -32,7 +32,7 @@ no tracked entry is a gitlink.
 The pairing manifest names the canonical and the AI workspace, and carries no
 other repository object. The AI workspace is a git repo with one github.com
 remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees; its checkout is clean at its
 own branch `main` with no staged or unstaged tracked changes and no
 `assume-unchanged` or `skip-worktree` path in its index, and its gitleaks run
 completes and reports nothing as hygiene notes. Neither repo carries a
@@ -65,10 +65,9 @@ that 88 commits have landed since the date, and that the deleted planning tree
 is in the history, and does not accept any exposure.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
 Remote and clone state, stated so nothing above infers it: `git remote -v`
-in the canonical lists exactly one remote, `origin`, on github.com; the AI
-workspace is a full clone too — `git rev-parse --is-shallow-repository`
+in the canonical lists exactly one remote, `origin`, on github.com; AI workspace clone completeness: the AI workspace is a full clone too — `git rev-parse --is-shallow-repository`
 prints `false` in it and every remote branch of its is fetched.

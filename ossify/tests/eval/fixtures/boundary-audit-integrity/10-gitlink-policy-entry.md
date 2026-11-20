@@ -4,7 +4,7 @@ expected_verdict: blocked
 expected_findings: PUBLIC_BOUNDARY.md tracked as a `160000` gitlink is a finding naming the file's shape — the committed entry is a commit pointer into a submodule, not a policy, always a finding (the in-repo-symlink note does not reach it); the rules-read and sweep-classification halves are recorded degradations riding the same no-policy cause, named as degradations; the same gitlink is a tracked submodule, so §2's descent is owed on it and cannot be satisfied — the commit the superproject pins is not obtainable from a host that does not resolve — leaving the checks that would have read that pinned tree INCONCLUSIVE for the canonical, named with the path, rather than clean or folded silently into the no-policy degradation, and never a seventh entry on the coverage line; no History passes row is owed for the submodule; nothing else fires and no second-order finding is manufactured
 ---
 Release `r10` is closing on an observed-public canonical (gh confirms PUBLIC,
-manifest agreeing; posture `open-core`). Steps 1-6 are done.
+canonical manifest visibility agrees; posture `open-core`). Steps 1-6 are done.
 
 `PUBLIC_BOUNDARY.md` appears in `git ls-files`. Its entry is a gitlink:
 `git ls-files -s -- PUBLIC_BOUNDARY.md` returns a `160000`-mode entry — the
@@ -35,7 +35,7 @@ The private boundary inventory exists in the AI workspace with one moat row ("ra
 State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace, and carries no
 other repository object; the AI workspace is a git repo with one github.com
-remote reading `{"visibility": "PRIVATE"}`, manifest agreeing, and its
+remote reading `{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees, and its
 gitleaks run completes and reports nothing. The closing spines' handoffs
 record `base_branch: main` under `## 2. Spine context`, the manifest's
 `canonical.default_branch` reads `main`, and `git rev-parse HEAD` and `git
@@ -45,12 +45,12 @@ and neither repo's index carries an `assume-unchanged` or `skip-worktree`
 path (`git ls-files -v` marks none). Neither repo carries a `.gitleaks.toml`
 of its own.
 
-Clone state, stated so nothing above infers it: every repo in the set that is
+Clone state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the set that is
 a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
 `false` and every remote branch is fetched.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates; no
 readable policy blob is committed in the canonical, so no working-tree hygiene
 allowlist can be read there.

@@ -1,0 +1,1 @@
+{"scores":{"verbatim_refusal":5,"authoring_only_at_a1":5,"full_reprobe_coverage":5,"never_overwrite":5},"pass":true,"notes":"The skill correctly treated the pairing-manifest fallback as a resolved probe, printed no refusal, authored nothing, ran no re-probe, and left .workspace/pairing.json untouched."}

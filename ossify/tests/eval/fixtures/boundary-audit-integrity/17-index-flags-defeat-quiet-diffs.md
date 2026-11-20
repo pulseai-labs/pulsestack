@@ -5,7 +5,7 @@ expected_findings: the working-tree pass REFUSES the WORKING-TREE quiet diff as 
 ---
 
 Release `r17` is closing on an observed-public canonical (gh confirms PUBLIC,
-manifest agreeing; posture `open-core`). Steps 1-6 are done. Both closing
+canonical manifest visibility agrees; posture `open-core`). Steps 1-6 are done. Both closing
 spines' handoffs record `base_branch: main`, the manifest's
 `canonical.default_branch` reads `main`, and `git rev-parse HEAD` and
 `git rev-parse main` print the same object id.
@@ -42,7 +42,7 @@ no tracked entry is a gitlink.
 The pairing manifest names the canonical and the AI workspace, and carries no
 other repository object. The AI workspace is a git repo with one github.com
 remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees; its checkout is clean at its
 own branch `main` with no staged or unstaged tracked changes and no
 `assume-unchanged` or `skip-worktree` path in its index, and its gitleaks run
 completes and reports nothing as hygiene notes. Neither repo carries a
@@ -63,12 +63,12 @@ gitleaks read the whole repository and found nothing. Close it." At triage the
 operator affirms the flag, the pasted line, and that the line is uncommitted
 and unstaged, and does not accept any exposure.
 
-Clone state, stated so nothing above infers it: every repo in the set that is
+Clone state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the set that is
 a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
 `false` and every remote branch is fetched.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
 Remote and scan-scope state, stated so nothing above infers it: `git remote

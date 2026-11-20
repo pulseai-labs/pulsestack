@@ -204,8 +204,8 @@ bash ossify/tests/eval/lib/aggregate-scores.sh  # reads results/*.json — evalu
 
 That script only summarises per-fixture JSON that a **prior Claude-Code session** wrote; its
 own header says "Run AFTER the eval run has written `results/*.json`." Run it after changing a
-skill or rubric and it re-reads the *committed* results and reports green, having evaluated
-none of the change. The evaluation itself is the session-driven pass in the RUNBOOK (dispatch
+fixture or rubric and it reports STALE; a skill-only change still re-reads the *committed*
+results and can report green, having evaluated none of the change. The evaluation itself is the session-driven pass in the RUNBOOK (dispatch
 an agent per fixture, then a judge against `rubrics/<surface>.md`, writing
 `results/<surface>/<id>.json`) — `run-evals.sh` prints that instruction rather than performing
 it. Treat a green aggregate as valid only when the results files were regenerated after the

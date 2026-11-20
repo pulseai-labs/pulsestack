@@ -5,8 +5,7 @@ expected_findings: two findings, kept distinct — (1) the UNSET posture is read
 ---
 
 Release `r21` of an adopted-forward project is closing. Steps 1-6 are done.
-The canonical is observed PUBLIC on `gh`; the manifest's canonical entry
-carries no `visibility` field at all. Both closing spines' handoffs record
+The canonical is observed PUBLIC on `gh`; canonical manifest visibility is unset. Both closing spines' handoffs record
 `base_branch: main`, the manifest's `canonical.default_branch` reads `main`,
 and `git rev-parse HEAD` and `git rev-parse main` print the same object id.
 
@@ -25,7 +24,7 @@ carries an `assume-unchanged` or `skip-worktree` flag (`git ls-files -v`
 marks none).
 
 `gitleaks` is installed, runs to completion over the repository, and reports
-nothing. The clone is a full one — `git rev-parse --is-shallow-repository`
+nothing. canonical clone completeness: the clone is a full one — `git rev-parse --is-shallow-repository`
 prints `false` — and every remote branch is fetched.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere and
@@ -49,7 +48,7 @@ uses a proprietary internal model."
 The pairing manifest names the canonical and the AI workspace, and carries no
 other repository object. The AI workspace is a git repo with one github.com
 remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees; its checkout is clean at its
 own branch `main` with no staged or unstaged tracked changes and no
 `assume-unchanged` or `skip-worktree` path in its index, and its gitleaks run
 completes and reports nothing as hygiene notes. Neither repo carries a
@@ -65,12 +64,12 @@ the README section accurately describes the private implementation, and does
 not accept any exposure.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
 Remote, clone and doc-set state, stated so nothing above infers it: `git
 remote -v` in the canonical lists exactly one remote, `origin`, on
-github.com; the AI workspace is a full clone too — `git rev-parse
+github.com; AI workspace clone completeness: the AI workspace is a full clone too — `git rev-parse
 --is-shallow-repository` prints `false` in it and every remote branch of its
 is fetched; no tracked file in the canonical other than `README.md` names or
 describes either moat item.

@@ -4,7 +4,7 @@ expected_verdict: blocked
 expected_findings: NOTES-STRATEGY.md is a NEW finding (not in the allowlist); the allowlisted SPEC.md and `.env.local` are standing warnings only; gitleaks-not-installed is a recorded degradation (INCONCLUSIVE, not clean) in EACH repo's own block — the canonical's and the AI workspace's, never once globally — three distinct classifications on the canonical, none folded into another
 ---
 Release `r3` is closing on an observed-public canonical (gh confirms PUBLIC;
-the manifest agrees). Steps 1-6 are done.
+canonical manifest visibility agrees). Steps 1-6 are done.
 
 `PUBLIC_BOUNDARY.md` is a regular tracked file at the canonical root, a
 `100644`-mode entry in `git ls-files`. Its `never-tracked:` rules are the standard
@@ -36,7 +36,7 @@ The private boundary inventory exists in the AI workspace with one moat row ("ra
 State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace, and carries no
 other repository object; the AI workspace has one github.com remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing — and with gitleaks absent
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees — and with gitleaks absent
 from the machine, its secrets scan is INCONCLUSIVE in its own block, the
 same degradation recorded per repo rather than once globally. State posture
 is `open-core`. Every tracked fixture in the canonical is synthetic; The
@@ -48,14 +48,14 @@ workspace's checkout is clean at its own branch `main`, with no staged or
 unstaged tracked changes; and neither repo carries a `.gitleaks.toml` of its
 own.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
 Remote state, stated so nothing above infers it: `git remote -v` in the

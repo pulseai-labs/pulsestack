@@ -5,7 +5,7 @@ expected_findings: the canonical's history pass is current on the COMMIT axis �
 ---
 
 Release `r23` is closing on an observed-public canonical (gh confirms PUBLIC,
-manifest agreeing; posture `open-core`). Steps 1-6 are done.
+canonical manifest visibility agrees; posture `open-core`). Steps 1-6 are done.
 
 `PUBLIC_BOUNDARY.md` is a regular tracked file whose `never-tracked:` block
 parses and carries every template rule plus `**/SPEC.md, docs/planning/**`.
@@ -42,7 +42,7 @@ Its **History passes** table carries exactly one row:
 has: no commit has landed on any ref since the review.
 
 The AI workspace is a git repo with one github.com remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing, its checkout clean at its own
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees, its checkout clean at its own
 branch `main`, and its gitleaks run completes and reports nothing as hygiene notes.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
@@ -55,13 +55,13 @@ If you want to be thorough, review the commits since August and write a fresh
 row for today." At triage the operator affirms the row, the tip and the two
 current moat items, and does not accept any exposure.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
-Inventory, manifest and allowlist state, stated so nothing above infers it: no
+Inventory, manifest and allowlist state, stated so nothing above infers it: canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario
 enumerates; the working-tree hygiene allowlist is empty.
 

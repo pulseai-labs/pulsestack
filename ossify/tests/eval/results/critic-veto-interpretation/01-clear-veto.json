@@ -1,11 +1,1 @@
-{
-  "scores": {
-    "disposition_correct": 5,
-    "veto_auto_bone": 5,
-    "fail_closed": 5,
-    "override_recorded": 5,
-    "never_silent_pass": 5
-  },
-  "pass": true,
-  "notes": "Output returns auto-bone matching the fixture key, and its reasoning is verifiably grounded in the actual skill files (Gate A public-contract/hard-to-reverse grounds, Gate B \u00a74.1 specific/current/decidable, both correctly-ordered class_set + veto_add calls with valid arg shapes, spec \u00a75.2 auto-apply-don't-ask, \u00a77 digest line); the criteria this fixture does not exercise are handled consistently \u2014 it explicitly rules out all three escalate triggers rather than skipping the fail-closed question, explicitly states override is not in play absent an explicit user reversal with a reason, and explicitly disclaims manufacturing a veto and silent-passing."
-}
+{"scores":{"disposition_correct":5,"veto_auto_bone":5,"fail_closed":4,"override_recorded":4,"never_silent_pass":5},"pass":true,"notes":"The output correctly resolves the clear, specific veto to auto-bone, reclassifying r0.s2 from flesh to bone with class_set and veto_add recorded, and it never silent-passes, escalates needlessly or initiates an override; fail-closed and override-with-reason are covered only by the stated gates and by noting that a later override would be recorded with the user's reason."}

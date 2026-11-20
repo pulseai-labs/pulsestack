@@ -5,12 +5,12 @@ expected_findings: the canonical's history pass is INCONCLUSIVE and NO ROW IS WR
 ---
 
 Release `r18` is closing on an observed-public canonical (gh confirms PUBLIC,
-manifest agreeing; posture `open-core`). Steps 1-6 are done. Both closing
+canonical manifest visibility agrees; posture `open-core`). Steps 1-6 are done. Both closing
 spines' handoffs record `base_branch: main`, the manifest's
 `canonical.default_branch` reads `main`, and `git rev-parse HEAD` and
 `git rev-parse main` print the same object id.
 
-The canonical on this machine was made with
+canonical clone completeness: the canonical on this machine was made with
 `git clone --depth 1 --single-branch`. `git rev-parse
 --is-shallow-repository` prints `true`; `git rev-list --count HEAD` prints 1;
 and `git branch -r` lists only `origin/main`, while the remote also carries
@@ -42,7 +42,7 @@ no tracked entry is a gitlink.
 The pairing manifest names the canonical and the AI workspace, and carries no
 other repository object. The AI workspace is a git repo with one github.com
 remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing; it is a full clone, its
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees; AI workspace clone completeness: it is a full clone, its
 checkout is clean at its own branch `main` with no staged or unstaged tracked
 changes and no `assume-unchanged` or `skip-worktree` path in its index, and its gitleaks run completes and reports nothing as hygiene notes.
 Neither repo carries a `.gitleaks.toml` of its own.
@@ -63,7 +63,7 @@ clone's depth, the two unfetched branches, and the deleted `docs/planning/`
 tree, and does not accept any exposure.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
 Remote state, stated so nothing above infers it: `git remote -v` in the

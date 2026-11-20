@@ -5,7 +5,7 @@ expected_findings: the canonical's two tracked submodules are audited as part of
 ---
 
 Release `r16` is closing on an observed-public canonical (gh confirms PUBLIC,
-manifest agreeing; posture `open-core`). Steps 1-6 are done. Both closing
+canonical manifest visibility agrees; posture `open-core`). Steps 1-6 are done. Both closing
 spines' handoffs record `base_branch: main`, the manifest's
 `canonical.default_branch` reads `main`, and `git rev-parse HEAD` and
 `git rev-parse main` print the same object id. Both `git diff --quiet` and
@@ -54,7 +54,7 @@ canonical, and in the pinned tree of each submodule, is synthetic. The
 canonical's working-tree hygiene allowlist is empty.
 
 The AI workspace is a git repo with one github.com remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees; its checkout is clean at its
 own branch `main`, it tracks no submodules, and its gitleaks run completes and
 reports nothing as hygiene notes. Neither repo carries a `.gitleaks.toml` of
 its own, and neither does either pinned submodule. The private boundary inventory exists there
@@ -78,12 +78,12 @@ and does not accept any exposure.
 Clone and index state, stated so nothing above infers it: the AI workspace's
 index marks no tracked path `assume-unchanged` or `skip-worktree`, and neither
 does `vendor/pulse-proto`'s own — so its two quiet diffs clear what they appear
-to. Every repo in the set that is
+to. canonical clone completeness and AI workspace clone completeness: Every repo in the set that is
 a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
 `false` and every remote branch is fetched.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
 Repo-set, remote and submodule state, stated so nothing above infers it: the

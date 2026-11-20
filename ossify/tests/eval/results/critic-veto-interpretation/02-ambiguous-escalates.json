@@ -1,11 +1,1 @@
-{
-  "scores": {
-    "disposition_correct": 5,
-    "veto_auto_bone": 5,
-    "fail_closed": 5,
-    "override_recorded": 5,
-    "never_silent_pass": 5
-  },
-  "pass": true,
-  "notes": "Output returns `escalate`, matching the fixture answer key, and earns it with verified reasoning: it runs Gate A (correctly finding the boundary hedge veto-grade, and independently invoking the fail-closed clause), then Gate B, explicitly ruling out 4.3 Contradictory and 4.4 Stale and landing on 4.2 Ambiguous on both its stated forms (no mechanism named + hedges its own significance) \u2014 matching critic-veto.md \u00a76's second worked-disposition row exactly; the `oss veto_add \"r0.s3\" \"<finding>\" escalate \"ambiguous - fail-closed\"` command matches the \u00a74.5 shape verbatim, and it correctly adds the surface-to-user obligation, holds the class open (no `class_set` yet, no proceed to `plan-spine`), and enumerates all three \u00a74.6 closing calls including the unresolved fail-closed-to-bone default. Criteria 2 and 4 are not exercised by this fixture but the output is fully consistent with both: it reserves `auto-bone` for \u00a74.1 Clear findings and states the auto-bone-on-user-ruling path, and it states the override shape correctly (user must say so explicitly per \u00a75, both `class_set flesh` + `veto_add \u2026 override` with the user's reason). No silent pass (\"a hedge is not a pass\") and no manufacture (it explains why `none` does not apply rather than fabricating, and notes `none` is never an argument to `veto_add`, exit 2). Only nit, immaterial to any score: the \"class-declaration.md rung 3\" citation is loose \u2014 rung 3 is \"bone by creation\" while the bone-category vocabulary it is invoking actually lives in critic-veto.md \u00a73 Gate A."
-}
+{"scores":{"disposition_correct":5,"veto_auto_bone":5,"fail_closed":5,"override_recorded":5,"never_silent_pass":5},"pass":true,"notes":"The output resolves the vague, self-hedged boundary finding to ESCALATE (ambiguous), records it via veto_add escalate, surfaces it to the user, and keeps the fail-closed default of bone if no ruling comes, without a silent pass or an invented auto-bone."}

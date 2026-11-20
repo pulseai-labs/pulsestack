@@ -1,0 +1,1 @@
+{"scores":{"full_cleanliness_sweep":4,"full_branch_check":5,"baseline_table":5,"aggregated_c3":5},"pass":true,"notes":"The skill swept all three repos and the AI workspace, then halted at A3 because data-pipeline was on feature/retention-cleanup instead of its declared main, and it correctly recorded no baseline table and ran no C3 scan."}
