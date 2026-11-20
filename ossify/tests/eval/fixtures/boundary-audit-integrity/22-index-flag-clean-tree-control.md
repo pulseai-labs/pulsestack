@@ -5,7 +5,7 @@ expected_findings: none — this is the other half of the index-flag rule and th
 ---
 
 Release `r22` is closing on an observed-public canonical (gh confirms PUBLIC,
-manifest agreeing; posture `open-core`). Steps 1-6 are done. Both closing
+canonical manifest visibility agrees; posture `open-core`). Steps 1-6 are done. Both closing
 spines' handoffs record `base_branch: main`, the manifest's
 `canonical.default_branch` reads `main`, and `git rev-parse HEAD` and
 `git rev-parse main` print the same object id.
@@ -33,7 +33,7 @@ describing a moat item.
 `gitleaks` is installed. The scan over the repository —
 `gitleaks detect --source "<root>" --no-banner --redact` — completes and
 reports nothing, its summary line reporting megabytes read across the
-repository's commits. The clone is a full one — `git rev-parse
+repository's commits. canonical clone completeness: the clone is a full one — `git rev-parse
 --is-shallow-repository` prints `false` — and every remote branch is fetched.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere and
@@ -42,7 +42,7 @@ no tracked entry is a gitlink.
 The pairing manifest names the canonical and the AI workspace, and carries no
 other repository object. The AI workspace is a git repo with one github.com
 remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees; its checkout is clean at its
 own branch `main` with no staged or unstaged tracked changes and no
 `assume-unchanged` or `skip-worktree` path in its index, and its gitleaks run
 completes and reports nothing as hygiene notes. Neither repo carries a
@@ -64,12 +64,12 @@ unmentioned." The operator affirms every fact above, including that the file's
 bytes match the committed blob and that it holds no sensitive content.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
 Remote, clone and scan-scope state, stated so nothing above infers it: `git
 remote -v` in the canonical lists exactly one remote, `origin`, on
-github.com; the AI workspace is a full clone too — `git rev-parse
+github.com; AI workspace clone completeness: the AI workspace is a full clone too — `git rev-parse
 --is-shallow-repository` prints `false` in it and every remote branch of its
 is fetched; the `--no-git` read over the working tree spans every path in it
 — tracked, untracked and gitignored, `node_modules/` included — and no file

@@ -29,4 +29,10 @@ Every fixture costs two dispatches — one invoke, one judge — so a full run i
 
 **The invokes are the pacing constraint**, at roughly 4-8 minutes each, and run in batches of no more than three; judges are light (roughly 35-90 seconds) and can overlap. A full run is hours, not minutes. Re-run a single surface by deleting its `results/<surface>/*.json` and re-running.
 
-`aggregate-scores.sh` walks `fixtures/` and **fails on any fixture with no result JSON**, so a partial run cannot report a clean total.
+`aggregate-scores.sh` walks `fixtures/` and **fails on any fixture with no result
+JSON**, so a partial run cannot report a clean total. It also fails on **STALE**
+results when the fixture or surface rubric changed (content at the result's last
+commit for unchanged committed results; mtimes for fresh uncommitted results).
+Rerun the invoke and judge against the current inputs; touching a result is not
+a rerun. Skill-file changes are outside this mechanical freshness check and
+still owe the relevant eval reruns. See `README.md` for the full gate contract.

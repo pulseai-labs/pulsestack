@@ -5,8 +5,7 @@ expected_findings: the workspace's recorded `git_remote` reads public on `gh rep
 ---
 Release `r9` is closing; steps 1-6 are done. The project is a Scenario-C
 pair with history: the canonical is a public git repo — `gh repo view`
-returns `{"visibility": "PUBLIC"}` and the pairing manifest's canonical entry
-records `visibility: public`, agreeing — and it is clean end to end
+returns `{"visibility": "PUBLIC"}` and canonical manifest visibility is `public`, agreeing — and it is clean end to end
 (`PUBLIC_BOUNDARY.md` a regular tracked file with every template rule,
 `git ls-files` matching no rule, `git ls-files --others` with ignored files
 included completing untruncated and returning only `node_modules/`, `gitleaks`
@@ -49,19 +48,18 @@ unstaged tracked
 changes, and neither repo carries a
 `.gitleaks.toml` of its own.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the one this scenario names; the
 working-tree hygiene allowlist is empty.
 
 Repo-set, manifest and remote state, stated so nothing above infers it: the
 pairing manifest names the canonical and the AI workspace, and carries no
-other repository object; the AI workspace's manifest object carries no
-`visibility` field at all; `git remote -v` in the canonical lists exactly
+other repository object; AI workspace manifest visibility is unset; `git remote -v` in the canonical lists exactly
 one remote, `origin`, on github.com.

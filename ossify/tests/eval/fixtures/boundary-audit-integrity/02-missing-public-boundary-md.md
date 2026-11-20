@@ -16,7 +16,7 @@ workspace's own run, which completes and reports nothing as hygiene notes.
 Untracked files: only `node_modules/` noise, the enumeration completing
 untruncated. The pairing manifest names the
 canonical and the AI workspace, carries no other repository object, and
-records a `visibility` for **neither** — the fields were never written. The
+canonical manifest visibility is unset; AI workspace manifest visibility is unset — the fields were never written. The
 AI workspace has one github.com remote and `gh repo view` returns
 `{"visibility": "PRIVATE"}` for it; with no manifest value to compare
 against, that is the same unrecorded-intent note the canonical gets, not a
@@ -45,7 +45,7 @@ unstaged tracked changes; the AI workspace's checkout is clean at its own branch
 staged or unstaged tracked changes; and neither repo carries a
 `.gitleaks.toml` of its own.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
@@ -53,6 +53,6 @@ and `git ls-files -v` marks no tracked path in any of them with
 
 Inventory, manifest and allowlist state, stated so nothing above infers it: no
 private boundary inventory can be located, so no **Accepted disclosures** rows
-can be read for any repo either; no manifest object records a `git_remote`
+can be read for any repo either; canonical remotes on record and AI workspace remotes on record: no manifest object records a `git_remote`
 beyond the remotes this scenario enumerates; no `PUBLIC_BOUNDARY.md` exists, so there
 is no working-tree hygiene allowlist to read.

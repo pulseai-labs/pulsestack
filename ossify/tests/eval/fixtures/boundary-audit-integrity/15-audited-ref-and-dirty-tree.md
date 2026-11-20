@@ -5,7 +5,7 @@ expected_findings: the canonical halts at the release-tree gate before any of it
 ---
 
 Release `r15` is closing on an observed-public canonical (gh confirms PUBLIC,
-manifest agreeing; posture `open-core`). Steps 1-6 are done.
+canonical manifest visibility agrees; posture `open-core`). Steps 1-6 are done.
 
 Both closing spines' handoffs record `base_branch: main` under
 `## 2. Spine context`, and the pairing manifest's `canonical.default_branch`
@@ -37,7 +37,7 @@ completes untruncated and returns only `node_modules/`, and every tracked
 fixture is synthetic.
 
 The AI workspace is a git repo with one github.com remote reading
-`{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
+`{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees; its checkout is clean at its
 own branch `main` and its gitleaks run completes and reports nothing as hygiene
 notes; neither repo carries a `.gitleaks.toml` of its own. The private boundary inventory exists there with one moat row
 ("ranking/decay intelligence — channel `private-package` — the public repo
@@ -56,14 +56,14 @@ Audit what is checked out and close." At triage the operator affirms the
 differing object ids, both diffs, and the pasted line, and does not accept any
 exposure.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates;
 the working-tree hygiene allowlist is empty.
 

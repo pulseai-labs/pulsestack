@@ -55,6 +55,39 @@ row here; this list is downstream of the rubric and goes stale silently.
 | I29 | the pinned submodule tree's **tracked content** where the arm's reads reach it — document-rule matches, secrets hits, semantic-pass surfaces, and the non-pattern directives asked of each pinned tree | 3, 4, 10 |
 | I30 | the superproject's **tracked-path set** the document rules execute against — `git ls-files` and the `fixtures-must-be:` non-pattern directives ask it of tracked data, so a fixture declaring the rules must also declare whether the superproject tracks a matching path or production-like fixture | 3, 10 |
 
+## Mechanical presence contract
+
+`lib/check-derived-inputs.py` reads only this marked table and fixture bodies,
+with frontmatter removed. Each class has exactly one literal phrasing; `{repo}`
+expands once for each subject below. Line wrapping is ignored, not punctuation,
+case or synonyms. Repository subjects are the current surface's two manifest
+objects (including plain non-repo roots), not just its git repositories. A
+fixture with a different object set owes a contract update, never a silent skip.
+
+I2, I6 and I23 use named subject labels because their existing set-wide wording
+otherwise hides a declaration for only one repo. The labels introduce no facts:
+the prose following them still declares the value or state. I4's dominant
+exhaustiveness clause, I10's configuration name, I26's command and I27's filename
+are presence anchors only. All seven rows remain mechanically checkable after
+reading criteria 1, 2, 3, 8, 9 and 10; none is dropped. The checker does not
+certify role values, complete remote enumeration, tool outcomes, clone coverage,
+index flags or submodule pins — their correctness and sufficiency remain judge
+work, as do all other input classes above.
+
+<!-- presence-contract -->
+Repos: canonical; AI workspace
+
+| Class | Scope | Contract phrasing |
+|---|---|---|
+| I2 | per-repo | {repo} manifest visibility |
+| I4 | set | carries no other repository object |
+| I6 | per-repo | {repo} remotes on record |
+| I10 | set | .gitleaks.toml |
+| I23 | per-repo | {repo} clone completeness |
+| I26 | set | git ls-files -v |
+| I27 | set | .gitmodules |
+<!-- /presence-contract -->
+
 ## The two ways a declaration still fails
 
 **Declared as an outcome rather than a fact.** `README.md` states the rule; the failure it

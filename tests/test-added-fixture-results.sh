@@ -54,6 +54,39 @@ expect "control: a non-fixture name holding a fixture path on a second line is o
 add crew/tests/eval/fixtures/z/01-e.md; add ossify/tests/eval/fixtures/s/notes.txt; add ossify/tests/eval/fixtures/s/deep/01-f.md; commit out
 expect "control: crew, non-markdown and deeper files are out of scope" 0 ""
 
+echo changed >> ossify/tests/eval/fixtures/s/01-a.md; commit modified-only
+expect "modified fixture without a changed result stops" 1 "modified fixture has no updated result"
+echo changed >> ossify/tests/eval/fixtures/s/01-a.md
+echo changed >> ossify/tests/eval/results/s/01-a.json; commit modified-both
+expect "control: modified fixture and modified result pass" 0 ""
+echo changed >> merge-bar/tests/eval/fixtures/m/01-c.md; commit mb-modified-only
+expect "modified merge-bar fixture without updated result stops" 1 "merge-bar/tests/eval/results/m/01-c.json"
+echo changed >> "ossify/tests/eval/fixtures/s/04-café.md"; commit modified-non-ascii
+expect "modified odd path needs its own result" 1 "04-café.json"
+echo changed >> "ossify/tests/eval/fixtures/s/05-a${nl}b.md"
+echo changed >> "ossify/tests/eval/results/s/05-a${nl}b.json"; commit modified-newline-both
+expect "control: modified newline path and result pass" 0 ""
+add ossify/tests/eval/fixtures/r/01-first.md; add ossify/tests/eval/fixtures/r/02-second.md
+add ossify/tests/eval/results/r/01-first.json; add ossify/tests/eval/results/r/02-second.json
+add ossify/tests/eval/rubrics/r.md; commit rubric-base
+echo changed >> ossify/tests/eval/rubrics/r.md; commit rubric-only
+expect "modified rubric invalidates unchanged surface results" 1 "02-second.json"
+echo changed >> ossify/tests/eval/rubrics/r.md
+echo changed >> ossify/tests/eval/results/r/01-first.json; commit rubric-one-result
+expect "one updated result does not cover the other fixture" 1 "02-second.json"
+echo changed >> ossify/tests/eval/rubrics/r.md
+echo changed >> ossify/tests/eval/results/r/01-first.json
+echo changed >> ossify/tests/eval/results/r/02-second.json; commit rubric-all-results
+expect "control: rubric and every surface result updated pass" 0 ""
+add ossify/tests/eval/rubrics/empty.md; commit empty-rubric
+echo changed >> ossify/tests/eval/rubrics/empty.md; commit empty-rubric-modified
+expect "control: rubric of an empty surface owes no result" 0 ""
+echo changed >> ossify/tests/eval/fixtures/old/01-old.md
+add ossify/tests/eval/results/old/01-old.json; commit modified-with-added-result
+expect "control: added result covers modified fixture" 0 ""
+echo changed >> crew/tests/eval/fixtures/z/01-e.md; commit crew-modified
+expect "control: modified crew fixture stays out of scope" 0 ""
+
 rc=0; out="$(bash "$CHECK" no-such-rev HEAD 2>&1)" || rc=$?
 if [ "$rc" = 2 ] && [[ "$out" == *"NOT checked"* ]]; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); echo "FAIL: a bad rev is rc 2, not a pass (rc $rc)"; fi
 rc=0; bash "$CHECK" HEAD >/dev/null 2>&1 || rc=$?

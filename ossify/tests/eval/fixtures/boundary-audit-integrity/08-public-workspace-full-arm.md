@@ -11,8 +11,7 @@ the full template rules, no tracked or untracked hits (the untracked
 enumeration completing untruncated), `gitleaks` clean,
 posture `open-core`, every fixture synthetic.
 
-The AI workspace is a git repo. Its manifest entry says
-`visibility: private` and its `origin` remote reads
+The AI workspace is a git repo. AI workspace manifest visibility is `private` and its `origin` remote reads
 `{"visibility": "PRIVATE"}` — but it also carries a second remote, `backup`,
 pointing at a different github.com repository, and `gh repo view` for that one
 returns `{"visibility": "PUBLIC"}`. Someone set up a mirror two months ago
@@ -42,18 +41,17 @@ object id; the AI workspace is at its own branch `main`; neither
 checkout carries staged or unstaged tracked changes, and neither repo carries
 a `.gitleaks.toml` of its own.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates;
 the working-tree hygiene allowlist is empty.
 
 Repo-set and manifest state, stated so nothing above infers it: the pairing
 manifest names the canonical and the AI workspace, and carries no other
-repository object; the manifest's canonical entry records `visibility:
-public`, agreeing with the observed read.
+repository object; canonical manifest visibility is `public`, agreeing with the observed read.

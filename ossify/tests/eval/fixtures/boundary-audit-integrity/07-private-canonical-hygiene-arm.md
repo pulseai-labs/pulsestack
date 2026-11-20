@@ -5,8 +5,7 @@ expected_findings: none blocking — the canonical's observed-private row runs �
 ---
 Release `r7` is closing; steps 1-6 are done. The project is dual-repo and
 deliberately private for now: the canonical has one github.com remote and
-`gh repo view` returns `{"visibility": "PRIVATE"}`; the manifest's canonical
-entry agrees; state posture is `fully-private`.
+`gh repo view` returns `{"visibility": "PRIVATE"}`; canonical manifest visibility agrees; state posture is `fully-private`.
 
 `PUBLIC_BOUNDARY.md` exists at the canonical root as a regular tracked file —
 the project authored it at `start` even though it is private. Its
@@ -47,7 +46,7 @@ holds the ranking port, the private crate implements it"). It carries no
 State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace, and carries no
 other repository object; the AI workspace is a git repo with one github.com
-remote reading `{"visibility": "PRIVATE"}`, manifest agreeing, and its
+remote reading `{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees, and its
 gitleaks run completes and reports nothing as hygiene notes. The closing
 spines' handoffs record `base_branch: main` under `## 2. Spine context`, the
 manifest's `canonical.default_branch` reads `main`, and `git rev-parse HEAD`
@@ -59,12 +58,12 @@ Clone and index state, stated so nothing above infers it: neither the canonical'
 index nor the AI workspace's marks any tracked path `assume-unchanged` or
 `skip-worktree` (`git ls-files -v` marks none in either), and every tracked
 fixture in the pinned `vendor/internal-proto` tree is synthetic, as the
-canonical's own are. Every repo in the set that is
+canonical's own are. canonical clone completeness and AI workspace clone completeness: Every repo in the set that is
 a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
 `false` and every remote branch is fetched.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates;
 the working-tree hygiene allowlist is empty.
 

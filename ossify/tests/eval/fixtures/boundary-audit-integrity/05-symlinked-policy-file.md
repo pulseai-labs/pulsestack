@@ -4,7 +4,7 @@ expected_verdict: blocked
 expected_findings: PUBLIC_BOUNDARY.md tracked as a symlink (mode 120000) is a finding naming the file's shape — the committed blob is a path, not a policy, and the mutable target is never read as the policy; the quiet `diff` checks do not launder the shape; the rules-read and sweep-classification halves are recorded degradations, named as degradations (never read as clean), riding the same absent-policy cause as the shape finding — and nothing further is manufactured
 ---
 Release `r5` is closing on an observed-public canonical (gh confirms PUBLIC,
-manifest agreeing; posture `open-core`). Steps 1-6 are done.
+canonical manifest visibility agrees; posture `open-core`). Steps 1-6 are done.
 
 `PUBLIC_BOUNDARY.md` appears in `git ls-files`. It is a symlink:
 `git ls-files -s -- PUBLIC_BOUNDARY.md` returns a `120000`-mode entry whose
@@ -40,7 +40,7 @@ The private boundary inventory exists in the AI workspace with one moat row ("ra
 State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace, and carries no
 other repository object; the AI workspace is a git repo with one github.com
-remote reading `{"visibility": "PRIVATE"}`, manifest agreeing, and its
+remote reading `{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees, and its
 gitleaks run completes and reports nothing. The closing spines' handoffs
 record `base_branch: main` under `## 2. Spine context`, the manifest's
 `canonical.default_branch` reads `main`, and `git rev-parse HEAD` and `git
@@ -50,12 +50,12 @@ and neither repo's index carries an `assume-unchanged` or `skip-worktree`
 path (`git ls-files -v` marks none). Neither repo carries a `.gitleaks.toml`
 of its own.
 
-Clone state, stated so nothing above infers it: every repo in the set that is
+Clone state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the set that is
 a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
 `false` and every remote branch is fetched.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates;
 the working-tree hygiene allowlist lives inside `PUBLIC_BOUNDARY.md`, and the
 only copy on this machine is the one in the out-of-repo target — the tracked

@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
 # aggregate-scores.sh — crew copy.
 #
-# VERBATIM COPY of ossify/tests/eval/lib/aggregate-scores.sh below the header,
-# with ONE comment line reworded: it opened with a bookkeeping term this repo's
-# prose sweep bans. The code is untouched. The body derives EVAL_DIR from its own
-# location, so it needs no edit to work
-# here — and editing it is how the two silently stop agreeing. If ossify's
-# changes, re-copy rather than patch. Nothing asserts the two are identical;
-# `diff` them before trusting either.
+# VERBATIM COPY below the first set line; tests/test-crew-parity.sh enforces it.
+# The body derives EVAL_DIR from its own location. Re-copy rather than fork.
 # aggregate-scores.sh — read per-fixture JSON results and print pass/fail summary.
 # AFTER the Claude-Code-session eval run has written results/*.json, run this.
 
@@ -17,10 +12,15 @@ EVAL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 RESULTS_DIR="${EVAL_DIR}/results"
 FIXTURES_DIR="${EVAL_DIR}/fixtures"
 
-if [[ ! -d "$RESULTS_DIR" ]]; then
-  echo "No results dir at $RESULTS_DIR — run the eval harness first."
-  exit 1
-fi
+# Freshness covers exactly the fixture and the surface rubric the judge reads.
+# Stated limit: skill files are NOT checked; changed skills still owe a rerun.
+# Committed, unchanged results compare working-tree input bytes with their blobs
+# at the result's last commit. Fresh (modified/untracked) results use mtimes.
+unavailable() { echo "STALE-CHECK UNAVAILABLE: $1"; exit 1; }
+git_eval() { git --literal-pathspecs -C "$EVAL_DIR" "$@"; }
+inside="$(git_eval rev-parse --is-inside-work-tree 2>/dev/null)" || unavailable "not a git work tree: $EVAL_DIR"
+[[ "$inside" == true ]] || unavailable "not a git work tree: $EVAL_DIR"
+prefix="$(git_eval rev-parse --show-prefix)" || unavailable "cannot resolve eval path"
 
 # --- unscored-fixture guard -------------------------------------------------
 # This script counts result JSONs, so on its own it CANNOT detect its own
@@ -33,16 +33,48 @@ fi
 # would reproduce the blind spot it exists to close.
 unscored=""
 unscored_count=0
+stale=""
+stale_count=0
 if [[ -d "$FIXTURES_DIR" ]]; then
   for fixture_dir in "$FIXTURES_DIR"/*/; do
     [[ -d "$fixture_dir" ]] || continue
-    surface="$(basename "$fixture_dir")"
+    surface="${fixture_dir%/}"; surface="${surface##*/}"
     for fixture in "$fixture_dir"*.md; do
       [[ -e "$fixture" ]] || continue
-      id="$(basename "$fixture" .md)"
-      if [[ ! -f "${RESULTS_DIR}/${surface}/${id}.json" ]]; then
+      id="${fixture##*/}"; id="${id%.md}"
+      result="${RESULTS_DIR}/${surface}/${id}.json"
+      if [[ ! -f "$result" ]]; then
         unscored+="  UNSCORED: ${surface}/${id} — no results/${surface}/${id}.json"$'\n'
         unscored_count=$((unscored_count + 1))
+        continue
+      fi
+      result_path="results/${surface}/${id}.json"
+      status="$(git_eval status --porcelain --untracked-files=all -- "$result_path")" || unavailable "cannot read result status: $result_path"
+      revision="$(git_eval log -1 --format=%H -- "$result_path")" || unavailable "cannot read result history: $result_path"
+      why=""
+      for input in "fixtures/${surface}/${id}.md" "rubrics/${surface}.md"; do
+        if [[ ! -f "$EVAL_DIR/$input" ]]; then
+          why+="${input} is missing; "
+        elif [[ -n "$status" || -z "$revision" ]]; then
+          if [[ "$EVAL_DIR/$input" -nt "$result" ]]; then
+            why+="${input} is newer than the fresh result; "
+          fi
+        else
+          entry="$(git_eval ls-tree --full-tree "$revision" -- "${prefix}${input}")" || unavailable "cannot read input tree: $input"
+          if [[ -z "$entry" ]]; then
+            why+="${input} did not exist at result commit; "
+          else
+            old="$(git_eval rev-parse --verify "${revision}:${prefix}${input}")" || unavailable "cannot read input blob: $input"
+            now="$(git_eval hash-object --no-filters -- "$input")" || unavailable "cannot hash input: $input"
+            if [[ "$old" != "$now" ]]; then
+              why+="${input} differs from result commit; "
+            fi
+          fi
+        fi
+      done
+      if [[ -n "$why" ]]; then
+        stale+="  STALE: ${surface}/${id} — ${why%; }"$'\n'
+        stale_count=$((stale_count + 1))
       fi
     done
   done
@@ -80,9 +112,17 @@ echo ""
 if [[ $unscored_count -gt 0 ]]; then
   printf '%s' "$unscored"
 fi
+if [[ $stale_count -gt 0 ]]; then
+  printf '%s' "$stale"
+fi
 echo "=== TOTAL: ${total_pass}/${total_files} passed ==="
 if [[ $unscored_count -gt 0 ]]; then
   echo "=== GATE FAILED: ${unscored_count} fixture(s) unscored — the total above is over a PARTIAL run ==="
+fi
+if [[ $stale_count -gt 0 ]]; then
+  echo "=== GATE FAILED: ${stale_count} fixture(s) stale — rerun against current fixture and rubric ==="
+fi
+if [[ $unscored_count -gt 0 || $stale_count -gt 0 ]]; then
   exit 1
 fi
-[[ $total_fail -eq 0 ]]
+[[ $total_fail -eq 0 && -d "$RESULTS_DIR" ]]

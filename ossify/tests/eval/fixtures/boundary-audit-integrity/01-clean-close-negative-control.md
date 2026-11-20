@@ -7,8 +7,7 @@ Release `r4` is closing; steps 1-6 are done.
 
 The canonical has `origin` on github.com — the only remote `git remote -v`
 lists — and `gh repo view` returns
-`{"visibility": "PUBLIC"}`. The pairing manifest records a `visibility` for
-neither repo — the fields were never written. State
+`{"visibility": "PUBLIC"}`. canonical manifest visibility is unset; AI workspace manifest visibility is unset — the fields were never written. State
 posture is `open-core`.
 
 `PUBLIC_BOUNDARY.md` is a regular tracked file at the canonical root and
@@ -49,12 +48,12 @@ neither repo carries a `.gitleaks.toml` of its own.
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
 and no tracked entry is a gitlink.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.

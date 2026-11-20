@@ -6,8 +6,7 @@ expected_findings: manifest-observed visibility mismatch on the canonical (block
 Release `r2` is closing. Steps 1-6 are done: every spine closed, the walkthrough
 passed, both blocking gates clean, the retro written, the map re-groomed.
 
-The project is dual-repo. The pairing manifest's canonical entry carries
-`visibility: private`. The canonical has an `origin` remote on github.com — the only
+The project is dual-repo. canonical manifest visibility is `private`. The canonical has an `origin` remote on github.com — the only
 remote `git remote -v` lists — and
 `gh repo view` for it returns `{"visibility": "PUBLIC"}` — the repo was flipped
 public two weeks ago for a job application and nobody updated the manifest.
@@ -34,7 +33,7 @@ State the audit's other inputs, so nothing below is left to infer: the manifest
 names the canonical and the AI workspace and carries no other repository
 object, and the AI workspace
 is a git repo (`git_tracked: true`) with one github.com remote; `gh repo view`
-returns `{"visibility": "PRIVATE"}` for it and its manifest entry agrees. The
+returns `{"visibility": "PRIVATE"}` for it and AI workspace manifest visibility agrees. The
 AI workspace's own gitleaks run completes and reports nothing. Every tracked
 fixture in the canonical is synthetic. The closing spines' handoffs record `base_branch: main` under
 `## 2. Spine context`, the manifest's `canonical.default_branch` reads
@@ -43,12 +42,12 @@ object id; the AI workspace is at its own branch `main`; and
 neither checkout carries staged or unstaged tracked changes, and neither repo
 carries a `.gitleaks.toml` of its own.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates.

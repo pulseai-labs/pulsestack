@@ -4,7 +4,7 @@ expected_verdict: overrides
 expected_findings: the README's "How ranking works" section is an S1 semantic finding — identity plus reconstructable mechanism ("it contains no code" is not the test and does not clear it; describing is disclosing); the "proprietary internal model" line is S2 — identity only, no mechanism, a note never a finding; the semantic pass RAN against the inventory (S1/S2/S3 first match; where S1 and S2 are arguable it is S1); the operator concedes every fact and accepts the exposure, so this is an accepted-disclosure OVERRIDE and not a rejection — it takes the override record: an Accepted disclosures row in the private boundary inventory carrying release r12, the finding, the PINNED surface (README.md path + its content hash + the commit the audit read it at), the reason and the date; the close then proceeds under the THIRD verdict, named as proceeding with overrides and never reported as clean, with the row named in the report; the empty-inventory-section case is handled by creating the section; everything else ran clean — no second-order finding manufactured
 ---
 Release `r12` of an open-core project is closing; steps 1-6 are done. The
-canonical is observed PUBLIC on gh, the manifest agreeing; state posture is
+canonical is observed PUBLIC on gh, canonical manifest visibility agrees; state posture is
 `open-core`.
 
 `PUBLIC_BOUNDARY.md` is a regular tracked file whose rules block parses with
@@ -44,7 +44,7 @@ Its **History passes** table records a review of the canonical through commit
 State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace, and carries no
 other repository object; the AI workspace is a git repo with one github.com
-remote reading `{"visibility": "PRIVATE"}`, manifest agreeing, and its
+remote reading `{"visibility": "PRIVATE"}`, AI workspace manifest visibility agrees, and its
 gitleaks run completes and reports nothing as hygiene notes. The closing
 spines' handoffs record `base_branch: main` under `## 2. Spine context`, the
 manifest's `canonical.default_branch` reads `main`, and `git rev-parse HEAD`
@@ -53,13 +53,13 @@ carries no staged or unstaged tracked changes; the AI workspace's checkout
 is clean at its own branch `main` with no staged or unstaged tracked changes
 of its own, and neither repo carries a `.gitleaks.toml` of its own.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
-Inventory, manifest and allowlist state, stated so nothing above infers it: no
+Inventory, manifest and allowlist state, stated so nothing above infers it: canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates;
 the working-tree hygiene allowlist is empty.
 

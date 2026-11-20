@@ -92,6 +92,14 @@ re-deriving it. `boundary-audit-integrity`, `spike-contract-integrity`, `risk-ga
 and for those the pass is still owed. The lists are downstream of the rubrics and go
 stale silently, so a criterion edited to read something new owes its list a row.
 
+For `boundary-audit-integrity`, `python3 lib/check-derived-inputs.py` enforces
+the marked presence contract in its derived-inputs file. It strips answer-key
+frontmatter and checks literal declarations, including named per-repo subjects;
+it never judges their correctness or sufficiency. The new regression suite
+`tests/test-derived-input-presence.sh` also checks the actual corpus and is
+discovered by `tests/run-all.sh`, so the presence check runs in CI without
+dispatching an invoke or judge. Python 3.9+ is required for this tooling.
+
 ## Rubric format
 
 `rubrics/<surface>.md` lists that surface's criteria — the count is per-surface
@@ -114,7 +122,22 @@ not a shape.
 ## Run
 
 Session-driven — see `RUNBOOK.md`. Then `bash lib/aggregate-scores.sh`
-(exit 0 = all pass, 1 = any fail — the local gate).
+(exit 0 = all pass and current, 1 = failed, UNSCORED or STALE results, or an
+unavailable freshness check — the local gate).
+
+Freshness covers fixture and rubric content, not skill files. An unchanged,
+committed result is STALE if either input differs from its blob at the result's
+last commit, including working-tree edits and inputs absent at that commit.
+Content restored to its earlier bytes stays current regardless of merge or
+commit dates. An untracked or modified result instead uses input mtimes: write
+the fresh judgment after its inputs. Outside a git work tree, or on a failed
+git read, the gate reports `STALE-CHECK UNAVAILABLE` and stops. It aggregates
+existing judgments only; a green aggregate does not execute an evaluation.
+
+The PR-only root gate `tests/check-added-fixture-results.sh` also requires
+results for added fixtures, updated results for modified fixtures, and updated
+results for every fixture of a modified rubric's surface. It checks the PR
+range, not score correctness or historical staleness predating that range.
 
 ## Seed provenance (spec §13.4)
 

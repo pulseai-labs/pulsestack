@@ -33,8 +33,7 @@ to watch, and does not accept any exposure.
 The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `1e2f3a4` (its `Moat items reviewed`: ranking/decay intelligence), and that commit is the canonical's current tip on every ref.
 
 State the audit's other inputs, so nothing below is left to infer: state
-posture is `open-core`; the pairing manifest records a `visibility` for
-neither repo — the fields were never written, so neither observed read has a
+posture is `open-core`; canonical manifest visibility is unset; AI workspace manifest visibility is unset — the fields were never written, so neither observed read has a
 manifest value to contradict. The closing spines' handoffs record `base_branch: main` under
 `## 2. Spine context`, the manifest's `canonical.default_branch` reads
 `main`, and `git rev-parse HEAD` and `git rev-parse main` print the same
@@ -43,14 +42,14 @@ unstaged tracked
 changes, and neither repo carries a
 `.gitleaks.toml` of its own.
 
-Clone and index state, stated so nothing above infers it: every repo in the
+Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
 set that is a git repo is a full clone — `git rev-parse
 --is-shallow-repository` prints `false` and every remote branch is fetched —
 and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates;
 the working-tree hygiene allowlist is empty.
 
