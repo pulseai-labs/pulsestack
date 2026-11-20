@@ -2,6 +2,12 @@
 
 All notable changes to the `crew` plugin.
 
+## 0.13.5
+
+**The ossify dispatch list has its own heading boundary (#603, #728).** §6 separates the dispatched commands from the cases that look like clashes with a subsection heading; the existing guidance is unchanged.
+
+Tests use the shared fidelity pins without an exemption, scan heredoc bodies conservatively as code, and check every backticked token up to the next heading with a loud refusal when that heading is missing.
+
 ## 0.13.4
 
 **OMP bin-path drops the pre-rename marketplace name (#1082).** The OMP bin-path module (VERSION 4) and loader (LOADER_VERSION 4) read only installs under the `pulsestack` marketplace name; the pre-rename `claude-agent-scaffolding` entries are no longer read, now that every host has moved. MIN_LOADER_VERSION is 4, so loaders 2 and 3 warn once per session with their re-download command (loader 3 writes over its own file, loader 2 to `~/.omp/agent/extensions/`); loader 1 reads only the old name, so on a moved host it finds no module and says so instead of warning.

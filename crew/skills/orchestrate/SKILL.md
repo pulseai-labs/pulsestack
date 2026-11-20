@@ -147,6 +147,8 @@ command by the delegation floor: does it need the operator turn by turn?
 - **Dispatched to a seat session:** `run-spine`, `work-item`, `close`, `work-pr`,
   `doctor`.
 
+### Cases that look like clashes
+
 These cases are named because they look like clashes and are not:
 
 - **`run-spine`, by default.** Dispatch `/ossify:run-spine <id>` to one lane-driver
