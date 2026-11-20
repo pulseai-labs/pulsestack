@@ -33,9 +33,13 @@
 #   7. `{fresh|new} <0-20> {seat(s)|pair} <0-20> {you create|you dispatch|you launch|
 #      you spawn|to resume}`
 #   8. `respawn`
+# Initial capitals also match in patterns 4–6 and 8, with the same inflections.
 #
 # A site carries a marking clause when its own region contains any of:
 # `SEAT_MODS_ROLE=`, `guarded`, `coordinator`, `orchestrator`, `step 2`, `Seat marking`.
+# Tokens have no adjacent letter, digit or `_`; `SEAT_MODS_ROLE=` ends at `=`. An `_` run at
+# a word edge is emphasis (`_guarded_`, `__coordinator__`) and is read as a blank; one
+# between two letters or digits (`is_guarded`) is part of the word.
 #
 # COVERED: the three placement commands; "launch(ed) from the … seat"; "launch
 # a/the/its … [fresh|new] seat|pair|…" including bold verbs and articles and the
@@ -60,8 +64,12 @@
 # command-string shape above: no command intervenes, and selecting them would fail
 # clause-less prose); a launch sentence directly under a heading with no blank line (it
 # merges into the heading's region and is dropped); frontmatter whose `---` has no blank
-# line after it (the skip takes the body's first region with it); headings
-# and frontmatter.
+# line after it (the skip takes the body's first region with it); a nested list item
+# consumed into its parent region, where a parent's or sibling's clause satisfies an
+# unmarked nested launch; a tab after a list marker (`-\t…`) not recognized as a marker,
+# so adjacent items merge into one region; a TAB-indented continuation line, which the
+# space-only indent rule does not read as indented, so it leaves its item's region and is
+# judged without the item's clause (a false FAIL); headings and frontmatter.
 #
 # CLAUSE-SIDE LOOSENING, stated: any bare mention of the clause tokens in the region
 # satisfies the check (e.g. a site beside the words "the coordinator seats" passes
@@ -88,6 +96,9 @@
 #     added) keeps it — the per-pattern coverage rests on the controls here.
 #   - per-file death: a scanned path whose own scan dies must print SCAN-ERROR and fail
 #     the run, not vanish behind the other files' counts.
+#   - #721: whole-word clauses and adjacent real clauses; lowercase/initial-capital
+#     verbs and inflections; second-line verb locations; failed find traversal and
+#     an adjacent complete traversal.
 #
 # Usage: bash crew/tests/test-launch-site-marking.sh
 # Env:   HERDR_CREW_PROSE_ROOT=<dir>  scan that tree instead of the plugin's — the
@@ -121,8 +132,9 @@ SITE_FLOOR=26
 #   FAIL <file>:<line> [<site kind>] :: <site text>   for each selected site with no clause
 #   SITES <n>                            the number of sites that file selected
 #   SCAN-ERROR <path>: <reason>          a path whose scan did not finish
-# `line` is the first line of the region that itself carries a launch token, so the
-# pointer lands on the sentence, not the paragraph's first line; `site kind` is the
+# `line` is the first line at which the region, read from its own first line, becomes a
+# site: the line where the selecting phrase ends, so the pointer lands on the launch
+# sentence, not on the paragraph's first line or on an earlier noun; `site kind` is the
 # pattern that selected the region; the printed site text is the whole joined region
 # with `**` stripped, capped at 400 characters. A file with no `SITES` line is a failed
 # scan, never a clean one, and the caller refuses any `SCAN-ERROR`.
@@ -132,7 +144,15 @@ scan_launch_sites() { # <root>
     printf 'SCAN-ERROR %s: needs skills/ and commands/ directories\n' "$_root"
     return 0
   fi
-  _files="$(find "$_root/skills" "$_root/commands" -name '*.md' | sort)"
+  # Capture find before sorting: a successful sort cannot certify a partial walk.
+  if _files="$(find "$_root/skills" "$_root/commands" -name '*.md')"; then
+    :
+  else
+    _find_status=$?
+    printf 'SCAN-ERROR %s: find exited %s — skills/ or commands/ traversal did not finish\n' "$_root" "$_find_status"
+    return 0
+  fi
+  _files="$(printf '%s\n' "$_files" | sort)"
   if [ -z "$_files" ]; then
     printf 'SCAN-ERROR %s: no .md files under skills/ or commands/\n' "$_root"
     return 0
@@ -159,38 +179,57 @@ scan_launch_sites() { # <root>
         if (region ~ /herdr workspace create/ && region !~ /run:/) w = w " workspace-create"
         if (region ~ /[Ll]aunch(ed|es|ing)?[[:space:]]+(a|an|the|its|each|every|from|as|it|to|at)[[:space:]][^.;()]{0,40}[Ss][Ee][Aa][Tt][Ss]?([^A-Za-z]|$)/) w = w " launch-from-seat"
         if (region ~ /[Ll]aunch(ed|es|ing)? from (those|them|these)([^A-Za-z]|$)/) w = w " launch-from-those"
-        if (region ~ /(launch(es|ed)?|dispatch(es|ed)?|create[sd]?|respawn(s|ed)?)[[:space:]]+((a|an|the|its|their|another)[[:space:]]+|(that|the) item.s[[:space:]]+)?(fresh|new)([^A-Za-z]|$)[^.;()]{0,20}([Ss][Ee][Aa][Tt][Ss]?([^A-Za-z]|$)|pair([^A-Za-z]|$)|implementer|verifier|reviewer|writer|spine session|work-PR session|close session|doctor session)/) w = w " fresh-seat"
+        if (region ~ /([Ll]aunch(es|ed)?|[Dd]ispatch(es|ed)?|[Cc]reate[sd]?|[Rr]espawn(s|ed)?)[[:space:]]+((a|an|the|its|their|another)[[:space:]]+|(that|the) item.s[[:space:]]+)?(fresh|new)([^A-Za-z]|$)[^.;()]{0,20}([Ss][Ee][Aa][Tt][Ss]?([^A-Za-z]|$)|pair([^A-Za-z]|$)|implementer|verifier|reviewer|writer|spine session|work-PR session|close session|doctor session)/) w = w " fresh-seat"
         if (region ~ /(fresh|new)[^.;()]{0,20}([Ss][Ee][Aa][Tt][Ss]?([^A-Za-z]|$)|pair([^A-Za-z]|$))[^.;()]{0,20}(you (create|dispatch|launch|spawn)|to resume)/) w = w " fresh-seat-verb"
-        if (region ~ /respawn/) w = w " respawn"
+        if (region ~ /[Rr]espawn/) w = w " respawn"
         return w
       }
-      # The clause forms, tried in order; "" is the failure this suite reports. A FAIL
-      # line names the site kind above instead — a failing site has no clause kind.
+      # The clause forms, tried in order, with no letter, digit or underscore at a
+      # word edge (ROLE= ends at the equals sign); "" is the failure reported below.
       function clause_kind(region) {
-        if (region ~ /SEAT_MODS_ROLE=/) return "SEAT_MODS_ROLE"
-        if (region ~ /guarded/) return "guarded"
-        if (region ~ /coordinator/) return "coordinator"
-        if (region ~ /orchestrator/) return "orchestrator"
-        if (region ~ /step 2/) return "step 2"
-        if (region ~ /Seat marking/) return "Seat marking"
+        if (region ~ /(^|[^[:alnum:]_])SEAT_MODS_ROLE=/) return "SEAT_MODS_ROLE"
+        if (region ~ /(^|[^[:alnum:]_])guarded([^[:alnum:]_]|$)/) return "guarded"
+        if (region ~ /(^|[^[:alnum:]_])coordinator([^[:alnum:]_]|$)/) return "coordinator"
+        if (region ~ /(^|[^[:alnum:]_])orchestrator([^[:alnum:]_]|$)/) return "orchestrator"
+        if (region ~ /(^|[^[:alnum:]_])step 2([^[:alnum:]_]|$)/) return "step 2"
+        if (region ~ /(^|[^[:alnum:]_])Seat marking([^[:alnum:]_]|$)/) return "Seat marking"
         return ""
       }
+      # Lines a..b joined as one region: whitespace squeezed, `**` stripped.
+      function joined(a, b,   k, r) {
+        r = ""
+        for (k = a; k <= b; k++) r = r " " L[k]
+        gsub(/[[:space:]]+/, " ", r)
+        gsub(/\*\*/, "", r)
+        sub(/^ /, "", r)
+        return r
+      }
+      # An `_` run at a word edge is emphasis and becomes blanks; a run between two
+      # letters or digits (`is_guarded`, `SEAT_MODS_ROLE`) stays part of the word.
+      function unemph(s,   out, i, j, n, run, before, after) {
+        out = ""; n = length(s); i = 1
+        while (i <= n) {
+          if (substr(s, i, 1) != "_") { out = out substr(s, i, 1); i++; continue }
+          j = i
+          while (j <= n && substr(s, j, 1) == "_") j++
+          run = substr(s, i, j - i)
+          before = (i > 1) ? substr(s, i - 1, 1) : ""
+          after = (j <= n) ? substr(s, j, 1) : ""
+          if (!(before ~ /[[:alnum:]]/ && after ~ /[[:alnum:]]/)) gsub(/_/, " ", run)
+          out = out run; i = j
+        }
+        return out
+      }
       function emit(a, b,   k, region, line, text, why) {
-        region = ""
-        for (k = a; k <= b; k++) region = region " " L[k]
-        gsub(/[[:space:]]+/, " ", region)
-        gsub(/\*\*/, "", region)
-        sub(/^ /, "", region)
+        region = joined(a, b)
         if (is_heading(L[a])) return
         if (a == 1 && L[1] == "---") return
         why = site_why(region)
         if (why == "") return
         sites++
-        if (clause_kind(region) != "") return
-        line = a
-        for (k = a; k <= b; k++) {
-          if (L[k] ~ /[Ll]aunch/ || L[k] ~ /respawn/ || L[k] ~ /herdr (tab|worktree|workspace) create/) { line = k; break }
-        }
+        if (clause_kind(unemph(region)) != "") return
+        line = b
+        for (k = a; k <= b; k++) if (site_why(joined(a, k)) != "") { line = k; break }
         text = region
         if (length(text) > 400) text = substr(text, 1, 400) " …"
         printf "FAIL %s:%d [%s] :: %s\n", file, line, substr(why, 2), text
@@ -378,6 +417,155 @@ if [ "$(printf '%s\n' "$bad" | awk '$1 == "SCAN-ERROR" { c++ } END { print c+0 }
 else
   fail "control: a path whose scan dies is refused by name, not dropped" \
     "expected a SCAN-ERROR naming evil.md; got: $bad"
+fi
+
+# #721: clause tokens have word edges, not substring matches. Each rejected spelling
+# sits beside both `a guarded seat` and the genuine token, so refusing all clauses
+# cannot satisfy the negative control. ROLE= ends at `=`: its value may start a word.
+mkdir -p "$tmp2/tokens/skills" "$tmp2/tokens/commands"
+for token in 'SEAT_MODS_ROLE=reviewer' guarded coordinator orchestrator 'step 2' 'Seat marking'; do
+  for embedded in "x$token" "7$token" "x_$token" "${token}x" "${token}7" "${token}_x"; do
+    case "$token:$embedded" in
+      SEAT_MODS_ROLE=*:SEAT_MODS_ROLE=*) continue ;;
+    esac
+    printf 'launch a fresh reviewer seat. %s\n\nlaunch a fresh reviewer seat, a guarded seat.\n\nlaunch a fresh reviewer seat. (%s)\n' \
+      "$embedded" "$token" > "$tmp2/tokens/skills/control.md"
+    tokens="$(scan_launch_sites "$tmp2/tokens")"
+    if [ "$(sites_count "$tokens")" -eq 3 ] \
+       && printf '%s\n' "$tokens" | awk -v f="$tmp2/tokens/skills/control.md:1" \
+         '$1 == "FAIL" { n++; if ($2 == f) hit++ } END { exit(n == 1 && hit == 1 ? 0 : 1) }'; then
+      pass "control: clause rejects $embedded; a guarded seat and $token still pass"
+    else
+      fail "control: clause rejects $embedded; a guarded seat and $token still pass" \
+        "expected three sites and only line 1 unmarked; got: $tokens"
+    fi
+  done
+done
+# Underscore emphasis is not a word character: `_guarded_` and `__coordinator__` are the
+# words themselves, while `x_guarded` above stays refused (#1239 round 1, C2).
+for emphasized in _guarded_ __coordinator__ '_SEAT_MODS_ROLE=reviewer_'; do
+  printf 'launch a fresh reviewer seat, %s.\n' "$emphasized" > "$tmp2/tokens/skills/control.md"
+  tokens="$(scan_launch_sites "$tmp2/tokens")"
+  if [ "$(sites_count "$tokens")" -eq 1 ] && [ -z "$(scan_fails "$tokens")" ]; then
+    pass "control: emphasized clause $emphasized passes"
+  else
+    fail "control: emphasized clause $emphasized passes" "expected one marked site; got: $tokens"
+  fi
+done
+# The two issue spellings, including a numeric continuation of a multi-word token.
+for embedded in unguarded 'step 20'; do
+  printf 'launch a fresh reviewer seat. %s\n\nlaunch a fresh reviewer seat, a guarded seat.\n' \
+    "$embedded" > "$tmp2/tokens/skills/control.md"
+  tokens="$(scan_launch_sites "$tmp2/tokens")"
+  if [ "$(sites_count "$tokens")" -eq 2 ] \
+     && printf '%s\n' "$tokens" | awk -v f="$tmp2/tokens/skills/control.md:1" \
+       '$1 == "FAIL" { n++; if ($2 == f) hit++ } END { exit(n == 1 && hit == 1 ? 0 : 1) }'; then
+    pass "control: clause rejects $embedded; a guarded seat still passes"
+  else
+    fail "control: clause rejects $embedded; a guarded seat still passes" \
+      "expected two sites and only line 1 unmarked; got: $tokens"
+  fi
+done
+
+# #721: sentence-initial forms select just like their lowercase counterparts. The
+# reviewer noun has no `seat`, so pattern 4 cannot hide a lost pattern-6 verb.
+mkdir -p "$tmp2/verbs/skills" "$tmp2/verbs/commands"
+while read -r lower capital; do
+  for verb in "$lower" "$capital"; do
+    printf '%s fresh reviewer.\n' "$verb" > "$tmp2/verbs/skills/control.md"
+    verbs="$(scan_launch_sites "$tmp2/verbs")"
+    if [ "$(sites_count "$verbs")" -eq 1 ] \
+       && printf '%s\n' "$verbs" | awk '$1 == "FAIL" && index($0, "fresh-seat") > 0 { n++ } END { exit(n == 1 ? 0 : 1) }'; then
+      pass "control: $verb selects an unmarked fresh reviewer"
+    else
+      fail "control: $verb selects an unmarked fresh reviewer" "expected one fresh-seat failure; got: $verbs"
+    fi
+  done
+done <<'VERBS'
+launch Launch
+launches Launches
+launched Launched
+dispatch Dispatch
+dispatches Dispatches
+dispatched Dispatched
+create Create
+creates Creates
+created Created
+respawn Respawn
+respawns Respawns
+respawned Respawned
+VERBS
+for verb in respawn Respawn; do
+  printf '%s the worker.\n' "$verb" > "$tmp2/verbs/skills/control.md"
+  verbs="$(scan_launch_sites "$tmp2/verbs")"
+  if [ "$(sites_count "$verbs")" -eq 1 ] \
+     && printf '%s\n' "$verbs" | awk '$1 == "FAIL" && index($0, "[respawn]") > 0 { n++ } END { exit(n == 1 ? 0 : 1) }'; then
+    pass "control: bare $verb selects an unmarked site"
+  else
+    fail "control: bare $verb selects an unmarked site" "expected one respawn failure; got: $verbs"
+  fi
+done
+
+# #1239 round 1, C1: an earlier line that only names a verb family — a noun, a negation,
+# an unrelated word — is not the launch line. Each reports line 2.
+for context in 'The operator created a plan.' 'Settle its dispatch first.' 'Dispatch nothing downstream.'; do
+  printf '%s\nLaunch a fresh reviewer seat.\n' "$context" > "$tmp2/verbs/skills/control.md"
+  locator="$(scan_launch_sites "$tmp2/verbs")"
+  if [ "$(sites_count "$locator")" -eq 1 ] \
+     && printf '%s\n' "$locator" | awk -v f="$tmp2/verbs/skills/control.md:2" \
+       '$1 == "FAIL" { n++; if ($2 == f) hit++ } END { exit(n == 1 && hit == 1 ? 0 : 1) }'; then
+    pass "control: [$context] does not take the pointer from the launch line"
+  else
+    fail "control: [$context] does not take the pointer from the launch line" "expected one failure at line 2; got: $locator"
+  fi
+done
+# #721: the first sentence is context, not the launch. Report line 2 for each verb.
+for verb in dispatch Dispatch create Create respawn Respawn; do
+  printf 'The operator requests another opinion.\n%s a fresh reviewer seat.\n' "$verb" \
+    > "$tmp2/verbs/skills/control.md"
+  locator="$(scan_launch_sites "$tmp2/verbs")"
+  if [ "$(sites_count "$locator")" -eq 1 ] \
+     && printf '%s\n' "$locator" | awk -v f="$tmp2/verbs/skills/control.md:2" \
+       '$1 == "FAIL" { n++; if ($2 == f) hit++ } END { exit(n == 1 && hit == 1 ? 0 : 1) }'; then
+    pass "control: $verb failure points to the second-line verb"
+  else
+    fail "control: $verb failure points to the second-line verb" "expected one failure at line 2; got: $locator"
+  fi
+done
+
+# #721: find must finish even when other files were emitted successfully. chmod
+# 000 exercises the real unreadable-subtree path. Root can still read it: there,
+# add a dangling-link operand with a trailing slash to real find, which exits
+# nonzero (a bare dangling link is not an error under find's default -P).
+mkdir -p "$tmp2/find/skills/locked" "$tmp2/find/commands"
+printf 'launch a fresh reviewer seat, a guarded seat.\n' > "$tmp2/find/skills/control.md"
+chmod 000 "$tmp2/find/skills/locked"
+find_branch=unreadable
+if [ -r "$tmp2/find/skills/locked" ]; then
+  find_branch=dangling
+  ln -s "$tmp2/find/absent" "$tmp2/find/dangling"
+  find_scan="$(
+    find() { command find "$tmp2/find/dangling/" "$@"; }
+    scan_launch_sites "$tmp2/find" 2>&1
+  )"
+else
+  find_scan="$(scan_launch_sites "$tmp2/find" 2>&1)"
+fi
+chmod 700 "$tmp2/find/skills/locked"
+if printf '%s\n' "$find_scan" | awk -v p="$tmp2/find" \
+     '$1 == "SCAN-ERROR" && index($0, p ": find exited ") > 0 && $0 ~ /: find exited [1-9][0-9]* / { hit++ } END { exit(hit == 1 ? 0 : 1) }'; then
+  pass "control: find failure is a named SCAN-ERROR ($find_branch)"
+else
+  fail "control: find failure is a named SCAN-ERROR ($find_branch)" \
+    "expected a SCAN-ERROR naming find and the scan root; got: $find_scan"
+fi
+# Adjacent control: removing the obstacle lets the same readable site scan cleanly.
+find_clean="$(scan_launch_sites "$tmp2/find")"
+if [ -z "$(scan_errors "$find_clean")" ] && [ -z "$(scan_fails "$find_clean")" ] \
+   && [ "$(sites_count "$find_clean")" -eq 1 ]; then
+  pass "control: a complete find still scans its marked site"
+else
+  fail "control: a complete find still scans its marked site" "expected one marked site and no errors; got: $find_clean"
 fi
 
 # #514, L1: the shape, asserted rather than assumed — a counter re-copied into any
