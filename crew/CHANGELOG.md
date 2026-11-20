@@ -4,9 +4,9 @@ All notable changes to the `crew` plugin.
 
 ## 0.13.5
 
-**The ossify dispatch list has its own heading boundary (#603, #728).** §6 separates the dispatched commands from the cases that look like clashes with a subsection heading; the existing guidance is unchanged.
+**The ossify dispatch list has its own heading boundary (#603).** §6 separates the dispatched commands from the cases that look like clashes with a subsection heading; the existing guidance is unchanged.
 
-Tests use the shared fidelity pins without an exemption, scan heredoc bodies conservatively as code, and check every backticked token up to the next heading with a loud refusal when that heading is missing.
+Tests use the shared fidelity pins without an exemption (#728), scan heredoc bodies as code, and check every backticked token up to the next heading, refusing loudly when that heading is missing or a fence or HTML comment sits before it (#603). The rubric's criterion 5 now scores the `RUN_JSON` a resumed work-PR dispatch carries and rebinds, fixture 16 counts four states, and the rebind and continue clauses are pinned (#657).
 
 ## 0.13.4
 

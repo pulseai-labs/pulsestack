@@ -174,7 +174,7 @@ aligned.
    Merge bar or Claim is the one exception: its merge-bar reviewer is told so and
    reviews the whole PR); a record inconsistent with
    the PR's live state is asked upward, never repaired or guessed. An `open:`
-   return carries the `RUN_JSON` path it continued and the pane its
+   return carries its `RUN_JSON` path and the pane its
    `run.orchestrator` names at writing. A resumed dispatch carries the
    `RUN_JSON` path the PR's last `open:` return named, and the session continues
    and rebinds that file; minting a fresh `run.json` on a resumed dispatch is a

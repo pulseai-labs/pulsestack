@@ -192,10 +192,15 @@ HOISTED_FNS="count_literal occurrences occurrences_flat count_of pin present"
 # a list of every spelling bash accepts. bash accepts more, and those belong to the other
 # half, below.
 #
-# Heredoc bodies are scanned as code (#603). Removing a skip can only raise a
-# count, never lower it, so this scan is strictly fail-closed. The stated bound:
-# a heredoc fixture whose body starts a line with a definition of a hoisted name
-# reads as a shadow — a loud false RED. Write such fixtures with printf instead.
+# Heredoc bodies are scanned as code (#603). The scan runs TWICE — once with the
+# backslash-newline join below, once with every line read on its own — and reports the
+# larger count per name. A body line therefore cannot hide the line after it: a heredoc
+# terminator that ends in `\` is not joined by bash, but a text join carries it onto the
+# next line and pushes a definition there off its line start (measured: a `declare -f`
+# copy of `pin` after `END\` counted 0 with the join alone; #603 pre-PR review, B1). With
+# both passes, removing the skip only raises counts. The stated bound: a heredoc fixture
+# whose body starts a line with a definition of a hoisted name reads as a shadow — a loud
+# false RED. Write such fixtures with printf instead.
 #
 # WHICH HALF OWNS WHAT. This pass owns the COUNT — the exact per-name counts the
 # spelling controls' `1 pin 1` assert, which a structural answer cannot express:
@@ -239,7 +244,7 @@ count_shadows() { # <file> <fn>...
 
       if (waiting != "") {
         if (code == "") return                # a blank or comment-only line: bash still waits for the brace
-        if (code ~ /^\{/) { if (waiting in want) hits[waiting]++ }
+        if (code ~ /^\{/) { if (waiting in want) hits[pj, waiting]++ }
         waiting = ""
         if (code ~ /^\{/) return
       }
@@ -247,12 +252,12 @@ count_shadows() { # <file> <fn>...
 
       if (code ~ /^function[[:space:]]+[A-Za-z_][A-Za-z0-9_]*/) {
         name = code; sub(/^function[[:space:]]+/, "", name); sub(/[^A-Za-z0-9_].*$/, "", name)
-        if (name in want) hits[name]++
+        if (name in want) hits[pj, name]++
         return
       }
       if (code ~ /^[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\([[:space:]]*\)[[:space:]]*\{/) {
         name = code; sub(/[[:space:]]*\(.*$/, "", name)
-        if (name in want) hits[name]++
+        if (name in want) hits[pj, name]++
         return
       }
       if (code ~ /^[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\([[:space:]]*\)[[:space:]]*$/) {
@@ -261,14 +266,29 @@ count_shadows() { # <file> <fn>...
         return
       }
     }
-    { line = $0
-      if (cont != "") { line = cont $0; cont = "" }      # the join bash performs on an unquoted backslash-newline
-      if (line ~ /\\$/) { sub(/\\$/, "", line); cont = line; next }
-      see(line) }
-    END {
+    # One pass over the stored lines. With j = 1 it performs the join bash performs on an
+    # unquoted backslash-newline; with j = 0 every line is read on its own.
+    function scan(j,   i, line, cont) {
+      pj = j; waiting = ""; cont = ""
+      for (i = 1; i <= nl; i++) {
+        line = L[i]
+        if (j) {
+          if (cont != "") { line = cont line; cont = "" }
+          if (line ~ /\\$/) { sub(/\\$/, "", line); cont = line; continue }
+        }
+        see(line)
+      }
       if (cont != "") see(cont)                # a file ending in a continuation: no next line to join, and nothing to lose
+    }
+    { L[++nl] = $0 }
+    END {
+      scan(1); scan(0)
       total = 0; tail = ""
-      for (i = 1; i <= n; i++) if (a[i] in hits) { total += hits[a[i]]; tail = tail " " a[i] " " hits[a[i]] }
+      for (i = 1; i <= n; i++) {
+        c = hits[1, a[i]] + 0; r = hits[0, a[i]] + 0
+        if (r > c) c = r                       # the larger count per name: neither pass hides what the other saw
+        if (c > 0) { total += c; tail = tail " " a[i] " " c }
+      }
       print total tail
     }' "$1"
 }

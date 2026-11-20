@@ -523,7 +523,9 @@ else
 fi
 
 # #514, L1: a counter re-copied into any suite shadows the hoisted one and keeps
-# passing, so every suite asserts its own shape. The directory-wide half runs
+# passing, so the shape is asserted: every suite's report() compares the resolved
+# definitions, most suites also call assert_hoisted_counters, and the directory scan
+# below reads every suite's text. The directory-wide half runs
 # once here because its answer cannot differ between callers.
 section "the hoisted counters are not re-copied"
 assert_hoisted_counters
@@ -580,6 +582,18 @@ if [ "$got" = "1 pin 1" ]; then
   pass "control: a heredoc body with a line-start definition counts as a shadow (the loud bound)"
 else
   fail "control: a heredoc body with a line-start definition counts as a shadow (the loud bound)" \
+    "got [$got], expected [1 pin 1]"
+fi
+# #603 pre-PR B1: bash does not join a terminator that ends in `\` to the next line, so the
+# definition after it (bash's own `declare -f` rendering, brace on its own line) starts its
+# line. The joined pass alone counted 0 here; the line-by-line pass counts it.
+printf '%s\n' "cat <<'END\\'" 'fixture data' 'END\' 'pin ()' '{' '    :' '}' \
+  > "$ctl_sh/heredoc-backslash-terminator.sh"
+got="$(count_shadows "$ctl_sh/heredoc-backslash-terminator.sh" pin)"
+if [ "$got" = "1 pin 1" ]; then
+  pass "control: a definition after a terminator that ends in a backslash still counts"
+else
+  fail "control: a definition after a terminator that ends in a backslash still counts" \
     "got [$got], expected [1 pin 1]"
 fi
 printf "cat <<'SHELL_FIXTURE'\nfixture data only\nSHELL_FIXTURE\n" > "$ctl_sh/heredoc-data.sh"

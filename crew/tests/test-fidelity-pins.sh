@@ -65,10 +65,14 @@ counted_pin "skills/orchestrate/references/lifecycle.md" \
 
 # The cap is the point of this file, so it is asserted rather than trusted.
 printf '\n'
-if [ "$PINS" -eq 5 ]; then
+# Every pin leaves exactly one pass or fail, and nothing else has reported yet, so the
+# results are counted too: a sixth pin written with the shared `pin` instead of
+# counted_pin is caught here (#603 pre-PR review, B3).
+results=$((PASS + FAIL))
+if [ "$PINS" -eq 5 ] && [ "$results" -eq 5 ]; then
   pass "pin list is capped at 5 (found $PINS)"
 else
-  fail "pin list is capped at 5" "found $PINS. Adding a pin means replacing one, not appending. See the header."
+  fail "pin list is capped at 5" "found $PINS counted pins and $results pin results. Adding a pin means replacing one, not appending. See the header."
 fi
 
 assert_hoisted_counters

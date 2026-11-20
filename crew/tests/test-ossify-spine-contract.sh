@@ -644,17 +644,25 @@ pin "$ROLES_MD" 'A `doctor session` — one fresh tab and pane' \
 # session must name its `/ossify:` invocation in config.md. Missing anchors,
 # empty command lists and missing heading boundaries all fail loudly.
 # Every backticked token before the next heading is checked; over-capture fails closed as a missing role.
-# The boundary is exactly a column-zero ATX heading, 1–6 hashes then a space;
-# no list, fence, HTML-comment or paragraph model is needed for this block.
+# The boundary is exactly a column-zero ATX heading, 1–6 hashes then a space. A fence or
+# an HTML comment inside the block is refused, not modelled: a `# ` line inside one would
+# otherwise end the carve early and drop the commands after it in silence (#603 pre-PR
+# review, B2). No list or paragraph model is needed: a list item or a prose line is just
+# more of the block, and its backticked tokens are checked.
 heading_span() { # <file> <anchor-line>
   awk -v s="$2" '
     NR < s { next }
     NR == s { text = $0 ORS; next }
+    /^ ? ? ?(```|~~~)/ || /<!--/ { modelled = 1; exit }
     /^#[#]?[#]?[#]?[#]?[#]? / { ended = 1; exit }
     { text = text $0 ORS }
     END {
       if (s < 1 || s > NR) {
         printf "heading_span refuses: %s has no anchor at line %d\n", FILENAME, s
+        exit 1
+      }
+      if (modelled) {
+        printf "heading_span refuses: a fence or an HTML comment inside the block after the anchor at %s:%d — the carve does not model either, so it stops rather than end inside one\n", FILENAME, s
         exit 1
       }
       if (!ended) {
@@ -813,19 +821,47 @@ fi
 
 # ── heading-bounded carve controls (#603) ───────────────────────────────────
 # Each fixture runs the same carve, balance gate and role check as SKILL.md.
-# Each match names a label, never the ✓/✗ glyph before it: on a terminal the colour
-# reset sits between the glyph and the label.
+# No match joins a ✓/✗ glyph to the label after it: on a terminal the colour reset sits
+# between the two. A bare `✗` alone is safe and is used as an absence test.
 ctl_carve="$(mktemp -d)"
-printf '/ossify:alpha-one\n/ossify:beta-two\n' > "$ctl_carve/config.md"
+printf '/ossify:alpha-one\n/ossify:beta-two\n/ossify:gamma-three\n' > "$ctl_carve/config.md"
 
-# C4: a blank line does not end the dispatched-command block.
-printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n  `beta-two`.\n### Cases\n' > "$ctl_carve/two-lines.md"
+# C4: neither a blank line nor a sibling list item ends the dispatched-command block.
+printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n  `beta-two`.\n- `gamma-three`\n### Cases\n' > "$ctl_carve/two-lines.md"
 out="$(check_dispatched_commands "$ctl_carve/two-lines.md" "$ctl_carve/config.md")"
-if printf '%s' "$out" | grep -F 'every dispatched command resolves to a role in config.md (2)' >/dev/null &&
+if printf '%s' "$out" | grep -F 'every dispatched command resolves to a role in config.md (3)' >/dev/null &&
    ! printf '%s' "$out" | grep -F '✗' >/dev/null; then
-  pass "control: both blank-separated commands before the heading are checked"
+  pass "control: blank-separated commands and a sibling item before the heading are all checked"
 else
-  fail "control: both blank-separated commands before the heading are checked" "$out"
+  fail "control: blank-separated commands and a sibling item before the heading are all checked" "$out"
+fi
+
+# C4b: a fence or an HTML comment inside the block is refused, whatever it holds.
+for shape in tilde backtick4 comment; do
+  case "$shape" in
+    tilde)     opener='~~~sh';   closer='~~~' ;;
+    backtick4) opener='````sh';  closer='````' ;;
+    comment)   opener='<!--';    closer='-->' ;;
+  esac
+  printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n%s\n# how to dispatch one\n%s\n\n  `bogus-cmd`.\n\n### Cases\n' \
+    "$opener" "$closer" > "$ctl_carve/modelled-$shape.md"
+  out="$(check_dispatched_commands "$ctl_carve/modelled-$shape.md" "$ctl_carve/config.md")"
+  if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command block is carved whole" >/dev/null &&
+     printf '%s' "$out" | grep -F 'a fence or an HTML comment inside the block' >/dev/null; then
+    pass "control: a $shape inside the block is refused, not ended inside"
+  else
+    fail "control: a $shape inside the block is refused, not ended inside" "$out"
+  fi
+done
+
+# C4c: a single-hash heading ends the block too.
+printf -- '- **Dispatched to a seat session:** `alpha-one`.\n# Cases\n`after-heading`.\n' > "$ctl_carve/one-hash.md"
+out="$(check_dispatched_commands "$ctl_carve/one-hash.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F 'every dispatched command resolves to a role in config.md (1)' >/dev/null &&
+   ! printf '%s' "$out" | grep -F '✗' >/dev/null; then
+  pass "control: a single-hash heading ends the block"
+else
+  fail "control: a single-hash heading ends the block" "$out"
 fi
 
 # C5: over-captured non-role tokens fail through the actual role check.
@@ -1264,19 +1300,22 @@ GAP_CARRIERS=("$PLUGIN_ROOT/README.md" "$SKILL_MD" "$COMMAND_MD" "$REF"/*.md \
   "$PLUGIN_ROOT/CHANGELOG.md" "$PLUGIN_ROOT/.claude-plugin/plugin.json" \
   "$PLUGIN_ROOT/.codex-plugin/plugin.json" \
   "$EVAL_DIR"/fixtures/ossify-spine-execution/*.md "$EVAL_RUBRIC_MD")
+# One function is the sweep, so the controls below exercise its mode and its needle list,
+# not a copy of them (#603 pre-PR review, B4a).
+gap_sweep() { absent_any "$1" "$2" flat "${GAP_NEEDLES[@]}"; } # <file> <label>
 for gap_f in "${GAP_CARRIERS[@]}"; do
-  absent_any "$gap_f" "no #556 gap text in ${gap_f#"$PLUGIN_ROOT"/}" flat "${GAP_NEEDLES[@]}"
+  gap_sweep "$gap_f" "no #556 gap text in ${gap_f#"$PLUGIN_ROOT"/}"
 done
 gap_ctl="$(mktemp -d)"
 printf 'The rotate successor binds it,\nbut issue #556 holds\nthat gap open.\n' > "$gap_ctl/wrapped.md"
 printf '## 0.2.4\n\n- The rebind rule closes issue #556.\n' > "$gap_ctl/names-issue.md"
-gap_out="$(absent_any "$gap_ctl/wrapped.md" "gap control" flat "${GAP_NEEDLES[@]}")"
+gap_out="$(gap_sweep "$gap_ctl/wrapped.md" "gap control")"
 case "$gap_out" in
   *"the claim is back: [issue #556 holds that gap x1]"*)
     pass "control: the gap sentence wrapped across lines still fails the sweep" ;;
   *) fail "control: the gap sentence wrapped across lines still fails the sweep" "got: $gap_out" ;;
 esac
-gap_out="$(absent_any "$gap_ctl/names-issue.md" "gap control" flat "${GAP_NEEDLES[@]}")"
+gap_out="$(gap_sweep "$gap_ctl/names-issue.md" "gap control")"
 case "$gap_out" in
   *"✗"*|"") fail "control: a bare mention of issue #556 passes the sweep" "got: $gap_out" ;;
   *"gap control"*) pass "control: a bare mention of issue #556 passes the sweep" ;;
