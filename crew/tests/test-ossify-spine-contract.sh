@@ -652,7 +652,7 @@ pin "$ROLES_MD" 'A `doctor session` — one fresh tab and pane' \
 heading_span() { # <file> <anchor-line>
   awk -v s="$2" '
     NR < s { next }
-    NR == s { text = $0 ORS; next }
+    NR == s { text = $0 ORS; if ($0 ~ /<!--/) { modelled = 1; exit }; next }
     /^ ? ? ?(```|~~~)/ || /<!--/ { modelled = 1; exit }
     /^#[#]?[#]?[#]?[#]?[#]? / { ended = 1; exit }
     { text = text $0 ORS }
@@ -662,7 +662,7 @@ heading_span() { # <file> <anchor-line>
         exit 1
       }
       if (modelled) {
-        printf "heading_span refuses: a fence or an HTML comment inside the block after the anchor at %s:%d — the carve does not model either, so it stops rather than end inside one\n", FILENAME, s
+        printf "heading_span refuses: a fence or an HTML comment inside the block that starts at the anchor at %s:%d — the carve does not model either, so it stops rather than end inside one\n", FILENAME, s
         exit 1
       }
       if (!ended) {
@@ -837,11 +837,13 @@ else
 fi
 
 # C4b: a fence or an HTML comment inside the block is refused, whatever it holds.
-for shape in tilde backtick4 comment; do
+for shape in tilde backtick4 comment indented-tilde mid-line-comment; do
   case "$shape" in
-    tilde)     opener='~~~sh';   closer='~~~' ;;
-    backtick4) opener='````sh';  closer='````' ;;
-    comment)   opener='<!--';    closer='-->' ;;
+    tilde)            opener='~~~sh';        closer='~~~' ;;
+    backtick4)        opener='````sh';       closer='````' ;;
+    comment)          opener='<!--';         closer='-->' ;;
+    indented-tilde)   opener='   ~~~sh';     closer='   ~~~' ;;
+    mid-line-comment) opener='See below <!--'; closer='-->' ;;
   esac
   printf -- '- **Dispatched to a seat session:** `alpha-one`.\n\n%s\n# how to dispatch one\n%s\n\n  `bogus-cmd`.\n\n### Cases\n' \
     "$opener" "$closer" > "$ctl_carve/modelled-$shape.md"
@@ -853,6 +855,34 @@ for shape in tilde backtick4 comment; do
     fail "control: a $shape inside the block is refused, not ended inside" "$out"
   fi
 done
+
+# C4d: an HTML comment opened on the anchor line itself is refused too (PR #1241 round 1, C2).
+printf -- '- **Dispatched to a seat session:** `alpha-one`. <!--\n# x\n-->\n  `bogus-cmd`.\n### Cases\n' > "$ctl_carve/anchor-comment.md"
+out="$(check_dispatched_commands "$ctl_carve/anchor-comment.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command block is carved whole" >/dev/null &&
+   printf '%s' "$out" | grep -F 'a fence or an HTML comment inside the block' >/dev/null; then
+  pass "control: an HTML comment opened on the anchor line is refused"
+else
+  fail "control: an HTML comment opened on the anchor line is refused" "$out"
+fi
+
+# C4e: a missing anchor and an empty command list each fail loudly.
+printf -- '- **Runs in this session:** `alpha-one`.\n### Cases\n' > "$ctl_carve/no-anchor.md"
+out="$(check_dispatched_commands "$ctl_carve/no-anchor.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command list is found" >/dev/null &&
+   printf '%s' "$out" | grep -F "no line reads 'Dispatched to a seat session'" >/dev/null; then
+  pass "control: a missing anchor fails loudly"
+else
+  fail "control: a missing anchor fails loudly" "$out"
+fi
+printf -- '- **Dispatched to a seat session:** none yet.\n### Cases\n' > "$ctl_carve/empty-list.md"
+out="$(check_dispatched_commands "$ctl_carve/empty-list.md" "$ctl_carve/config.md")"
+if printf '%s' "$out" | grep -F "SKILL.md's dispatched-command list parses" >/dev/null &&
+   printf '%s' "$out" | grep -F 'no backticked command after the anchor' >/dev/null; then
+  pass "control: an empty command list fails loudly"
+else
+  fail "control: an empty command list fails loudly" "$out"
+fi
 
 # C4c: a single-hash heading ends the block too.
 printf -- '- **Dispatched to a seat session:** `alpha-one`.\n# Cases\n`after-heading`.\n' > "$ctl_carve/one-hash.md"
@@ -1309,6 +1339,13 @@ done
 gap_ctl="$(mktemp -d)"
 printf 'The rotate successor binds it,\nbut issue #556 holds\nthat gap open.\n' > "$gap_ctl/wrapped.md"
 printf '## 0.2.4\n\n- The rebind rule closes issue #556.\n' > "$gap_ctl/names-issue.md"
+printf 'The rotate successor\ndoes not rebind it.\n' > "$gap_ctl/first-needle.md"
+gap_out="$(gap_sweep "$gap_ctl/first-needle.md" "gap control")"
+case "$gap_out" in
+  *"the claim is back: [does not rebind it x1]"*)
+    pass "control: the first gap sentence, wrapped, still fails the sweep" ;;
+  *) fail "control: the first gap sentence, wrapped, still fails the sweep" "got: $gap_out" ;;
+esac
 gap_out="$(gap_sweep "$gap_ctl/wrapped.md" "gap control")"
 case "$gap_out" in
   *"the claim is back: [issue #556 holds that gap x1]"*)
@@ -1321,7 +1358,7 @@ case "$gap_out" in
   *"gap control"*) pass "control: a bare mention of issue #556 passes the sweep" ;;
   *) fail "control: a bare mention of issue #556 passes the sweep" "got: $gap_out" ;;
 esac
-rm -f "$gap_ctl/wrapped.md" "$gap_ctl/names-issue.md"; rmdir "$gap_ctl"
+rm -f "$gap_ctl/wrapped.md" "$gap_ctl/names-issue.md" "$gap_ctl/first-needle.md"; rmdir "$gap_ctl"
 
 # #556 round 1, finding 1: the work-PR `open:` successor's dispatch must carry the
 # predecessor's RUN_JSON path, or its continue branch and rebind are unreachable and

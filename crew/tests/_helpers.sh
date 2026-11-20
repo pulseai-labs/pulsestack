@@ -192,15 +192,17 @@ HOISTED_FNS="count_literal occurrences occurrences_flat count_of pin present"
 # a list of every spelling bash accepts. bash accepts more, and those belong to the other
 # half, below.
 #
-# Heredoc bodies are scanned as code (#603). The scan runs TWICE — once with the
-# backslash-newline join below, once with every line read on its own — and reports the
-# larger count per name. A body line therefore cannot hide the line after it: a heredoc
-# terminator that ends in `\` is not joined by bash, but a text join carries it onto the
-# next line and pushes a definition there off its line start (measured: a `declare -f`
-# copy of `pin` after `END\` counted 0 with the join alone; #603 pre-PR review, B1). With
-# both passes, removing the skip only raises counts. The stated bound: a heredoc fixture
-# whose body starts a line with a definition of a hoisted name reads as a shadow — a loud
-# false RED. Write such fixtures with printf instead.
+# Heredoc bodies are scanned as code (#603). A body line must then not hide the lines
+# after it: a heredoc terminator that ends in `\` is not joined by bash, but a text join
+# carries it onto the next line and pushes a definition there off its line start
+# (measured, #603 pre-PR review B1 and PR #1241 round 1 C1: bash's `declare -f` copy of
+# `pin` after `END\` counted 0, as did a signature split `pin \` + `() {` after it). So the
+# scan reads every backslash-joined run once from EACH of its lines — the run as bash
+# joins it, then without its first line, and so on — plus every line on its own, and
+# reports the largest count per name over those passes. Whichever line bash really starts
+# the join at, one pass starts there too, so removing the skip only raises counts. The
+# stated bound: a heredoc fixture whose body starts a line with a definition of a hoisted
+# name reads as a shadow — a loud false RED. Write such fixtures with printf instead.
 #
 # WHICH HALF OWNS WHAT. This pass owns the COUNT — the exact per-name counts the
 # spelling controls' `1 pin 1` assert, which a structural answer cannot express:
@@ -266,27 +268,39 @@ count_shadows() { # <file> <fn>...
         return
       }
     }
-    # One pass over the stored lines. With j = 1 it performs the join bash performs on an
-    # unquoted backslash-newline; with j = 0 every line is read on its own.
-    function scan(j,   i, line, cont) {
-      pj = j; waiting = ""; cont = ""
-      for (i = 1; i <= nl; i++) {
-        line = L[i]
-        if (j) {
-          if (cont != "") { line = cont line; cont = "" }
-          if (line ~ /\\$/) { sub(/\\$/, "", line); cont = line; continue }
-        }
+    # Every line read on its own: pass key 0.
+    function scan_lines(   i) {
+      pj = 0; waiting = ""
+      for (i = 1; i <= nl; i++) see(L[i])
+    }
+    # The join bash performs on an unquoted backslash-newline, each run started d lines
+    # into itself (its last line when the run is shorter): pass key d + 1. A run is lines
+    # f..m where every line before m ends in `\`; a file that ends in `\` ends its run too.
+    function scan_runs(d,   r, k, start, line, piece) {
+      pj = d + 1; waiting = ""
+      for (r = 1; r <= nr; r++) {
+        start = RF[r] + d
+        if (start > RM[r]) start = RM[r]
+        line = ""
+        for (k = start; k <= RM[r]; k++) { piece = L[k]; sub(/\\$/, "", piece); line = line piece }
         see(line)
       }
-      if (cont != "") see(cont)                # a file ending in a continuation: no next line to join, and nothing to lose
     }
     { L[++nl] = $0 }
     END {
-      scan(1); scan(0)
+      nr = 0; longest = 1
+      for (i = 1; i <= nl; i++) {
+        f = i
+        while (i < nl && L[i] ~ /\\$/) i++
+        RF[++nr] = f; RM[nr] = i
+        if (i - f + 1 > longest) longest = i - f + 1
+      }
+      scan_lines()
+      for (d = 0; d < longest; d++) scan_runs(d)
       total = 0; tail = ""
       for (i = 1; i <= n; i++) {
-        c = hits[1, a[i]] + 0; r = hits[0, a[i]] + 0
-        if (r > c) c = r                       # the larger count per name: neither pass hides what the other saw
+        c = 0
+        for (p = 0; p <= longest; p++) if (hits[p, a[i]] + 0 > c) c = hits[p, a[i]] + 0   # the largest count per name: no pass hides what another saw
         if (c > 0) { total += c; tail = tail " " a[i] " " c }
       }
       print total tail

@@ -596,6 +596,20 @@ else
   fail "control: a definition after a terminator that ends in a backslash still counts" \
     "got [$got], expected [1 pin 1]"
 fi
+# PR #1241 round 1, C1: the same terminator before a signature split by backslash-newline.
+# A pass that reads each line alone cannot see the split signature; the run read from its
+# second line can.
+for split_form in 'pin \|() {' 'pin () \|{'; do
+  printf '%s\n' "cat <<'END\\'" 'fixture data' 'END\' "${split_form%%|*}" "${split_form#*|}" '    :' '}' \
+    > "$ctl_sh/heredoc-backslash-split.sh"
+  got="$(count_shadows "$ctl_sh/heredoc-backslash-split.sh" pin)"
+  if [ "$got" = "1 pin 1" ]; then
+    pass "control: a split signature after a terminator that ends in a backslash still counts [${split_form%%|*}]"
+  else
+    fail "control: a split signature after a terminator that ends in a backslash still counts [${split_form%%|*}]" \
+      "got [$got], expected [1 pin 1]"
+  fi
+done
 printf "cat <<'SHELL_FIXTURE'\nfixture data only\nSHELL_FIXTURE\n" > "$ctl_sh/heredoc-data.sh"
 got="$(count_shadows "$ctl_sh/heredoc-data.sh" pin)"
 if [ "$got" = 0 ]; then
