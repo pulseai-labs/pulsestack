@@ -16,7 +16,13 @@ expected_reason: 'The operator picked recovery option 1 (re-dispatch the impleme
   the EXISTING complete shape. The wrong answers this fixture falsifies are: inventing
   a third return mode for a correction; sending it to a fresh executor; checking an
   identity the packet does not carry, or omitting one it does; skipping any gate other
-  than the initial clean pre-flight and the RED gate; and committing'
+  than the initial clean pre-flight and the RED gate; and committing. The repaired item
+  comes back to the lane as a fresh section 4 record and passes the whole section 5a
+  validation again, identity included, rather than being accepted on the continuation
+  inner shape. When its close is then green through Layer 3, the closing session applies
+  the Layer 4 lenses itself, inline: it dispatches no verifier, and close runs no mutation
+  check in this mode, because the verifier of the caller owns it. Routing Layer 4 to
+  ossify:verifier-agent or to any multi-agent pass is a wrong answer'
 ---
 
 Spine `r2.s5` ("rate limiter") is running under `--external-executor`.
@@ -33,4 +39,6 @@ addressable.
 
 State exactly what the lane sends back, to whom, what that recipient does with
 it in order, what it is allowed to skip, and what it returns. Say why re-running
-the ordinary work-item command on this item would not work.
+the ordinary work-item command on this item would not work. Then say what the
+lane does with the repaired item when it comes back and, once its close is green
+through Layer 3, how the close runs Layer 4 and whether it runs a mutation check.
