@@ -2,6 +2,10 @@
 
 All notable changes to the `crew` plugin.
 
+## 0.13.6
+
+The eval aggregator copy (`tests/eval/lib/aggregate-scores.sh`) carries ossify 1.45.6's STALE check: a result whose fixture or rubric changed since it was judged fails the gate, and a shallow clone fails it as `STALE-CHECK UNAVAILABLE`. With no `results/` directory it now reports every fixture UNSCORED instead of stopping at the missing directory. Test tooling only (#231).
+
 ## 0.13.5
 
 **The ossify dispatch list has its own heading boundary (#603).** §6 separates the dispatched commands from the cases that look like clashes with a subsection heading; the existing guidance is unchanged.
