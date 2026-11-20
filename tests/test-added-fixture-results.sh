@@ -7,10 +7,10 @@ PASS=0 FAIL=0
 expect() { # $1=label $2=wanted rc $3=wanted output substring (or "") ; runs on HEAD~1..HEAD
   local out rc=0
   out="$(bash "$CHECK" HEAD~1 HEAD 2>&1)" || rc=$?
-  if [ "$rc" = "$2" ] && { [ -z "$3" ] || [[ "$out" == *"$3"* ]]; }; then PASS=$((PASS+1))
+  if [ "$rc" = "$2" ] && { [ -z "$3" ] || [[ "$out" == *"$3"* ]]; }; then PASS=$((PASS+1)); echo "ok: $1"
   else FAIL=$((FAIL+1)); echo "FAIL: $1 (rc $rc, wanted $2; output: $out)"; fi
 }
-add() { mkdir -p "$(dirname "$1")"; echo x > "$1"; }
+add() { mkdir -p "$(dirname "$1")"; printf '%s\n' "$1" > "$1"; }
 commit() { git add -A && git commit -qm "$1"; }
 
 cd "$WORK" && git init -q && git config user.email t@t && git config user.name t
@@ -86,6 +86,68 @@ add ossify/tests/eval/results/old/01-old.json; commit modified-with-added-result
 expect "control: added result covers modified fixture" 0 ""
 echo changed >> crew/tests/eval/fixtures/z/01-e.md; commit crew-modified
 expect "control: modified crew fixture stays out of scope" 0 ""
+
+# Separate histories pin edited moves against adjacent byte-identical moves.
+for scenario in C1 C1b C4 C5; do
+  for edited in yes no; do
+    cd "$WORK" || exit 1
+    mkdir "$scenario-$edited"; cd "$scenario-$edited" || exit 1
+    git init -q; git config user.email t@t; git config user.name t
+    add ossify/tests/eval/fixtures/s/a.md
+    add ossify/tests/eval/results/s/a.json
+    add ossify/tests/eval/rubrics/s.md
+    if [[ "$scenario" == C5 ]]; then
+      add ossify/tests/eval/fixtures/t/stays.md
+      add ossify/tests/eval/results/t/stays.json
+    fi
+    commit base
+    target=s
+    case "$scenario" in C1b|C5) target=t ;; esac
+    mkdir -p "ossify/tests/eval/fixtures/$target" "ossify/tests/eval/results/$target"
+    if [[ "$scenario" == C4 ]]; then
+      git rm -q ossify/tests/eval/fixtures/s/a.md; commit removed-fixture
+      # Base retains the old judgment at the re-used path.
+      mkdir -p ossify/tests/eval/fixtures/s
+      printf 'different scenario\n' > ossify/tests/eval/fixtures/s/a.md
+      if [[ "$edited" == no ]]; then
+        echo rerun >> ossify/tests/eval/results/s/a.json
+      fi
+    else
+      git mv ossify/tests/eval/fixtures/s/a.md "ossify/tests/eval/fixtures/$target/b.md"
+      git mv ossify/tests/eval/results/s/a.json "ossify/tests/eval/results/$target/b.json"
+      if [[ "$scenario" == C5 ]]; then
+        git mv ossify/tests/eval/rubrics/s.md ossify/tests/eval/rubrics/t.md
+        [[ "$edited" == no ]] || echo edited >> ossify/tests/eval/rubrics/t.md
+      else
+        if [[ "$target" == t ]]; then cp ossify/tests/eval/rubrics/s.md ossify/tests/eval/rubrics/t.md; fi
+        [[ "$edited" == no ]] || echo edited >> "ossify/tests/eval/fixtures/$target/b.md"
+      fi
+    fi
+    commit moved
+    if [[ "$edited" == yes ]]; then
+      needle=result
+      [[ "$scenario" != C5 ]] || needle=stays.json
+      expect "$scenario edited input cannot reuse an old result blob" 1 "$needle"
+    elif [[ "$scenario" == C4 ]]; then
+      expect 'C4 control: re-added fixture with a fresh result passes' 0 ''
+      git mv ossify/tests/eval/fixtures/s/a.md ossify/tests/eval/fixtures/s/b.md
+      git mv ossify/tests/eval/results/s/a.json ossify/tests/eval/results/s/b.json
+      commit pure-rename
+      expect 'C4 control: pure rename passes' 0 ''
+    else
+      expect "$scenario control: pure rename passes" 0 ''
+    fi
+  done
+done
+# Replacing a result with another surface's existing blob is not a rerun.
+add ossify/tests/eval/results/donor/a.json; commit donor-result
+echo changed >> ossify/tests/eval/fixtures/t/b.md
+cp ossify/tests/eval/results/donor/a.json ossify/tests/eval/results/t/b.json
+commit copied-result
+expect 'modified fixture cannot use a copied base result blob' 1 'updated result'
+echo rerun >> ossify/tests/eval/results/t/b.json
+echo changed >> ossify/tests/eval/fixtures/t/b.md; commit rerun-result
+expect 'control: modified fixture with a new result blob passes' 0 ''
 
 rc=0; out="$(bash "$CHECK" no-such-rev HEAD 2>&1)" || rc=$?
 if [ "$rc" = 2 ] && [[ "$out" == *"NOT checked"* ]]; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); echo "FAIL: a bad rev is rc 2, not a pass (rc $rc)"; fi

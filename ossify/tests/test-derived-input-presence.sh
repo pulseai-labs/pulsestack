@@ -38,6 +38,10 @@ printf '%s\n' "${body/AI workspace clone completeness/workspace clone completene
 expect 'per-repo clone declaration cannot cover the other repo' 1 'I23 (AI workspace)'
 printf '%s\n' '---' 'expected: .gitleaks.toml' '---' "${body/.gitleaks.toml/config file}" > "$fixture"
 expect 'frontmatter cannot declare a body input' 1 'I10'
+printf '%s\n' '' '---' 'expected: .gitleaks.toml' '---' "${body/.gitleaks.toml/config file}" > "$fixture"
+expect 'X2 leading blank before frontmatter cannot declare a body input' 1 'I10'
+printf '%s\n' '--- ' 'expected: .gitleaks.toml' '---' "${body/.gitleaks.toml/config file}" > "$fixture"
+expect 'X3 trailing whitespace on frontmatter cannot declare a body input' 1 'I10'
 printf '%s\n' "${body/git ls-files -v/git ls-files
 -v}" > "$fixture"
 expect 'line wrapping is not a different phrasing' 0 '1 fixture(s)'
@@ -49,6 +53,20 @@ for phrase in 'git ls-files -v' '.gitmodules'; do
   printf '%s\n' "${body/"$phrase"/missing}" > "$fixture"
   expect "missing $phrase stops" 1 'MISSING:'
 done
+# These controls must remain rc 2, not merely a missing-declaration rc 1.
+contract="$(cat "$CONTRACT")"
+row='| I27 | set | .gitmodules |'
+printf '%s\n' "${contract/"$row"/}" > "$WORK/derived-inputs/boundary-audit-integrity.md"
+printf '%s\n' "${body/.gitmodules/missing}" > "$fixture"
+expect 'deleted class row fails closed' 2 'PRESENCE-CHECK UNAVAILABLE:'
+printf '%s\n' "$body" > "$fixture"
+printf '%s\n' "${contract/\{repo\} manifest visibility/manifest visibility}" > "$WORK/derived-inputs/boundary-audit-integrity.md"
+expect 'per-repo row without placeholder fails closed' 2 'PRESENCE-CHECK UNAVAILABLE:'
+printf '%s\n' "${contract/Repos: canonical; AI workspace/Repos: canonical; canonical; AI workspace}" > "$WORK/derived-inputs/boundary-audit-integrity.md"
+expect 'duplicate Repos subject fails closed' 2 'PRESENCE-CHECK UNAVAILABLE:'
+printf '%s\n' "${contract/\| I4 \| set \|/| I4 | sett |}" > "$WORK/derived-inputs/boundary-audit-integrity.md"
+expect 'scope typo fails closed' 2 'PRESENCE-CHECK UNAVAILABLE:'
+cp "$CONTRACT" "$WORK/derived-inputs/"
 printf '%s passed, %s failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]] || exit 1
 # This is the real corpus gate; run-all.sh discovers this new test automatically.

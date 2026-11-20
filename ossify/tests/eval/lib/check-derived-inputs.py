@@ -41,11 +41,12 @@ def check(eval_dir: Path) -> int:
     missing = 0
     for fixture in fixtures:
         body = fixture.read_text()
-        if body.startswith("---\n"):
-            end = re.search(r"^---\s*$", body[4:], re.MULTILINE)
+        opener = re.match(r"(?:[ \t]*\n)*---[ \t]*(?:\n|$)", body)
+        if opener is not None:
+            end = re.search(r"^---[ \t]*$", body[opener.end():], re.MULTILINE)
             if end is None:
                 raise ValueError(f"unterminated frontmatter: {fixture.name}")
-            body = body[4 + end.end():]
+            body = body[opener.end() + end.end():]
         body = " ".join(body.split())
         for key, (scope, phrase) in rows.items():
             for repo in subjects if scope == "per-repo" else [None]:

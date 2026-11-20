@@ -81,7 +81,7 @@ printf '{"pass":true,"notes":"at missing rubric"}\n' > "$repo/eval/results/s/a.j
 git -C "$repo" rm -q eval/rubrics/s.md; commit judged-without-rubric
 mkdir -p "$repo/eval/rubrics"
 printf 'rubric\n' > "$repo/eval/rubrics/s.md"; commit added-rubric
-expect 'input absent at result commit is STALE' 1 'rubrics/s.md'
+expect 'input absent at result commit is STALE' 1 'did not exist at result commit'
 new_repo merge
 base_branch="$(git -C "$repo" symbolic-ref --short HEAD)"
 git -C "$repo" checkout -qb side
@@ -94,6 +94,42 @@ printf 'unrelated\n' > "$repo/readme"; commit main
 git -C "$repo" merge --no-commit --no-ff "$side" >/dev/null 2>&1
 printf 'original\n' > "$repo/eval/fixtures/s/a.md"; commit identical-merge
 expect 'merge touched fixture with identical content is current' 0 '1/1 passed'
+# Git stores cleaned blobs, not the CRLF bytes in a clean checkout.
+for mode in autocrlf attributes; do
+  new_repo "$mode"
+  if [[ "$mode" == autocrlf ]]; then
+    git -C "$repo" config core.autocrlf true
+  else
+    printf '*.md text eol=crlf\n' > "$repo/.gitattributes"; commit attributes
+  fi
+  rm "$repo/eval/fixtures/s/a.md" "$repo/eval/rubrics/s.md"
+  git -C "$repo" checkout-index -f -- eval/fixtures/s/a.md eval/rubrics/s.md
+  [[ "$(cat "$repo/eval/fixtures/s/a.md")" == *$'\r' ]] || exit 1
+  expect "$mode unchanged CRLF checkout is current" 0 '1/1 passed'
+  printf 'real edit\r\n' >> "$repo/eval/fixtures/s/a.md"
+  expect "$mode real content edit is STALE" 1 'differs from result commit'
+done
+new_repo full-history
+printf 'edited\n' > "$repo/eval/fixtures/s/a.md"; commit fixture-edit
+printf 'unrelated\n' > "$repo/readme"; commit unrelated
+origin="$repo"
+for depth in 1 2; do
+  repo="$WORK/shallow-$depth"
+  git clone -q --depth "$depth" "file://$origin" "$repo"
+  expect "depth $depth clone fails closed" 1 'STALE-CHECK UNAVAILABLE: shallow clone'
+done
+# An ignored result has neither porcelain status nor a result-history commit.
+new_repo ignored-result
+mv "$repo/eval/fixtures/s/a.md" "$repo/eval/fixtures/s/ignored.md"
+git -C "$repo" rm -q eval/results/s/a.json
+printf 'eval/results/s/ignored.json\n' > "$repo/.gitignore"; commit ignored-result-path
+mkdir -p "$repo/eval/results/s"
+printf '{"pass":true}\n' > "$repo/eval/results/s/ignored.json"
+touch -t 202001010000 "$repo/eval/fixtures/s/ignored.md" "$repo/eval/rubrics/s.md"
+touch -t 202101010000 "$repo/eval/results/s/ignored.json"
+expect 'ignored fresh result newer than inputs' 0 '1/1 passed'
+touch -t 202201010000 "$repo/eval/fixtures/s/ignored.md"
+expect 'ignored fresh result older than fixture' 1 'newer than the fresh result'
 new_repo outside
 rm -rf "$repo/.git"
 expect 'not a work tree fails closed' 1 'STALE-CHECK UNAVAILABLE:'

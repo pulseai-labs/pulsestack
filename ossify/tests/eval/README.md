@@ -95,7 +95,7 @@ stale silently, so a criterion edited to read something new owes its list a row.
 For `boundary-audit-integrity`, `python3 lib/check-derived-inputs.py` enforces
 the marked presence contract in its derived-inputs file. It strips answer-key
 frontmatter and checks literal declarations, including named per-repo subjects;
-it never judges their correctness or sufficiency. The new regression suite
+it never judges their correctness or sufficiency. The regression suite
 `tests/test-derived-input-presence.sh` also checks the actual corpus and is
 discovered by `tests/run-all.sh`, so the presence check runs in CI without
 dispatching an invoke or judge. Python 3.9+ is required for this tooling.
@@ -130,13 +130,16 @@ committed result is STALE if either input differs from its blob at the result's
 last commit, including working-tree edits and inputs absent at that commit.
 Content restored to its earlier bytes stays current regardless of merge or
 commit dates. An untracked or modified result instead uses input mtimes: write
-the fresh judgment after its inputs. Outside a git work tree, or on a failed
-git read, the gate reports `STALE-CHECK UNAVAILABLE` and stops. It aggregates
-existing judgments only; a green aggregate does not execute an evaluation.
+the fresh judgment after its inputs. Outside a git work tree, in a shallow clone,
+or on a failed git read, the gate reports `STALE-CHECK UNAVAILABLE` and stops. It
+aggregates existing judgments only; a green aggregate does not execute an evaluation.
 
 The PR-only root gate `tests/check-added-fixture-results.sh` also requires
-results for added fixtures, updated results for modified fixtures, and updated
-results for every fixture of a modified rubric's surface. It checks the PR
+refreshed results for added or modified fixtures, and refreshed results for every
+fixture of a changed rubric's surface. A refreshed result is added or modified in
+the range with a blob absent from that plugin's base `results/` tree. Byte-identical
+fixture moves with unchanged rubrics need only an existing result at the new path;
+byte-identical rubric moves do not invalidate results. The gate checks the PR
 range, not score correctness or historical staleness predating that range.
 
 ## Seed provenance (spec §13.4)

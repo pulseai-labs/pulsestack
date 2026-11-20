@@ -14,12 +14,16 @@ FIXTURES_DIR="${EVAL_DIR}/fixtures"
 
 # Freshness covers exactly the fixture and the surface rubric the judge reads.
 # Stated limit: skill files are NOT checked; changed skills still owe a rerun.
-# Committed, unchanged results compare working-tree input bytes with their blobs
+# A result committed with its input edit counts as current; this is not provenance.
+# Symlink inputs compare target bytes against link-text blobs and can report STALE.
+# Committed, unchanged results compare clean-filtered inputs with their blobs
 # at the result's last commit. Fresh (modified/untracked) results use mtimes.
 unavailable() { echo "STALE-CHECK UNAVAILABLE: $1"; exit 1; }
 git_eval() { git --literal-pathspecs -C "$EVAL_DIR" "$@"; }
 inside="$(git_eval rev-parse --is-inside-work-tree 2>/dev/null)" || unavailable "not a git work tree: $EVAL_DIR"
 [[ "$inside" == true ]] || unavailable "not a git work tree: $EVAL_DIR"
+shallow="$(git_eval rev-parse --is-shallow-repository)" || unavailable "cannot read clone completeness"
+[[ "$shallow" == false ]] || unavailable "shallow clone: result history is truncated"
 prefix="$(git_eval rev-parse --show-prefix)" || unavailable "cannot resolve eval path"
 
 # --- unscored-fixture guard -------------------------------------------------
@@ -65,7 +69,7 @@ if [[ -d "$FIXTURES_DIR" ]]; then
             why+="${input} did not exist at result commit; "
           else
             old="$(git_eval rev-parse --verify "${revision}:${prefix}${input}")" || unavailable "cannot read input blob: $input"
-            now="$(git_eval hash-object --no-filters -- "$input")" || unavailable "cannot hash input: $input"
+            now="$(git_eval hash-object -- "$input")" || unavailable "cannot hash input: $input"
             if [[ "$old" != "$now" ]]; then
               why+="${input} differs from result commit; "
             fi
