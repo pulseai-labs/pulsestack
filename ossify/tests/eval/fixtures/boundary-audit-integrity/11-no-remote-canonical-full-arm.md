@@ -53,9 +53,9 @@ either with `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record: the canonical manifest object records no
-`git_remote` beyond the one this scenario names.
+`git_remote`.
 AI workspace remotes on record: the AI workspace manifest object records no
-`git_remote` beyond the one this scenario names.
+`git_remote` beyond the remote this scenario enumerates.
 
 Repo-set and manifest state, stated so nothing above infers it: the pairing
 manifest names the canonical and the AI workspace, and carries no other

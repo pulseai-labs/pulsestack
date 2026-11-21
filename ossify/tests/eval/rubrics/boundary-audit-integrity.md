@@ -141,7 +141,8 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    enumeration the section deliberately cut. **Moat currency is a second,
    independent check**: a current moat-table item the row's `Moat items
    reviewed` does not name is unasked and owes §5's judgment over the full
-   history and every ref (not an incremental range); on confirmation the item
+   history and every ref (not an incremental range) — §5's judgment only, not
+   the `never-tracked:` rules; on confirmation the item
    joins the existing row and its commit stays unless the commit check also owed
    a pass; a removed item expires nothing, and a row with no `Moat items
    reviewed` value leaves every current item unasked. Reading a commit-current
@@ -152,7 +153,9 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    recordable, the block naming what was missing, and the secrets scan over
    that same object graph is a degradation rather than a clean result.
    An absent or outrun row, or an unasked moat item, is a finding that
-   reaches triage, never silence and never a clean read; where the repo is
+   reaches triage, never silence and never a clean read — except where the
+   pass is recorded degraded riding an exposure finding, which is that repo's
+   whole history treatment and raises no absent-row finding beside it; where the repo is
    exposed but no policy input is routed to it — a moat-holder observed public
    or undeterminable, or a plain non-repo root whose recorded remote reads
    public or undeterminable — the pass is recorded **degraded**, riding that

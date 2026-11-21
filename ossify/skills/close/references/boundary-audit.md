@@ -581,11 +581,14 @@ is a degradation, not a clean result.
 
 **Both are closed by a recorded pass, not by a scan.** Reading every commit of
 a repo's history for documents the rules ban and prose that describes a moat item
-is a human-scale review, not something this step performs mid-close. **The review
-covers both corpora** — §3's `never-tracked:` rules and §5's S1/S2/S3 judgment —
-over history and every ref. A review that covered only one of them is not a
-pass and gets no row. An item-scoped §5 review below amends an existing row,
-never creates one.
+is a human-scale review, not something this step performs mid-close. **Every
+review that writes a row or advances its commit covers both corpora** — §3's
+`never-tracked:` rules and §5's S1/S2/S3 judgment — whether it is the first
+full-history pass or a commit refresh over its range. A review that covered
+only one of them is not a pass and gets no row. **The one exception is the
+item-scoped review for unasked moat items** (moat currency, below): it owes §5's
+judgment for those items only, adds their names to an existing row, and never
+creates a row or moves its commit.
 The record is a **History passes** row in
 the private boundary inventory (`start/references/posture-block.md` §7): the
 repo, the **commit it reviewed through**, the date, and the **moat items reviewed** —
@@ -608,8 +611,9 @@ On an arm that runs but where no `PUBLIC_BOUNDARY.md` is ever routed — the
 moat-holder roles (§2) — there are no document rules to run over history either:
 record the pass **degraded on the never-expected policy input**, riding the
 exposure finding that put the repo on that arm, never clean. **That degradation
-is the repo's whole history treatment:** no absent-row finding is raised beside
-it, because the review an absent row asks for cannot run on this arm.
+is the repo's whole history treatment:** no absent-row, outrun-row or
+unasked-item finding is raised beside it, because the review those findings ask
+for cannot run on this arm.
 
 **Commit currency.** A sensitive document
 committed to another public branch or tag leaves the audited tip untouched, and
@@ -629,8 +633,8 @@ table's `Moat item` names with the row's `Moat items reviewed`: any current item
 the row does not name is unasked. For those items, §5's judgment is owed over
 the **full history and every ref, not an incremental range**, from a clone
 known to be complete (the shallow-or-partial-clone rule above). That review is
-§5's judgment for those items only: the `never-tracked:` rules are not owed
-again, because the both-corpora rule governs a full pass, not this one. When
+the item-scoped exception above: §5's judgment for those items only, and the
+`never-tracked:` rules are not owed again. When
 the user confirms that review, add those items to the existing row's column; keep its commit unless the commit check
 also owed a pass. Removing an item expires nothing; a renamed item reads as new
 and only adds a stop. A row with no `Moat items reviewed` value predates the
@@ -664,7 +668,7 @@ treatment, and for the same reason, as the moat-holder arm above.
 
 **An absent or outrun row, or an unasked moat item, is a finding** — except on a
 repo whose pass is recorded as a degradation riding an exposure finding (the
-moat-holder arm and the non-repo root above), which raises none. It reaches triage like any other, and
+moat-holder roles and the non-repo root above), which raises none. It reaches triage like any other, and
 the two unblocks are §6's: **the fix** is the review itself — the user confirms
 it was done and the row is written or amended for the review it asked for — and accepting the gap
 instead is an **override**, taking the override's record like any other

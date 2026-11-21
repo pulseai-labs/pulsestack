@@ -50,16 +50,15 @@ changes, and neither repo carries a
 
 Clone and index state, stated so nothing above infers it: canonical clone completeness: the canonical is a full clone —
 `git rev-parse --is-shallow-repository` prints `false` and every remote
-branch is fetched. AI workspace clone completeness: the AI workspace is a
-full clone — `git rev-parse --is-shallow-repository` prints `false` and every
-remote branch is fetched. `git ls-files -v` marks no tracked path in any of them with
+branch is fetched. AI workspace clone completeness: the AI workspace is not a git
+repo. `git ls-files -v` marks no tracked path in the canonical with
 `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record: the canonical manifest object records no
-`git_remote` beyond the one this scenario names.
+`git_remote`.
 AI workspace remotes on record: the AI workspace manifest object records no
-`git_remote` beyond the one this scenario names; the
+`git_remote` beyond `github.com/acme/strategy-internal`; the
 working-tree hygiene allowlist is empty.
 
 Repo-set, manifest and remote state, stated so nothing above infers it: the
