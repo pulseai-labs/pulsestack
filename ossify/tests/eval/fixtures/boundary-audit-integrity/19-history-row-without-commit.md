@@ -65,8 +65,10 @@ that 88 commits have landed since the date, and that the deleted planning tree
 is in the history, and does not accept any exposure.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
-manifest object records a `git_remote` beyond the remotes this scenario enumerates.
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record: the canonical manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
+AI workspace remotes on record: the AI workspace manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
 
 Remote and clone state, stated so nothing above infers it: `git remote -v`
 in the canonical lists exactly one remote, `origin`, on github.com; AI workspace clone completeness: the AI workspace is a full clone too — `git rev-parse --is-shallow-repository`

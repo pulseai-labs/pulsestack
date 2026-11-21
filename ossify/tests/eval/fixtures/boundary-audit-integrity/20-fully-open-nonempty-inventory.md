@@ -64,8 +64,10 @@ row, that the private crate exists, declines to change either record
 mid-close, and does not accept any exposure.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
-manifest object records a `git_remote` beyond the remotes this scenario enumerates.
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record: the canonical manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
+AI workspace remotes on record: the AI workspace manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
 
 Manifest, remote and clone state, stated so nothing above infers it: canonical manifest visibility is `public`, agreeing with the observed read; `git remote -v` in the canonical lists exactly one remote,
 `origin`, on github.com; AI workspace clone completeness: the AI workspace is a full clone too — `git

@@ -36,6 +36,12 @@ printf '%s\n' "${body/AI workspace remotes on record/workspace remotes on record
 expect 'per-repo remote declaration cannot cover the other repo' 1 'I6 (AI workspace)'
 printf '%s\n' "${body/AI workspace clone completeness/workspace clone completeness}" > "$fixture"
 expect 'per-repo clone declaration cannot cover the other repo' 1 'I23 (AI workspace)'
+printf '%s\n' "${body/canonical clone completeness: full clone. AI workspace clone completeness: full clone./canonical clone completeness and AI workspace clone completeness: x}" > "$fixture"
+expect 'combined clone labels do not declare the canonical state' 1 'I23 (canonical)'
+printf '%s\n' "$body" > "$fixture"
+expect 'separate per-repo clone declarations pass' 0 '1 fixture(s)'
+printf '%s\n' "${body/canonical remotes on record: origin, observed public, no manifest git_remote./canonical remotes on record and AI workspace remotes on record: origin, observed public, no manifest git_remote.}" > "$fixture"
+expect 'combined remote labels do not declare the canonical state' 1 'I6 (canonical)'
 printf '%s\n' '---' 'expected: .gitleaks.toml' '---' "${body/.gitleaks.toml/config file}" > "$fixture"
 expect 'frontmatter cannot declare a body input' 1 'I10'
 printf '%s\n' '' '---' 'expected: .gitleaks.toml' '---' "${body/.gitleaks.toml/config file}" > "$fixture"

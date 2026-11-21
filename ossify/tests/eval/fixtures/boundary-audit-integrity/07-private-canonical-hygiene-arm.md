@@ -58,13 +58,17 @@ Clone and index state, stated so nothing above infers it: neither the canonical'
 index nor the AI workspace's marks any tracked path `assume-unchanged` or
 `skip-worktree` (`git ls-files -v` marks none in either), and every tracked
 fixture in the pinned `vendor/internal-proto` tree is synthetic, as the
-canonical's own are. canonical clone completeness and AI workspace clone completeness: Every repo in the set that is
-a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
-`false` and every remote branch is fetched.
+canonical's own are. canonical clone completeness: the canonical is a full clone —
+`git rev-parse --is-shallow-repository` prints `false` and every remote
+branch is fetched. AI workspace clone completeness: the AI workspace is a
+full clone — `git rev-parse --is-shallow-repository` prints `false` and every
+remote branch is fetched.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
-manifest object records a `git_remote` beyond the remotes this scenario enumerates;
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record: the canonical manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
+AI workspace remotes on record: the AI workspace manifest object records no
+`git_remote` beyond the remotes this scenario enumerates;
 the working-tree hygiene allowlist is empty.
 
 Repo-set and submodule state, stated so nothing above infers it: `git remote
