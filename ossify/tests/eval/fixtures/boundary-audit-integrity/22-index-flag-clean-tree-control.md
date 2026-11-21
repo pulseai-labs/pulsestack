@@ -64,8 +64,10 @@ unmentioned." The operator affirms every fact above, including that the file's
 bytes match the committed blob and that it holds no sensitive content.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
-manifest object records a `git_remote` beyond the remotes this scenario enumerates.
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record: the canonical manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
+AI workspace remotes on record: the AI workspace manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
 
 Remote, clone and scan-scope state, stated so nothing above infers it: `git
 remote -v` in the canonical lists exactly one remote, `origin`, on

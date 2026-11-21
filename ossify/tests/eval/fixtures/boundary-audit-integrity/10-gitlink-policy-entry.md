@@ -45,13 +45,17 @@ and neither repo's index carries an `assume-unchanged` or `skip-worktree`
 path (`git ls-files -v` marks none). Neither repo carries a `.gitleaks.toml`
 of its own.
 
-Clone state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the set that is
-a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
-`false` and every remote branch is fetched.
+Clone state, stated so nothing above infers it: canonical clone completeness: the canonical is a full clone —
+`git rev-parse --is-shallow-repository` prints `false` and every remote
+branch is fetched. AI workspace clone completeness: the AI workspace is a
+full clone — `git rev-parse --is-shallow-repository` prints `false` and every
+remote branch is fetched.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
-manifest object records a `git_remote` beyond the remotes this scenario enumerates; no
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record: the canonical manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
+AI workspace remotes on record: the AI workspace manifest object records no
+`git_remote` beyond the remotes this scenario enumerates; no
 readable policy blob is committed in the canonical, so no working-tree hygiene
 allowlist can be read there.
 

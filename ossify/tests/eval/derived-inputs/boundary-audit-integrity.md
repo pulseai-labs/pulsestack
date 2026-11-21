@@ -65,8 +65,10 @@ objects (including plain non-repo roots), not just its git repositories. A
 fixture with a different object set owes a contract update, never a silent skip.
 
 I2, I6 and I23 use named subject labels because their existing set-wide wording
-otherwise hides a declaration for only one repo. The labels introduce no facts:
-the prose following them still declares the value or state. I4's dominant
+otherwise hides a declaration for only one repo. I6 and I23 include a colon
+after each repo label, so a combined label cannot satisfy both repos. The labels
+introduce no facts: the prose following each still declares that repo's value or
+state. I4's dominant
 exhaustiveness clause, I10's configuration name, I26's command and I27's filename
 are presence anchors only. All seven rows remain mechanically checkable after
 reading criteria 1, 2, 3, 8, 9 and 10; none is dropped. The checker does not
@@ -81,9 +83,9 @@ Repos: canonical; AI workspace
 |---|---|---|
 | I2 | per-repo | {repo} manifest visibility |
 | I4 | set | carries no other repository object |
-| I6 | per-repo | {repo} remotes on record |
+| I6 | per-repo | {repo} remotes on record: |
 | I10 | set | .gitleaks.toml |
-| I23 | per-repo | {repo} clone completeness |
+| I23 | per-repo | {repo} clone completeness: |
 | I26 | set | git ls-files -v |
 | I27 | set | .gitmodules |
 <!-- /presence-contract -->

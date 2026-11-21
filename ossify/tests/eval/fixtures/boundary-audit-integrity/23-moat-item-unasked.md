@@ -55,15 +55,17 @@ If you want to be thorough, review the commits since August and write a fresh
 row for today." At triage the operator affirms the row, the tip and the two
 current moat items, and does not accept any exposure.
 
-Clone and index state, stated so nothing above infers it: canonical clone completeness and AI workspace clone completeness: every repo in the
-set that is a git repo is a full clone — `git rev-parse
---is-shallow-repository` prints `false` and every remote branch is fetched —
-and `git ls-files -v` marks no tracked path in any of them with
+Clone and index state, stated so nothing above infers it: canonical clone completeness: the canonical is a full clone —
+`git rev-parse --is-shallow-repository` prints `false` and every remote
+branch is fetched. AI workspace clone completeness: the AI workspace is a
+full clone — `git rev-parse --is-shallow-repository` prints `false` and every
+remote branch is fetched. `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
-Inventory, manifest and allowlist state, stated so nothing above infers it: canonical remotes on record and AI workspace remotes on record: no
-manifest object records a `git_remote` beyond the remotes this scenario
-enumerates; the working-tree hygiene allowlist is empty.
+Inventory, manifest and allowlist state, stated so nothing above infers it: canonical remotes on record: the canonical manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
+AI workspace remotes on record: the AI workspace manifest object records no
+`git_remote` beyond the remotes this scenario enumerates; the working-tree hygiene allowlist is empty.
 
 Repo-set and remote state, stated so nothing above infers it: the pairing
 manifest names the canonical and the AI workspace, and carries no other

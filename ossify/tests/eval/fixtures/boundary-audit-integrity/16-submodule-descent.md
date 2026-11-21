@@ -78,13 +78,17 @@ and does not accept any exposure.
 Clone and index state, stated so nothing above infers it: the AI workspace's
 index marks no tracked path `assume-unchanged` or `skip-worktree`, and neither
 does `vendor/pulse-proto`'s own — so its two quiet diffs clear what they appear
-to. canonical clone completeness and AI workspace clone completeness: Every repo in the set that is
-a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
-`false` and every remote branch is fetched.
+to. canonical clone completeness: the canonical is a full clone —
+`git rev-parse --is-shallow-repository` prints `false` and every remote
+branch is fetched. AI workspace clone completeness: the AI workspace is a
+full clone — `git rev-parse --is-shallow-repository` prints `false` and every
+remote branch is fetched.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
-the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record and AI workspace remotes on record: no
-manifest object records a `git_remote` beyond the remotes this scenario enumerates.
+the private boundary inventory carries no **Accepted disclosures** section; canonical remotes on record: the canonical manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
+AI workspace remotes on record: the AI workspace manifest object records no
+`git_remote` beyond the remotes this scenario enumerates.
 
 Repo-set, remote and submodule state, stated so nothing above infers it: the
 pairing manifest names the canonical and the AI workspace, and carries no
