@@ -52,8 +52,9 @@ in those ceremonies, it never picks chart or work mode here.
 
 ## 2. Nevers
 
-- **Never resolve branch 0's conflict silently.** A manifest and a
-  `.wayfinder.json` naming different trackers is a stop, not a default —
+- **Never resolve branch 0's conflict silently.** The resolved workspace's
+  live origin and a `.wayfinder.json` naming different trackers is a stop, not
+  a default; the manifest's stored remote is never the comparison —
   `references/tracker.md` §1 explains why.
 - **Never refer to a map or a ticket by a bare number.** Name it — the map's
   or ticket's own name — a number alone is not how a session or an operator
