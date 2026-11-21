@@ -668,7 +668,8 @@ treatment, and for the same reason, as the moat-holder arm above.
 
 **An absent or outrun row, or an unasked moat item, is a finding** — except on a
 repo whose pass is recorded as a degradation riding an exposure finding (the
-moat-holder roles and the non-repo root above), which raises none. It reaches triage like any other, and
+moat-holder roles and the non-repo root above), which raises none. Each such
+finding reaches triage like any other, and
 the two unblocks are §6's: **the fix** is the review itself — the user confirms
 it was done and the row is written or amended for the review it asked for — and accepting the gap
 instead is an **override**, taking the override's record like any other
