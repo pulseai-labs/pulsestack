@@ -607,7 +607,9 @@ every skip with the observed value that justified it, like all the others.
 On an arm that runs but where no `PUBLIC_BOUNDARY.md` is ever routed — the
 moat-holder roles (§2) — there are no document rules to run over history either:
 record the pass **degraded on the never-expected policy input**, riding the
-exposure finding that put the repo on that arm, never clean.
+exposure finding that put the repo on that arm, never clean. **That degradation
+is the repo's whole history treatment:** no absent-row finding is raised beside
+it, because the review an absent row asks for cannot run on this arm.
 
 **Commit currency.** A sensitive document
 committed to another public branch or tag leaves the audited tip untouched, and
@@ -625,9 +627,11 @@ enough**, the range between the two.
 **Moat currency is independent of commit currency.** Compare the current moat
 table's `Moat item` names with the row's `Moat items reviewed`: any current item
 the row does not name is unasked. For those items, §5's judgment is owed over
-the **full history and every ref, not an incremental range**, under the same
-corpus-completeness rule above. When the user confirms that review, add those
-items to the existing row's column; keep its commit unless the commit check
+the **full history and every ref, not an incremental range**, from a clone
+known to be complete (the shallow-or-partial-clone rule above). That review is
+§5's judgment for those items only: the `never-tracked:` rules are not owed
+again, because the both-corpora rule governs a full pass, not this one. When
+the user confirms that review, add those items to the existing row's column; keep its commit unless the commit check
 also owed a pass. Removing an item expires nothing; a renamed item reads as new
 and only adds a stop. A row with no `Moat items reviewed` value predates the
 column: every current moat item is unasked.
@@ -658,7 +662,9 @@ section opens with, and no local read can reach it. There the pass is a
 **degradation riding that exposure finding**, never a clean skip — the same
 treatment, and for the same reason, as the moat-holder arm above.
 
-**An absent or outrun row, or an unasked moat item, is a finding.** It reaches triage like any other, and
+**An absent or outrun row, or an unasked moat item, is a finding** — except on a
+repo whose pass is recorded as a degradation riding an exposure finding (the
+moat-holder arm and the non-repo root above), which raises none. It reaches triage like any other, and
 the two unblocks are §6's: **the fix** is the review itself — the user confirms
 it was done and the row is written or amended for the review it asked for — and accepting the gap
 instead is an **override**, taking the override's record like any other
