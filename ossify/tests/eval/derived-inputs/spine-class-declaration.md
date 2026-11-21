@@ -24,8 +24,8 @@ silently. The deployment-evidence row (I4/I5) was added with criterion 6.
 | I3 | whether the scope touches a registered bone's touch surface — a flesh claim touching a bone | 3 |
 | I4 | whether a separately-deployed service (its own process, image, pipeline, and on-call surface) is proposed — moving existing work into it or creating new work there — vs work kept in-process; and whether the spine is still a candidate at selection or already minted, with its declared class | 6 |
 | I5 | the measured-pressure evidence for that service — contemporaneous and checkable (a bottleneck profile, a load figure it cannot meet in-process, an outage where its failure took the rest down, an enacted compliance rule forbidding co-location, an ownership transfer that has happened) or its absence / an anticipated need only ("it will need to scale independently") | 6 |
-| I6 | whether the plan is a genuine flesh spine on existing bones (no over-ceremony) vs inflated to bone | 4 |
-| I7 | the governing rule the rationale cites — journey requirement / bone-touch / enabler consumer / deployment-evidence bar | 5 |
+| I6 | whether the plan creates or modifies a bone, or only builds on existing ones, stated as facts (criterion 4 judges genuine flesh vs inflated to bone; a body never states that verdict) | 4 |
+| I7 | the facts each governing rule reads — journey presence, bone-touch hits, an enabler's named consumer, deployment-pressure evidence (criterion 5 scores which rule the rationale cites; a body never names it) | 5 |
 | I8 | for an internal-enabler, the named consuming user-facing spine scheduled in the current or next release (one-release-ahead cap) | 2 |
 
 ## The two ways a declaration still fails

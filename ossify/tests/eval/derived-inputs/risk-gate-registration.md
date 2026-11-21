@@ -25,9 +25,9 @@ silently.
 | I4 | the touch surface — a glob naming the surface that reaches the hazard, or absent | 3 |
 | I5 | whether the skeleton can reach the surface in Release 0 | 4 |
 | I6 | whether the gate is known to be coming with a known surface (register now) vs a known-coming gate with no known surface (feature map) vs Release 0 cannot reach and no known surface | 4 |
-| I7 | whether a spine touching the surface would reclassify to bone and inherit the gate's controls as required work | 5 |
-| I8 | whether the gate's first reachable release is a docs trigger (threat/failure notes + an audit & recovery plan) | 5 |
-| I9 | whether a bone about the same design also applies (register both) vs only a gate applies vs only a bone applies | 6 |
+| I7 | the planned paths a spine touches, against the surface (criterion 5 derives the bone reclassification and the inherited controls; a body never states them) | 5 |
+| I8 | the release in which the surface first becomes reachable (criterion 5 derives the docs trigger; a body never states it) | 5 |
+| I9 | whether a bone about the same design also applies, and whether it is already registered (criterion 6 derives what to register) | 6 |
 
 ## The two ways a declaration still fails
 

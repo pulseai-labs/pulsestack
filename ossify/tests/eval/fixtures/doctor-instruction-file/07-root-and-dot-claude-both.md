@@ -31,8 +31,7 @@ or unstaged changes, and both instruction files below are tracked —
   import and no pointer line to another instruction file.
 
 The two files carry no statement in common: every rule and fact in each appears
-in that file only, with no counterpart in the other, so the merge has no
-disagreement to put to the operator.
+in that file only, with no counterpart in the other.
 
 Doctor's `/ossify:doctor interop` surface is invoked. After the read-out, the
 operator answers the repair offer with an unconditional yes: "yes, do both".

@@ -4,7 +4,7 @@ expected_action: stop-and-ask
 expected_reason: "Branch 0 runs first — but it runs on the resolved origin, not the manifest" (tracker.md §1) — resolve the AI workspace with oss repo_root ai_workspace and read its live git origin, never the manifest's git_remote field. That origin resolves to acme/acme-ai while .wayfinder.json names acme/notes, so branch 0 stops and asks which tracker this repo's maps live on before either source wins silently; the two open maps on acme/notes would otherwise be orphaned.
 ---
 
-# Scenario: manifest and dotfile name different trackers
+# Scenario: a paired repo that already has a `.wayfinder.json`
 
 A repo was used with wayfinder before it joined ossify. It carries
 `.wayfinder.json` with `{"tracker":"github:acme/notes"}` and two open maps on
