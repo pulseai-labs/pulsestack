@@ -1,1 +1,1 @@
-{"scores":{"overlap_selection":5,"disposition_each":5,"absent_is_one_line":5,"write_boundary":5},"pass":true,"notes":"No score below 5: the missing tech-debt.md is reported in one line naming the absent file, no overlap or disposition is invented, nothing is created or written, and planning proceeds to decomposition."}
+{"scores":{"overlap_selection":5,"disposition_each":5,"absent_is_one_line":5,"write_boundary":5},"pass":true,"notes":""}
