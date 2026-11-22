@@ -44,7 +44,7 @@ OSSIFY="$(cd "$HERE/.." && pwd)"
 REPO="$(cd "$OSSIFY/.." && pwd)"
 SELF="$(basename "$0")"
 TMPDIR_WORK="$(mktemp -d "${TMPDIR:-/tmp}/l4-residue.XXXXXX")"
-trap 'rm -rf "$TMPDIR_WORK"' EXIT
+trap 'chmod -R u+rwx "$TMPDIR_WORK"; rm -rf "$TMPDIR_WORK"' EXIT
 
 WIC="$OSSIFY/skills/close/references/work-item-close.md"
 IMPL="$OSSIFY/skills/close/references/impl-check.md"
@@ -106,12 +106,57 @@ layer 4: workflow
 six-agent
 NEEDLES
 
+residue_files() { # $1=ossify-root $2=self basename
+  local files status
+  if files="$(find "$1" -type f \
+      -not -path "$1/tests/eval/results/*" \
+      -not -path "$1/tests/eval/evidence/*" \
+      -not -name "$2")"; then
+    printf '%s\n' "$files" | LC_ALL=C sort
+  else
+    status=$?
+    printf 'layer4 residue scan: %s: find exited %s\n' "$1" "$status" >&2
+    return "$status"
+  fi
+}
+
+residue_find_controls() {
+  local root="$TMPDIR_WORK/find-control" out rc
+  mkdir -p "$root/locked"
+  printf '# visible\n' > "$root/visible.md"
+  printf '# hidden\n' > "$root/locked/hidden.md"
+  if [ "$(id -u)" -eq 0 ]; then
+    echo 'SKIP: layer4 residue unreadable-directory control (uid 0 bypasses chmod 000)'
+  else
+    chmod 000 "$root/locked"
+    out="$(residue_files "$root" "$SELF" 2>&1)"; rc=$?
+    chmod 700 "$root/locked"
+    if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | awk -v prefix="layer4 residue scan: $root: find exited " \
+        'index($0, prefix)==1 && substr($0, length(prefix)+1) ~ /^[1-9][0-9]*$/ { hit++ } END { exit(hit != 1) }'; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: layer4 residue must reject an unreadable subtree by name, root and status (rc=$rc): $out"
+    fi
+  fi
+  out="$(residue_files "$root" "$SELF" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && [ "$out" = "$(printf '%s/locked/hidden.md\n%s/visible.md' "$root" "$root")" ]; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: control: layer4 residue must enumerate the adjacent readable tree (rc=$rc): $out"
+  fi
+}
+
+residue_find_controls
+
 # The inner file list: all of ossify/ minus the eval run records and this test.
 FLIST="$TMPDIR_WORK/filelist"
-find "$OSSIFY" -type f \
-  -not -path "$OSSIFY/tests/eval/results/*" \
-  -not -path "$OSSIFY/tests/eval/evidence/*" \
-  -not -name "$SELF" | LC_ALL=C sort > "$FLIST"
+if residue_listing="$(residue_files "$OSSIFY" "$SELF" 2>&1)"; then
+  printf '%s\n' "$residue_listing" > "$FLIST"
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: $residue_listing"
+  t_summary
+  exit 1
+fi
 nfiles="$(wc -l < "$FLIST" | tr -d ' ')"
 if [ "$nfiles" -ge 250 ]; then T_PASS=$((T_PASS+1))
 else T_FAIL=$((T_FAIL+1)); echo "FAIL: only $nfiles files enumerated - the residue walk is broken and every zero below is vacuous"; fi

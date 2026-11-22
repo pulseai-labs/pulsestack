@@ -56,14 +56,28 @@ Host: OMP'
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/_helpers.sh"
 
+# Every fixture uses ctl; restore traversal permissions even if a control aborts.
+ctl=""
+trap 'if [ -n "${ctl:-}" ] && [ -d "$ctl" ]; then chmod -R u+rwx "$ctl"; rm -rf "$ctl"; fi' EXIT
+trap 'exit 1' HUP INT TERM
+
 # ── the sweep ───────────────────────────────────────────────────────────────
 #
 # Case patterns rather than `grep -q` in a pipeline: `grep -q` exits at the first match and
 # the producer takes SIGPIPE if it writes again, which fails intermittently on a true match.
 # The sweep takes its root so the controls below can run it over a fixture tree.
 sweep_findings() { # <skills/orchestrate dir>
-  local dir="$1" f n line
-  find "$dir" -name '*.md' | sort | while IFS= read -r f; do
+  local dir="$1" f n line files find_status
+  # A successful sort cannot certify a partial find traversal.
+  if files="$(find "$dir" -name '*.md')"; then
+    :
+  else
+    find_status=$?
+    printf 'SCAN-ERROR sweep_findings %s: find exited %s\n' "$dir" "$find_status"
+    return 0
+  fi
+  [ -n "$files" ] || return 0
+  printf '%s\n' "$files" | sort | while IFS= read -r f; do
     case "$f" in */references/layers/*) continue ;; esac
     n=0
     while IFS= read -r line; do
@@ -103,6 +117,25 @@ if [ -z "$out" ]; then
 else
   fail "control: the sweep passes a shared file with no layer command" "$out"
 fi
+# A partial walk must not certify the readable files it happened to visit.
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP control: sweep_findings unreadable traversal (uid 0 bypasses chmod 000)\n'
+else
+  mkdir "$ctl/locked"
+  printf 'herdr pane run hidden\n' > "$ctl/locked/hidden.md"
+  chmod 000 "$ctl/locked"
+  out="$(sweep_findings "$ctl")"
+  chmod 700 "$ctl/locked"
+  if printf '%s\n' "$out" | awk -v root="$ctl" '
+    index($0, "SCAN-ERROR sweep_findings " root ": find exited ") == 1 &&
+      $0 ~ /: find exited [1-9][0-9]*$/ { hit++ }
+    END { exit(hit == 1 ? 0 : 1) }'; then
+    pass "control: sweep_findings rejects a failed traversal by name, root and status"
+  else
+    fail "control: sweep_findings rejects a failed traversal by name, root and status" "got: ${out:-<none>}"
+  fi
+  rm -rf "$ctl/locked"
+fi
 printf 'herdr pane run x\n' >> "$ctl/references/roles.md"
 out="$(sweep_findings "$ctl")"
 if [ "$(printf '%s\n' "$out" | grep -c .)" -eq 1 ] && printf '%s' "$out" | grep -F 'herdr pane run x' >/dev/null; then
@@ -134,8 +167,17 @@ section "no shared file points at one layer's own file"
 # path-shaped form a shared file may carry; `references/layers/*` is exempt, like the
 # command sweep above.
 layer_pointer_findings() { # <skills/orchestrate dir>
-  local dir="$1" f n line
-  find "$dir" -name '*.md' | sort | while IFS= read -r f; do
+  local dir="$1" f n line files find_status
+  # Capture before sorting so a skipped subtree is not an empty finding list.
+  if files="$(find "$dir" -name '*.md')"; then
+    :
+  else
+    find_status=$?
+    printf 'SCAN-ERROR layer_pointer_findings %s: find exited %s\n' "$dir" "$find_status"
+    return 0
+  fi
+  [ -n "$files" ] || return 0
+  printf '%s\n' "$files" | sort | while IFS= read -r f; do
     case "$f" in */references/layers/*) continue ;; esac
     n=0
     while IFS= read -r line; do
@@ -165,6 +207,25 @@ if [ -z "$out" ]; then
   pass "control: the check passes a shared file that names no layer file"
 else
   fail "control: the check passes a shared file that names no layer file" "$out"
+fi
+# Adjacent to the readable pass: losing a subtree must be a named scan error.
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP control: layer_pointer_findings unreadable traversal (uid 0 bypasses chmod 000)\n'
+else
+  mkdir "$ctl/locked"
+  printf 'See layers/herdr.md\n' > "$ctl/locked/hidden.md"
+  chmod 000 "$ctl/locked"
+  out="$(layer_pointer_findings "$ctl")"
+  chmod 700 "$ctl/locked"
+  if printf '%s\n' "$out" | awk -v root="$ctl" '
+    index($0, "SCAN-ERROR layer_pointer_findings " root ": find exited ") == 1 &&
+      $0 ~ /: find exited [1-9][0-9]*$/ { hit++ }
+    END { exit(hit == 1 ? 0 : 1) }'; then
+    pass "control: layer_pointer_findings rejects a failed traversal by name, root and status"
+  else
+    fail "control: layer_pointer_findings rejects a failed traversal by name, root and status" "got: ${out:-<none>}"
+  fi
+  rm -rf "$ctl/locked"
 fi
 printf 'See `layers/herdr.md` for the send.\n' >> "$ctl/references/roles.md"
 out="$(layer_pointer_findings "$ctl")"
@@ -307,8 +368,17 @@ section "no orchestration system under crew/"
 ORC_NEEDLE="orca"' '"orchestration"
 
 orchestration_findings() { # <root>
-  local root="$1" f n line
-  find "$root" -type f | sort | while IFS= read -r f; do
+  local root="$1" f n line files find_status
+  # The boundary covers every file, including subtrees find failed to enter.
+  if files="$(find "$root" -type f)"; then
+    :
+  else
+    find_status=$?
+    printf 'SCAN-ERROR orchestration_findings %s: find exited %s\n' "$root" "$find_status"
+    return 0
+  fi
+  [ -n "$files" ] || return 0
+  printf '%s\n' "$files" | sort | while IFS= read -r f; do
     n=0
     while IFS= read -r line; do
       n=$((n + 1))
@@ -334,6 +404,25 @@ printf 'a clean file\n' > "$ctl/clean.md"
 out="$(orchestration_findings "$ctl")"
 if [ -z "$out" ]; then pass "control: the scan passes a clean fixture"
 else fail "control: the scan passes a clean fixture" "$out"; fi
+# Adjacent to the readable pass: all file types need a complete traversal.
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP control: orchestration_findings unreadable traversal (uid 0 bypasses chmod 000)\n'
+else
+  mkdir "$ctl/locked"
+  printf '%s\n' "$ORC_NEEDLE hidden" > "$ctl/locked/hidden.txt"
+  chmod 000 "$ctl/locked"
+  out="$(orchestration_findings "$ctl")"
+  chmod 700 "$ctl/locked"
+  if printf '%s\n' "$out" | awk -v root="$ctl" '
+    index($0, "SCAN-ERROR orchestration_findings " root ": find exited ") == 1 &&
+      $0 ~ /: find exited [1-9][0-9]*$/ { hit++ }
+    END { exit(hit == 1 ? 0 : 1) }'; then
+    pass "control: orchestration_findings rejects a failed traversal by name, root and status"
+  else
+    fail "control: orchestration_findings rejects a failed traversal by name, root and status" "got: ${out:-<none>}"
+  fi
+  rm -rf "$ctl/locked"
+fi
 printf '%s\n' "the $ORC_NEEDLE dispatch verb" >> "$ctl/clean.md"
 out="$(orchestration_findings "$ctl")"
 if [ "$(printf '%s\n' "$out" | grep -c .)" -eq 1 ] && printf '%s' "$out" | grep -F "$ORC_NEEDLE" >/dev/null; then

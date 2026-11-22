@@ -221,12 +221,61 @@ assert_yaml_frontmatter() {
   fi
 }
 
+# Keep discovery independently exercisable: a partial walk must not certify YAML.
+skill_frontmatter_files() { # <skills root>
+  local root="$1" files find_status
+  if files="$(find "$root" -name SKILL.md)"; then
+    :
+  else
+    find_status=$?
+    printf 'SKILL.md frontmatter scan %s: find exited %s\n' "$root" "$find_status"
+    return "$find_status"
+  fi
+  [ -n "$files" ] || return 0
+  printf '%s\n' "$files" | sort
+}
+
+# A real unreadable subtree, not a stubbed find. Restore access even on early exit.
+find_ctl="$(mktemp -d)"
+trap 'chmod 700 "$find_ctl/locked" 2>/dev/null || :; rm -rf "$find_ctl"' EXIT
+mkdir -p "$find_ctl/locked"
+printf '%s\n' '---' 'name: control' '---' > "$find_ctl/SKILL.md"
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP frontmatter find failure control: uid 0 can read chmod 000 directories\n'
+else
+  chmod 000 "$find_ctl/locked"
+  ctl_status=0
+  ctl_files="$(skill_frontmatter_files "$find_ctl" 2>&1)" || ctl_status=$?
+  chmod 700 "$find_ctl/locked"
+  if [ "$ctl_status" -ne 0 ] && printf '%s\n' "$ctl_files" | awk -v root="$find_ctl" '
+      index($0, "SKILL.md frontmatter scan " root ": find exited ") && /find exited [1-9][0-9]*/ { found=1 }
+      END { exit !found }'; then
+    pass "control: frontmatter scan rejects an unreadable subtree by scan, root and status"
+  else
+    fail "control: frontmatter scan rejects an unreadable subtree by scan, root and status (rc=$ctl_status; $ctl_files)"
+  fi
+fi
+ctl_status=0
+ctl_files="$(skill_frontmatter_files "$find_ctl")" || ctl_status=$?
+if [ "$ctl_status" -eq 0 ] && [ "$ctl_files" = "$find_ctl/SKILL.md" ]; then
+  pass "control: frontmatter scan enumerates a readable tree"
+else
+  fail "control: frontmatter scan enumerates a readable tree (rc=$ctl_status; $ctl_files)"
+fi
+
 for plugin in $V0_PLUGINS; do
   [[ -d "$ROOT/$plugin/skills" ]] || continue
+  skill_status=0
+  skill_files="$(skill_frontmatter_files "$ROOT/$plugin/skills")" || skill_status=$?
+  if [ "$skill_status" -ne 0 ]; then
+    fail "$skill_files"
+    continue
+  fi
   while IFS= read -r skill_md; do
+    [ -n "$skill_md" ] || continue
     skill_name="$(basename "$(dirname "$skill_md")")"
     assert_yaml_frontmatter "$skill_md" "$plugin/$skill_name SKILL.md frontmatter parses as YAML"
-  done < <(find "$ROOT/$plugin/skills" -name SKILL.md 2>/dev/null | sort)
+  done <<< "$skill_files"
 done
 
 printf '\nPassed: %d  Failed: %d\n' "$PASS" "$FAIL"

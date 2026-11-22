@@ -43,7 +43,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 OSSIFY="$(cd "$HERE/.." && pwd)"
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/oss-blocks.XXXXXX")"
-trap 'rm -rf "$WORK"' EXIT
+trap 'chmod -R u+rwx "$WORK"; rm -rf "$WORK"' EXIT
 
 # Byte-based matching everywhere: the RSTART/RLENGTH arithmetic below is byte
 # arithmetic, and a UTF-8 locale would make the two disagree.
@@ -63,7 +63,7 @@ t_assert_grep() { # $1=file $2=ERE $3=label
 }
 
 _md_files() { # $1=ossify-root -> every markdown file the harness owns
-  local r="$1" d
+  local r="$1" d files listing='' status
   # references/ included since the route gates landed: three wrappers load
   # the plugin-root references tree directly (handoff, handoff-resume,
   # work-pr), so its prose is shipped contract with the same claim to scanning
@@ -71,9 +71,44 @@ _md_files() { # $1=ossify-root -> every markdown file the harness owns
   # carry zero bash fences, zero Skill( forms, zero oss tokens, so checks 1-3
   # widen with no new findings (Codex r1 finding on #283).
   for d in skills commands agents references; do
-    [ -d "$r/$d" ] && find "$r/$d" -type f -name '*.md'
-  done | sort
+    [ -d "$r/$d" ] || continue
+    if files="$(find "$r/$d" -type f -name '*.md')"; then
+      [ -z "$files" ] || listing="${listing}${files}"$'\n'
+    else
+      status=$?
+      printf 'skill bash-blocks scan: %s: find exited %s\n' "$r/$d" "$status" >&2
+      return "$status"
+    fi
+  done
+  [ -z "$listing" ] || printf '%s' "$listing" | sort
 }
+
+md_find_controls() {
+  local root="$WORK/find-control" out rc
+  mkdir -p "$root/skills/locked" "$root/commands" "$root/agents" "$root/references"
+  printf '# visible\n' > "$root/skills/visible.md"
+  printf '# hidden\n' > "$root/skills/locked/hidden.md"
+  if [ "$(id -u)" -eq 0 ]; then
+    echo 'SKIP: skill bash-blocks unreadable-directory control (uid 0 bypasses chmod 000)'
+  else
+    chmod 000 "$root/skills/locked"
+    out="$(_md_files "$root" 2>&1)"; rc=$?
+    chmod 700 "$root/skills/locked"
+    if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | awk -v prefix="skill bash-blocks scan: $root/skills: find exited " \
+        'index($0, prefix)==1 && substr($0, length(prefix)+1) ~ /^[1-9][0-9]*$/ { hit++ } END { exit(hit != 1) }'; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: skill bash-blocks must reject an unreadable subtree by name, root and status (rc=$rc): $out"
+    fi
+  fi
+  out="$(_md_files "$root" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && [ "$out" = "$(printf '%s/skills/locked/hidden.md\n%s/skills/visible.md' "$root" "$root")" ]; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: control: skill bash-blocks must enumerate the adjacent readable tree (rc=$rc): $out"
+  fi
+}
+
 
 # ---------------------------------------------------------------------------
 # Extractors. Written once and shared by the checks - so a break in one takes
@@ -147,10 +182,11 @@ AWK
 # fence line) so the finding points at the offending line in the shipped doc.
 # ---------------------------------------------------------------------------
 check_1_parse() { # $1=ossify-root $2=workdir; writes $2/blocks/{manifest.tsv,count.txt}
-  local r="$1" w="$2/blocks" n f fence err bline
+  local r="$1" w="$2/blocks" n f fence err bline files
+  files="$(_md_files "$r" 2>&1)" || { printf '%s\n' "$files"; return 1; }
   rm -rf "$w"; mkdir -p "$w"; : > "$w/manifest.tsv"; : > "$w/count.txt"
   awk -v OUT="$w" -v MAN="$w/manifest.tsv" -v CNT="$w/count.txt" \
-      -f "$WORK/emit-blocks.awk" $(_md_files "$r")
+      -f "$WORK/emit-blocks.awk" $files
   [ -s "$w/count.txt" ] || echo 0 > "$w/count.txt"
   while IFS=$'\t' read -r n f fence; do
     [ -n "$n" ] || continue
@@ -167,7 +203,9 @@ check_1_parse() { # $1=ossify-root $2=workdir; writes $2/blocks/{manifest.tsv,co
 # extractor's indentation tolerance surfaces as a disagreement instead of two
 # wrong numbers that agree with each other.
 grep_fence_count() { # $1=ossify-root
-  _md_files "$1" | tr '\n' '\0' | xargs -0 cat \
+  local files
+  files="$(_md_files "$1" 2>&1)" || { printf '%s\n' "$files"; return 1; }
+  printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 cat \
     | { grep -cE '^[[:space:]]*```bash[[:space:]]*$' || true; } | tr -d ' '
 }
 
@@ -186,11 +224,12 @@ grep_fence_count() { # $1=ossify-root
 #      instead of quietly absorbing a typo.
 # ---------------------------------------------------------------------------
 check_2_verbs() { # $1=ossify-root $2=workdir; writes $2/check2-{verbs,ctx,tokens,excluded}.txt
-  local r="$1" w="$2" loc tok
+  local r="$1" w="$2" loc tok files
+  files="$(_md_files "$r" 2>&1)" || { printf '%s\n' "$files"; return 1; }
   mkdir -p "$w"
   { grep -hoE '^oss_cmd_[A-Za-z0-9_]+\(\)' "$r/bin/oss" "$r"/lib/*.sh 2>/dev/null || true; } \
     | sed -E 's/^oss_cmd_//; s/\(\)$//' | sort -u > "$w/check2-verbs.txt"
-  awk -f "$WORK/code-context.awk" $(_md_files "$r") > "$w/check2-ctx.txt"
+  awk -f "$WORK/code-context.awk" $files > "$w/check2-ctx.txt"
   awk '{ s=$0
          split($0, _p, ":")
          while (match(s, /(^|[^A-Za-z0-9_$])(oss|"?\$oss_bin"?)[ \t]+[A-Za-z_][A-Za-z0-9_*-]*/)) {
@@ -215,13 +254,15 @@ check_2_verbs() { # $1=ossify-root $2=workdir; writes $2/check2-{verbs,ctx,token
 # and this branch has shipped exactly that. Scoped to ossify.
 # ---------------------------------------------------------------------------
 check_3_skill_args() { # $1=ossify-root
-  local f hit
+  local f hit files
+  files="$(_md_files "$1" 2>&1)" || { printf '%s\n' "$files"; return 1; }
   while IFS= read -r f; do
+    [ -n "$f" ] || continue
     while IFS= read -r hit; do
       [ -n "$hit" ] || continue
       echo "$f:${hit%%:*}: Skill() invocation carries an argument: ${hit#*:}"
     done < <({ grep -nE 'Skill\([^)]*,' "$f" || true; })
-  done < <(_md_files "$1")
+  done <<< "$files"
 }
 
 # ---------------------------------------------------------------------------
@@ -279,7 +320,8 @@ check_4_positionals() { # $1=ossify-root
 # reported set instead of failing.
 # ---------------------------------------------------------------------------
 check_5_refs() { # $1=ossify-root $2=workdir; writes $2/check5-{crossskill,pointers}.txt
-  local r="$1" w="$2" sk skill ref base f p
+  local r="$1" w="$2" sk skill ref base f p files
+  files="$(_md_files "$r" 2>&1)" || { printf '%s\n' "$files"; return 1; }
   mkdir -p "$w"; : > "$w/check5-crossskill.txt"; : > "$w/check5-pointers.txt"
   # (a) orphans
   for sk in "$r"/skills/*/; do
@@ -292,6 +334,7 @@ check_5_refs() { # $1=ossify-root $2=workdir; writes $2/check5-{crossskill,point
   done
   # (b) dangling
   while IFS= read -r f; do
+    [ -n "$f" ] || continue
     skill=""
     case "$f" in "$r"/skills/*) skill="$r/skills/$(printf '%s' "${f#"$r"/skills/}" | cut -d/ -f1)" ;; esac
     while IFS= read -r p; do
@@ -334,7 +377,7 @@ check_5_refs() { # $1=ossify-root $2=workdir; writes $2/check5-{crossskill,point
       echo "$f: dangling pointer '$p' resolves to no file (base ${base:-<no skill dir>})"
     done < <({ grep -ohE '(^|[^A-Za-z0-9_/${}-])(skills/)?([A-Za-z0-9_-]+/)?references/[A-Za-z0-9_.-]+\.md' "$f" || true; } \
                | sed -E 's#^[^A-Za-z0-9_]##' | sort -u)
-  done < <(_md_files "$r")
+  done <<< "$files"
 }
 
 # ---------------------------------------------------------------------------
@@ -460,8 +503,10 @@ check_7_descriptions() { # $1=ossify-root $2=workdir; writes $2/check7-report.tx
 # legal - the check extracts the name and fires only on the collision.
 # ---------------------------------------------------------------------------
 check_9_shadowed_tokens() { # $1=ossify-root
-  local f hit rest name
+  local f hit rest name files
+  files="$(_md_files "$1" 2>&1)" || { printf '%s\n' "$files"; return 1; }
   while IFS= read -r f; do
+    [ -n "$f" ] || continue
     while IFS= read -r hit; do
       [ -n "$hit" ] || continue
       rest="${hit#*:}"
@@ -470,7 +515,7 @@ check_9_shadowed_tokens() { # $1=ossify-root
       [ -f "$1/commands/$name.md" ] || continue
       echo "$f:${hit%%:*}: shadowed token $rest - commands/$name.md shadows the skill this call means (#262); route by the wrapper's path-routing Read line instead"
     done < <({ grep -nE 'Skill\(ossify:[A-Za-z0-9_-]+' "$f" || true; })
-  done < <(_md_files "$1")
+  done <<< "$files"
 }
 
 # ---------------------------------------------------------------------------
@@ -608,12 +653,21 @@ check_12_no_lib_calls() { # $1=ossify-root $2=blocks-dir
 # PART 1 - the shipped tree. Expect zero findings from every check.
 # ===========================================================================
 echo "-- ossify tree: $OSSIFY"
+md_find_controls
+if markdown_files="$(_md_files "$OSSIFY" 2>&1)"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: $markdown_files"
+  t_summary
+  exit 1
+fi
+
 
 # The two extractors hand their file list to awk as unquoted words, which a path
 # containing whitespace would split. Assert it instead of extracting nonsense
 # quietly - a silent split shows up as a *lower* block count, which is exactly
 # the failure this file exists to make impossible.
-t_assert_eq 0 "$(_md_files "$OSSIFY" | { grep -cE '[[:space:]]' || true; } | tr -d ' ')" \
+t_assert_eq 0 "$(printf '%s\n' "$markdown_files" | { grep -cE '[[:space:]]' || true; } | tr -d ' ')" \
   "no markdown path contains whitespace (the awk file-list contract)"
 
 C1="$(check_1_parse "$OSSIFY" "$WORK/real")"
