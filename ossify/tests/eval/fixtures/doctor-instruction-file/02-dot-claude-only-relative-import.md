@@ -14,8 +14,7 @@ Exactly one JSON object. `/home/bo/ws` and `/home/bo/repos/product-api` both
 exist as real directories, and `git -C <root> rev-parse --is-inside-work-tree`
 prints `true` for both. `/home/bo/ws` is a git repository with a clean work tree,
 and `.claude/CLAUDE.md` below is tracked —
-`git ls-files --error-unmatch .claude/CLAUDE.md` succeeds, so this is not 06's
-untracked shape.
+`git ls-files --error-unmatch .claude/CLAUDE.md` succeeds.
 
 `$OSS_STATE_FILE` is unset. `oss state_path` resolves to
 `/home/bo/ws/.ossify/project-state.json`, which exists and parses.

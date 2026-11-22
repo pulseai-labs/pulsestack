@@ -20,9 +20,11 @@ conclusion).
 
 1. **Routing correct** — chart vs work vs work-this-ticket is decided from
    the argument alone, never asked back. An already-open map in the repo
-   does not pull a bare invocation into work mode, and a named map with no
-   ticket does not skip the frontier read that a named map-plus-ticket is
-   entitled to skip.
+   does not pull a bare invocation into work mode. A named map-plus-ticket
+   skips the frontier **choice**, not the frontier **query**: it still runs
+   the query and reads the named ticket's membership, state, blockers and
+   assignees before working it; a named map with no ticket chooses from that
+   frontier.
 2. **Fog vs ticket** — the phrasable/answerable test is applied, not a
    confident-sounding stand-in for it. A sharp, unblocked question becomes a
    ticket; a sharp question that is merely blocked still becomes a ticket,
@@ -35,11 +37,11 @@ conclusion).
    operator instruction to fan it out. The AFK tickets in the same batch
    (`research`, `smoke-test`, `spike`) still fan out together — refusing the
    HITL ticket is not read as license to also stall the AFK ones.
-4. **Ladder conflict stops** — a manifest and a `.wayfinder.json` naming
-   different trackers halts and asks, rather than letting either source win
-   by default (including the workspace-remote branch that would otherwise
-   run first). Neither wins silently, and the reason named is the conflict
-   itself, not a generic "which tracker."
+4. **Ladder conflict stops** — the resolved workspace's **live** origin (read
+   from git, never from the manifest's stored `git_remote`) and a
+   `.wayfinder.json` naming different trackers halts and asks, rather than
+   letting either source win by default. Neither wins silently, and the
+   reason named is the conflict itself, not a generic "which tracker."
 5. **No-fog exits** — a breadth-first pass that surfaces no fog — including
    a question raised and answered in the same breath — refuses to create a
    map and says why, rather than filing a map with an empty Not yet
