@@ -16,10 +16,68 @@ OSS_TREE="$(cd "$HERE/.." && pwd)"
 LEDGER="$HERE/block-ledger.tsv"
 TMPOUT="$(mktemp)"
 . "$HERE/lib/blocks.sh"
+FIX="$(mktemp -d)"
+trap 'chmod -R u+rwx "$FIX"; rm -rf "$FIX" "$TMPOUT"' EXIT
 
 PASS=0; FAIL=0
 pass() { PASS=$((PASS+1)); }
 fail() { FAIL=$((FAIL+1)); echo "FAIL: $*"; }
+
+ledger_completeness_files() { # $1=ossify-root
+  local completeness_listing status
+  if completeness_listing="$(cd "$1" && find skills commands agents -name '*.md')"; then
+    printf '%s\n' "$completeness_listing" | sort
+  else
+    status=$?
+    printf 'ledger completeness scan: %s: find exited %s\n' "$1" "$status" >&2
+    return "$status"
+  fi
+}
+
+ledger_digest_files() { # $1=ossify-root
+  local digest_listing status
+  if digest_listing="$(cd "$1" && find skills commands agents -name '*.md')"; then
+    printf '%s\n' "$digest_listing" | sort
+  else
+    status=$?
+    printf 'ledger digest coverage scan: %s: find exited %s\n' "$1" "$status" >&2
+    return "$status"
+  fi
+}
+
+ledger_find_controls() {
+  local root="$FIX/find-control" scan label out rc
+  mkdir -p "$root/skills/locked" "$root/commands" "$root/agents"
+  printf '# visible\n' > "$root/skills/visible.md"
+  printf '# hidden\n' > "$root/skills/locked/hidden.md"
+  for scan in ledger_completeness_files ledger_digest_files; do
+    case "$scan" in
+      ledger_completeness_files) label='ledger completeness' ;;
+      ledger_digest_files) label='ledger digest coverage' ;;
+    esac
+    if [ "$(id -u)" -eq 0 ]; then
+      echo "SKIP: $label unreadable-directory control (uid 0 bypasses chmod 000)"
+    else
+      chmod 000 "$root/skills/locked"
+      out="$("$scan" "$root" 2>&1)"; rc=$?
+      chmod 700 "$root/skills/locked"
+      if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | awk -v prefix="$label scan: $root: find exited " \
+          'index($0, prefix)==1 && substr($0, length(prefix)+1) ~ /^[1-9][0-9]*$/ { hit++ } END { exit(hit != 1) }'; then
+        pass
+      else
+        fail "control: $label must reject an unreadable subtree by name, root and status (rc=$rc): $out"
+      fi
+    fi
+    out="$("$scan" "$root" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ] && [ "$out" = "$(printf 'skills/locked/hidden.md\nskills/visible.md')" ]; then
+      pass
+    else
+      fail "control: $label must enumerate the adjacent readable tree (rc=$rc): $out"
+    fi
+  done
+}
+
+ledger_find_controls
 
 echo "-- ossify tree: $OSS_TREE"
 
@@ -60,7 +118,9 @@ declare_counted() { # $1=file ; echoes "O D I" totals from the ledger
 # that is missing from the ledger entirely invisible, which is the one gap this
 # check exists to close.
 shipped=0; accounted=0
+if completeness_files="$(ledger_completeness_files "$OSS_TREE" 2>&1)"; then
 while IFS= read -r rel; do
+  [ -n "$rel" ] || continue
   actual="$(oss_block_count "$OSS_TREE/$rel")"
   # NO `continue` ON ZERO. A file that still exists but whose last block was
   # removed or re-fenced used to skip completeness entirely, leaving a stale
@@ -83,7 +143,10 @@ while IFS= read -r rel; do
   else
     fail "check 2: $rel has $actual blocks but the ledger accounts for $sum (O=$o D=$d I=$i) - classify the difference"
   fi
-done < <(cd "$OSS_TREE" && find skills commands agents -name '*.md' | sort)
+done <<< "$completeness_files"
+else
+  fail "$completeness_files"
+fi
 
 echo "-- check 2: $shipped files with blocks, $accounted blocks accounted for"
 
@@ -116,7 +179,9 @@ echo "-- check 2c: $digests per-file block digests"
 # totals. An aggregate count is satisfied when one file loses its H row and
 # another is duplicated - and the file without one silently stops being digest-
 # checked, which is the whole protection. (Codex P2 round 2 on PR #144.)
+if digest_files="$(ledger_digest_files "$OSS_TREE" 2>&1)"; then
 while IFS= read -r rel; do
+  [ -n "$rel" ] || continue
   [ "$(oss_block_count "$OSS_TREE/$rel")" -gt 0 ] || continue
   n="$(awk -F'\t' -v f="$rel" '$1=="H" && $2==f {n++} END{print n+0}' "$LEDGER")"
   case "$n" in
@@ -124,7 +189,10 @@ while IFS= read -r rel; do
     0) fail "check 2c: $rel has blocks but no H row - its block bodies are unchecked" ;;
     *) fail "check 2c: $rel has $n H rows - duplicates let one file's digest stand in for another's" ;;
   esac
-done < <(cd "$OSS_TREE" && find skills commands agents -name '*.md' | sort)
+done <<< "$digest_files"
+else
+  fail "$digest_files"
+fi
 # A floor, not just a per-file equality: if the enumeration itself broke and
 # produced zero files, every per-file assertion above would be vacuously true.
 if [ "$shipped" -ge 40 ]; then pass; else fail "check 2: only $shipped files enumerated - the file walk is broken, the per-file checks above are vacuous"; fi
@@ -294,7 +362,7 @@ done < <(grep -E '^O' "$LEDGER" || true)
 # rests on oss_block_extract, and an extractor that silently returns nothing
 # would make the whole file pass while testing air.
 # ---------------------------------------------------------------------------
-FIX="$(mktemp -d)"; trap 'rm -rf "$FIX" "$TMPOUT"' EXIT
+# FIX and its permission-restoring trap are installed before traversal controls.
 cat > "$FIX/f.md" <<'EOF'
 prose
 ```bash

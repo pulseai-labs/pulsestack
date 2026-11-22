@@ -31,6 +31,8 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
 
 OSSIFY="$(cd "$HERE/.." && pwd)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/external-contract.XXXXXX")"
+trap 'chmod -R u+rwx "$WORK"; rm -rf "$WORK"' EXIT
 WI="$OSSIFY/skills/work-item"
 EXT="$WI/references/external-executor.md"
 CORR="$WI/references/correction-continuation.md"
@@ -245,8 +247,53 @@ for f in $PRODUCT_FILES; do
   else T_FAIL=$((T_FAIL+1)); echo "FAIL: product file $f is missing or empty — the neutrality scan below would be vacuous"; fi
 done
 
-scan_list="$(mktemp)"
-find $PRODUCT_ROOTS -type f -print > "$scan_list" 2>/dev/null
+product_files() { # directory roots, one argument each
+  local files status
+  if files="$(find "$@" -type f -print)"; then
+    [ -z "$files" ] || printf '%s\n' "$files"
+  else
+    status=$?
+    printf 'external-executor product scan: %s: find exited %s\n' "$*" "$status" >&2
+    return "$status"
+  fi
+}
+
+product_find_controls() {
+  local root="$WORK/find-control" out rc
+  mkdir -p "$root/commands/locked" "$root/skills" "$root/agents"
+  printf '# visible\n' > "$root/commands/visible.md"
+  printf '# hidden\n' > "$root/commands/locked/hidden.md"
+  if [ "$(id -u)" -eq 0 ]; then
+    echo 'SKIP: external-executor product unreadable-directory control (uid 0 bypasses chmod 000)'
+  else
+    chmod 000 "$root/commands/locked"
+    out="$(product_files "$root/commands" "$root/skills" "$root/agents" 2>&1)"; rc=$?
+    chmod 700 "$root/commands/locked"
+    if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | awk -v prefix="external-executor product scan: $root/commands $root/skills $root/agents: find exited " \
+        'index($0, prefix)==1 && substr($0, length(prefix)+1) ~ /^[1-9][0-9]*$/ { hit++ } END { exit(hit != 1) }'; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: external-executor product must reject an unreadable subtree by name, roots and status (rc=$rc): $out"
+    fi
+  fi
+  out="$(product_files "$root/commands" "$root/skills" "$root/agents" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | LC_ALL=C sort)" = "$(printf '%s/commands/locked/hidden.md\n%s/commands/visible.md' "$root" "$root")" ]; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: control: external-executor product must enumerate the adjacent readable tree (rc=$rc): $out"
+  fi
+}
+
+product_find_controls
+
+scan_list="$WORK/scan-list"
+if product_listing="$(product_files $PRODUCT_ROOTS 2>&1)"; then
+  printf '%s\n' "$product_listing" > "$scan_list"
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: $product_listing"
+  t_summary
+  exit 1
+fi
 for f in $PRODUCT_FILES; do printf '%s\n' "$f" >> "$scan_list"; done
 
 # One awk pass over the whole set, case-folded, literal.
