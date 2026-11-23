@@ -459,7 +459,10 @@ scan_claude_md_stub_mentions() { # $1=plugin root
   local root="$1" f hits="" scanned=0
   for f in "$root"/skills/*/SKILL.md "$root"/skills/*/examples/*.md \
            "$root"/templates/*.tmpl "$root/README.md"; do
-    [[ -f "$f" ]] || continue
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      printf 'stub surface scan: %s: not a readable regular file\n' "$f"; return 1
+    fi
     scanned=$((scanned + 1))
     if names_claude_md_stub "$f"; then hits="$hits $f"; fi
   done
@@ -474,7 +477,7 @@ test_no_claude_md_stub_on_any_surface() {
   # #768: workspace-init writes AGENTS.md only. No skill, example or template
   # may still tell a model to write or expect a CLAUDE.md stub.
   local hits
-  hits="$(scan_claude_md_stub_mentions "$WI_PLUGIN_ROOT")" || return 1
+  hits="$(scan_claude_md_stub_mentions "$WI_PLUGIN_ROOT")" || { echo "$hits"; return 1; }
   [[ -z "$hits" ]] || { echo "    still names a CLAUDE.md stub:$hits"; return 1; }
   # Positive control: the skills still name the one stub they do write.
   grep -Fq 'stub_agents_md' "$WI_PLUGIN_ROOT/skills/initializing-dual-repo-workspace/SKILL.md" || { echo "    fresh skill lost stub_agents_md"; return 1; }
@@ -503,6 +506,33 @@ test_claude_md_stub_scan_fails_on_an_empty_surface() {
   fi
   rmdir "$empty" 2>/dev/null
 }
+
+test_claude_md_stub_scan_rejects_unreadable_file() (
+  local root out rc
+  root="$(mktemp -d "${TMPDIR:-/tmp}/wi-file-surface.XXXXXX")"
+  trap 'chmod -R u+rwx "$root"; rm -rf "$root"' EXIT
+  mkdir -p "$root/skills/control"
+  printf 'Write CLAUDE.md stub\n' > "$root/skills/control/SKILL.md"
+  if [ "$(id -u)" -eq 0 ]; then
+    echo '    SKIP stub surface unreadable-file control (uid 0 bypasses chmod 000)'
+  else
+    chmod 000 "$root/skills/control/SKILL.md"
+    rc=0; out="$(scan_claude_md_stub_mentions "$root" 2>&1)" || rc=$?
+    chmod 600 "$root/skills/control/SKILL.md"
+    if [ "$rc" -eq 0 ] || [ "$out" != "stub surface scan: $root/skills/control/SKILL.md: not a readable regular file" ]; then
+      echo "    unreadable stub mention was not refused by name (rc=$rc): $out"; return 1
+    fi
+  fi
+  rc=0; out="$(scan_claude_md_stub_mentions "$root" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] && [ "$out" = "$root/skills/control/SKILL.md" ] || {
+    echo "    readable stub mention was lost (rc=$rc): $out"; return 1;
+  }
+  printf 'clean surface\n' > "$root/skills/control/SKILL.md"
+  rc=0; out="$(scan_claude_md_stub_mentions "$root" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] && [ -z "$out" ] || {
+    echo "    adjacent readable clean surface failed (rc=$rc): $out"; return 1;
+  }
+)
 
 test_ossify_versions_are_conditioned_in_the_stub_and_scenario_c() {
   # D1/D2: the stub replaces itself and the Scenario C route relies on doctor's
@@ -838,6 +868,7 @@ wi_test_run test_readme_links_stay_inside_the_plugin
 wi_test_run test_skills_resolve_wi_bin_before_first_use
 wi_test_run test_no_claude_md_stub_on_any_surface
 wi_test_run test_claude_md_stub_scan_fails_on_an_empty_surface
+wi_test_run test_claude_md_stub_scan_rejects_unreadable_file
 wi_test_run test_marker_string_matches_across_surfaces
 wi_test_run test_ossify_versions_are_conditioned_in_the_stub_and_scenario_c
 wi_test_run test_claude_code_fallback_is_version_gated

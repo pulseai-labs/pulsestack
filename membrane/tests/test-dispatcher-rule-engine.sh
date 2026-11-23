@@ -216,6 +216,42 @@ test_dispatcher_jsonl_rejects_non_jsonl_output() {
   fi
 }
 
+_dispatcher_scratch_dirs() { # <parent root>
+  local root="$1" files find_status
+  if files="$(find "$root" -maxdepth 1 -type d -name 'csa-dispatch.*' -print)"; then
+    [[ -z "$files" ]] || printf '%s\n' "$files"
+  else
+    find_status=$?
+    printf 'dispatcher scratch scan %s: find exited %s\n' "$root" "$find_status" >&2
+    return "$find_status"
+  fi
+}
+
+# The inherited csa_tmp_scope EXIT trap restores permissions before cleanup.
+test_dispatcher_scratch_scan_rejects_unreadable_root() {
+  local root="$_tmp/scratch-find-control" out rc=0
+  mkdir -p "$root/csa-dispatch.control"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    printf '    SKIP scratch scan unreadable-root control: uid 0 bypasses chmod 000\n'
+    return "${CSA_SKIP:-77}"
+  fi
+  chmod 000 "$root"
+  out="$(_dispatcher_scratch_dirs "$root" 2>&1)" || rc=$?
+  chmod 700 "$root"
+  [[ "$rc" -ne 0 ]] || { printf '    unreadable scratch root was accepted: %s\n' "$out" >&2; return 1; }
+  assert_contains "$out" "dispatcher scratch scan $root: find exited $rc" "named scratch traversal failure"
+}
+
+test_dispatcher_scratch_scan_reads_complete_root() {
+  local root="$_tmp/scratch-find-readable" out
+  mkdir -p "$root/csa-dispatch.control" "$root/unrelated"
+  out="$(_dispatcher_scratch_dirs "$root")" || return 1
+  assert_eq "$root/csa-dispatch.control" "$out" "readable scratch listing" || return 1
+  rm -rf "$root/csa-dispatch.control"
+  out="$(_dispatcher_scratch_dirs "$root")" || return 1
+  assert_eq "" "$out" "no scratch matches remains a successful empty scan"
+}
+
 test_dispatcher_suite_cleans_scratch() {
   local parent; parent="$(mktemp -d "${TMPDIR:-/tmp}/csa-dispatch-probe.XXXXXX")"
   local child_log="$parent/child.log"
@@ -226,7 +262,7 @@ test_dispatcher_suite_cleans_scratch() {
   fi
 
   local leftovers
-  leftovers="$(find "$parent" -maxdepth 1 -type d -name 'csa-dispatch.*' -print)"
+  leftovers="$(_dispatcher_scratch_dirs "$parent")" || { rm -rf "$parent"; return 1; }
   if [[ -n "$leftovers" ]]; then
     printf '    dispatcher scratch leaked: %s\n' "$leftovers" >&2
     rm -rf "$parent"
@@ -342,6 +378,8 @@ csa_test_run test_dispatcher_skips_nonexecutable_dotted_file || _csa_failed=$((_
 csa_test_run test_dispatcher_stops_on_newline_executable_extensionless_handler || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_dispatcher_stops_on_tab_executable_extensionless_handler || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_dispatcher_jsonl_rejects_non_jsonl_output || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_dispatcher_scratch_scan_rejects_unreadable_root || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_dispatcher_scratch_scan_reads_complete_root || _csa_failed=$((_csa_failed + 1))
 if [[ "${CSA_DISPATCHER_LEAK_PROBE:-}" != "1" ]]; then
   csa_test_run test_dispatcher_suite_cleans_scratch || _csa_failed=$((_csa_failed + 1))
 fi

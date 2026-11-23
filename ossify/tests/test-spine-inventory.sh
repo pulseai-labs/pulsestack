@@ -7,6 +7,78 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/lib/blocks.sh"
 OSS="$HERE/../bin/oss"
 TMP="$(mktemp -d)"
+trap 'chmod -R u+rwx "$TMP"; rm -rf "$TMP"' EXIT
+
+inventory_find_controls() {
+  local root="$TMP/find-control" out rc saved_fail
+  mkdir -p "$root/locked"
+  printf 'visible\n' > "$root/visible"
+  printf 'hidden\n' > "$root/locked/hidden"
+  out="$(inventory_file_count "$root" control-count 2>&1)"; rc=$?
+  t_assert_eq 0 "$rc" 'inventory count readable traversal succeeds'
+  t_assert_eq 2 "$out" 'inventory count readable traversal counts actual files'
+  out="$(inventory_worktree_checksums "$root" 2>&1)"; rc=$?
+  t_assert_eq 0 "$rc" 'inventory checksum readable traversal succeeds'
+  t_assert_contains "$out" "$(cksum "$root/visible")" 'inventory checksum readable traversal includes visible bytes'
+  t_assert_contains "$out" "$(cksum "$root/locked/hidden")" 'inventory checksum readable traversal includes nested bytes'
+  if [ "$(id -u)" -eq 0 ]; then
+    printf 'SKIP: inventory find unreadable-directory controls (uid 0 bypasses chmod 000)\n'
+    return
+  fi
+  chmod 000 "$root/locked"
+  out="$(inventory_file_count "$root" control-count 2>&1)"; rc=$?
+  t_assert_eq 1 "$rc" 'inventory count refuses a partial traversal'
+  t_assert_contains "$out" "inventory control-count scan: $root: find exited 1" 'inventory count names site, root and find status'
+  out="$(inventory_worktree_checksums "$root" 2>&1)"; rc=$?
+  t_assert_eq 1 "$rc" 'inventory checksum refuses a partial traversal'
+  t_assert_contains "$out" "inventory worktree snapshot scan: $root: find exited 1" 'inventory checksum names root and find status'
+  saved_fail="$T_FAIL"
+  inventory_assert_no_temporaries "$root" control-parent > "$TMP/count-control.out"
+  rc="$T_FAIL"; T_FAIL="$saved_fail"
+  t_assert_eq "$((saved_fail+1))" "$rc" 'inventory traversal failure reaches parent counter'
+  t_assert_contains "$(cat "$TMP/count-control.out")" "inventory control-parent scan: $root: find exited 1" 'inventory parent reports the named scan failure'
+  chmod 700 "$root/locked"
+  # A readable directory holding an unreadable file: cksum fails, not the walk.
+  mkdir -p "$TMP/find-control-file"
+  printf 'visible\n' > "$TMP/find-control-file/visible"
+  printf 'hidden\n' > "$TMP/find-control-file/hidden"
+  chmod 000 "$TMP/find-control-file/hidden"
+  out="$(inventory_worktree_checksums "$TMP/find-control-file" 2>&1)"; rc=$?
+  t_assert_eq 1 "$rc" 'inventory checksum refuses an unreadable file'
+  t_assert_contains "$out" "inventory worktree snapshot scan: $TMP/find-control-file: find exited 1" 'inventory checksum names root and status for an unreadable file'
+  chmod 600 "$TMP/find-control-file/hidden"
+}
+inventory_file_count() { # $1=root $2=site
+  local root="$1" site="$2" files status
+  if files="$(find "$root" -type f)"; then
+    if [ -z "$files" ]; then printf '0\n'; else printf '%s\n' "$files" | wc -l | tr -d ' '; fi
+  else
+    status=$?
+    printf 'inventory %s scan: %s: find exited %s\n' "$site" "$root" "$status" >&2
+    return 1
+  fi
+}
+inventory_assert_no_temporaries() { # $1=root $2=site $3=label
+  local count
+  if count="$(inventory_file_count "$1" "$2" 2>&1)"; then
+    t_assert_eq 0 "$count" "${3:-$2}"
+  else
+    T_FAIL=$((T_FAIL+1)); printf 'FAIL: %s: %s\n' "${3:-$2}" "$count"
+  fi
+}
+inventory_worktree_checksums() { # $1=worktree admin root
+  # find -exec cksum {} + exits non-zero when it cannot traverse OR when cksum
+  # cannot read a file, so one captured status covers both failures.
+  local root="$1" sums status
+  if sums="$(find "$root" -type f -exec cksum {} +)"; then
+    [ -z "$sums" ] || printf '%s\n' "$sums" | sort
+  else
+    status=$?
+    printf 'inventory worktree snapshot scan: %s: find exited %s\n' "$root" "$status" >&2
+    return 1
+  fi
+}
+inventory_find_controls
 
 # fixture: AI workspace ws, two hosting repos core + ui, spine r0.s1 "demo".
 mkfix() { # $1=dir ; fresh fixture
@@ -258,16 +330,39 @@ snap() { # $1=dir ; everything inventory could disturb
       # #673 A4/A6 added a `git worktree list` to the classifier; its admin
       # files are part of what "read-only" means, so snapshot them FIRST
       # (before the list calls below, which are themselves under test).
-      find "$1/$r/.git/worktrees" -type f -exec cksum {} + 2>/dev/null | sort
+      if [ -e "$1/$r/.git/worktrees" ] || [ -L "$1/$r/.git/worktrees" ]; then
+        inventory_worktree_checksums "$1/$r/.git/worktrees" || return 1
+      fi
       git -C "$1/$r" for-each-ref; git -C "$1/$r" worktree list --porcelain
       cksum < "$1/$r/.git/index"; git -C "$1/$r" --no-optional-locks status --porcelain
-    done; } 2>/dev/null
+    done; }
 }
+# Exercise the whole snapshot too: later git reads must not hide a failed walk.
+F="$TMP/snapshot-find-control"; fx "$F" 1; WT="$(spawn "$F" r0.s1.w1 control)"
+t_capture snap "$F"
+t_assert_rc 0 'S17 snapshot readable traversal succeeds'
+t_assert_contains "$T_OUT" "$(cksum < "$F/ws/.ossify/project-state.json")" 'S17 snapshot readable traversal includes state bytes'
+if [ "$(id -u)" -eq 0 ]; then
+  printf 'SKIP: S17 snapshot unreadable-directory control (uid 0 bypasses chmod 000)\n'
+else
+  chmod 000 "$F/core/.git/worktrees"
+  t_capture snap "$F"
+  t_assert_rc 1 'S17 snapshot preserves traversal failure past later git reads'
+  t_assert_contains "$T_OUT" "inventory worktree snapshot scan: $F/core/.git/worktrees: find exited 1" 'S17 snapshot preserves the named find error'
+  chmod 700 "$F/core/.git/worktrees"
+fi
 F="$TMP/s17"; fx "$F" 2; WT="$(spawn "$F" r0.s1.w1 one)"; echo d > "$WT/d"
 sleep 1; touch "$F/core/f"    # stale stat info: plain `git status` would rewrite the index
-BEFORE="$(snap "$F")"; inv "$F"
+if BEFORE="$(snap "$F" 2>&1)"; then :; else
+  T_FAIL=$((T_FAIL+1)); printf 'FAIL: S17 before snapshot: %s\n' "$BEFORE"
+fi
+inv "$F"
 t_assert_rc 3 "S17 setup: this run has a halt row (dirty worktree)"
-t_assert_eq "$BEFORE" "$(snap "$F")" "S17: state, refs, worktrees, index and status are byte-identical after inventory"
+if AFTER="$(snap "$F" 2>&1)"; then
+  t_assert_eq "$BEFORE" "$AFTER" "S17: state, refs, worktrees, index and status are byte-identical after inventory"
+else
+  T_FAIL=$((T_FAIL+1)); printf 'FAIL: S17 after snapshot: %s\n' "$AFTER"
+fi
 
 # ---- fix-round scenarios (#673 A1-A5, B1, C2) ---------------------------------
 
@@ -763,11 +858,20 @@ F="$TMP/s47"; fx "$F" 2; WT="$(spawn "$F" r0.s1.w1 one)"
 echo a > "$WT/a"; git -C "$WT" add a; git -C "$WT" commit -qm "close r0.s1.w1"
 oss_in "$F" work_item_pr r0.s1.w1 "$PR" >/dev/null
 # S48: the in-flight read-out mutates nothing.
-BEFORE="$(snap "$F")"; inv "$F"
+# A failed snapshot walk fails S48 by name (S17's shape): two snapshots that both stop
+# at the same failed walk would otherwise compare equal.
+if BEFORE="$(snap "$F" 2>&1)"; then :; else
+  T_FAIL=$((T_FAIL+1)); printf 'FAIL: S48 before snapshot: %s\n' "$BEFORE"
+fi
+inv "$F"
 t_assert_eq "in-flight" "$(route r0.s1.w1)" "S47: the PR'd item reads in-flight"
 t_assert_eq "spawn" "$(route r0.s1.w2)" "S47: ...and the next round's planned item reads spawn"
 t_assert_rc 0 "S47: ...rc 0 - no halt row"
-t_assert_eq "$BEFORE" "$(snap "$F")" "S48: the in-flight inventory leaves state, refs, worktrees, index and status byte-identical"
+if AFTER="$(snap "$F" 2>&1)"; then
+  t_assert_eq "$BEFORE" "$AFTER" "S48: the in-flight inventory leaves state, refs, worktrees, index and status byte-identical"
+else
+  T_FAIL=$((T_FAIL+1)); printf 'FAIL: S48 after snapshot: %s\n' "$AFTER"
+fi
 
 # ---- the shipped §2 re-entry blocks, extracted and RUN (block-ledger O rows) ----
 SKILLS="$HERE/../skills"
@@ -929,7 +1033,7 @@ t_capture _e_fence "$E_FRESH" status
 t_assert_rc 1 'E6 status read error halts; fence runs alone in a fresh shell'
 t_assert_contains "$T_OUT" 'halt:' 'E6 status read error is named'
 t_assert_eq no "$(if [ -e "$TMP/e-record" ]; then echo yes; else echo no; fi)" 'E6 failed status never reaches RECORD'
-t_assert_eq 0 "$(find "$TMP/e-temporaries" -type f | wc -l | tr -d ' ')" 'E5/E6 fresh fence cleans every temporary on halt'
+inventory_assert_no_temporaries "$TMP/e-temporaries" E5/E6 'E5/E6 fresh fence cleans every temporary on halt'
 
 # F-V1: physical loose-ref corruption must halt before real RECORD, not only
 # injected git failures. Each entire fence runs alone in a fresh strict shell.
@@ -952,7 +1056,7 @@ for fence in "$FV_ENTER" "$FV_FRESH"; do
   t_assert_contains "$T_OUT" 'halt: cannot read' "F-V1 $(basename "$fence") names unreadable ref"
   t_assert_eq "$before" "$(cksum < "$F/ws/.ossify/project-state.json")" "F-V1 $(basename "$fence") malformed ref never reaches real RECORD"
   t_assert_eq '{}' "$(jq -c '.spines[0].bases // {}' "$F/ws/.ossify/project-state.json")" "F-V1 $(basename "$fence") no base journaled"
-  t_assert_eq 0 "$(find "$TMP/e-temporaries" -type f | wc -l | tr -d ' ')" "F-V1 $(basename "$fence") cleans temporaries on halt"
+  inventory_assert_no_temporaries "$TMP/e-temporaries" "F-V1-malformed-$(basename "$fence")" "F-V1 $(basename "$fence") cleans temporaries on halt"
 done
 # Adjacent absent-ref controls must still select fresh and RECORD then cut.
 for fence in "$FV_ENTER" "$FV_FRESH"; do
@@ -966,7 +1070,7 @@ for fence in "$FV_ENTER" "$FV_FRESH"; do
     t_assert_eq main "$(oss_in "$F" spine_base_get r0.s1 core)" 'F-V1 absent ref fresh fence records the real base'
     t_assert_eq spine/r0.s1-demo "$(git -C "$F/core" rev-parse --abbrev-ref HEAD)" 'F-V1 absent ref fresh fence cuts the branch'
   fi
-  t_assert_eq 0 "$(find "$TMP/e-temporaries" -type f | wc -l | tr -d ' ')" "F-V1 $(basename "$fence") absent ref control cleans temporaries"
+  inventory_assert_no_temporaries "$TMP/e-temporaries" "F-V1-absent-$(basename "$fence")" "F-V1 $(basename "$fence") absent ref control cleans temporaries"
 done
 
 # Simulated Git < 2.43: --exists emits an unsupported-option usage error
@@ -1006,7 +1110,7 @@ for shape in absent present packed; do
   t_assert_rc 0 "simulated old Git selector $shape succeeds; runs alone in a fresh shell"
   t_assert_contains "$T_OUT" "arm=$expected" "simulated old Git selector $shape routes correctly"
   t_assert_eq "$before" "$(cksum < "$F/ws/.ossify/project-state.json")" "simulated old Git selector $shape never changes state"
-  t_assert_eq 0 "$(find "$TMP/e-temporaries" -type f | wc -l | tr -d ' ')" "simulated old Git selector $shape leaves no temporaries"
+  inventory_assert_no_temporaries "$TMP/e-temporaries" "old-selector-$shape" "simulated old Git selector $shape leaves no temporaries"
 done
 for shape in absent present; do
   F="$TMP/old-fresh-$shape"; mkfix "$F"
@@ -1024,7 +1128,7 @@ for shape in absent present; do
     t_assert_contains "$T_OUT" 'already exists' 'simulated old Git fresh present names re-entry remedy'
     t_assert_eq "$before" "$(cksum < "$F/ws/.ossify/project-state.json")" 'simulated old Git fresh present never RECORDs'
   fi
-  t_assert_eq 0 "$(find "$TMP/e-temporaries" -type f | wc -l | tr -d ' ')" "simulated old Git fresh $shape cleans temporaries"
+  inventory_assert_no_temporaries "$TMP/e-temporaries" "old-fresh-$shape" "simulated old Git fresh $shape cleans temporaries"
 done
 
 t_summary

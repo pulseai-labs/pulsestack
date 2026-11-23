@@ -41,6 +41,9 @@ REF_BUDGET=232          # 2026-10-29 (0.8.1, #954): +3 — the machine-file `rai
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/_helpers.sh"
 
+read_ctl="$(mktemp -d)"
+trap 'chmod -R u+rwx "$read_ctl"; rm -rf "$read_ctl"' EXIT
+
 printf '%screw configuration contract%s\n\n' "$DIM" "$RST"
 
 section "the two files"
@@ -221,22 +224,70 @@ brief_pin 'you are already that seat, never run it' "every SEAT_COMMAND says it 
 # The class, not the instance (#845 round 1): every launch-record line in any reference — SEAT_, SPINE_,
 # CLOSE_, WORKPR_, WRITER_COMMAND — carries the never-run clause, so a new *_COMMAND line without it fails here.
 # Every PING line carries the hold-at-gate rule (#810): a worker whose ping finds no top waits, never proceeds.
-ping_total=0; ping_bare=""
-for f in "$PLUGIN_ROOT"/skills/orchestrate/references/*.md; do
-  n="$(awk '/^PING: / { t++ } END { print t+0 }' "$f")"
-  b="$(awk '/^PING: / && index($0, "A skipped or failed send is never an answer") == 0 { print FILENAME ":" FNR }' "$f")"
-  ping_total=$((ping_total + n)); [ -z "$b" ] || ping_bare="$ping_bare $b"
-done
+# Keep the two scans fixture-addressable, retaining their count floors as well as
+# named findings. A read error is a finding even if other files meet the floor.
+reference_contract_findings() { # <references dir> <PING|COMMAND>
+  local dir="$1" kind="$2" f pattern clause
+  case "$kind" in
+    PING) pattern='^PING: '; clause='A skipped or failed send is never an answer' ;;
+    COMMAND) pattern='^[A-Z]+_COMMAND=<'; clause='you are already that seat, never run it' ;;
+  esac
+  for f in "$dir"/*.md; do
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      printf 'SCAN-ERROR %s contract %s: not a readable regular file\n' "$kind" "$f"
+      continue
+    fi
+    awk -v pattern="$pattern" -v clause="$clause" '
+      $0 ~ pattern { t++; if (index($0, clause) == 0) print FILENAME ":" FNR }
+      END { print "COUNT:" t+0 }
+    ' "$f"
+  done
+}
+ping_scan="$(reference_contract_findings "$PLUGIN_ROOT/skills/orchestrate/references" PING)"
+ping_total="$(printf '%s\n' "$ping_scan" | awk -F: '/^COUNT:/ { n += $2 } END { print n+0 }')"
+ping_bare="$(printf '%s\n' "$ping_scan" | awk 'NF && !/^COUNT:/')"
 if [ "$ping_total" -ge 15 ] && [ -z "$ping_bare" ]; then pass "every PING line holds a worker at its gate ($ping_total)"
 else fail "every PING line holds a worker at its gate" "total $ping_total (want >= 15), bare:$ping_bare"; fi
-cmd_total=0; cmd_bare=""
-for f in "$PLUGIN_ROOT"/skills/orchestrate/references/*.md; do
-  n="$(awk '/^[A-Z]+_COMMAND=</ { t++ } END { print t+0 }' "$f")"
-  b="$(awk '/^[A-Z]+_COMMAND=</ && index($0, "you are already that seat, never run it") == 0 { print FILENAME ":" FNR }' "$f")"
-  cmd_total=$((cmd_total + n)); [ -z "$b" ] || cmd_bare="$cmd_bare $b"
-done
+cmd_scan="$(reference_contract_findings "$PLUGIN_ROOT/skills/orchestrate/references" COMMAND)"
+cmd_total="$(printf '%s\n' "$cmd_scan" | awk -F: '/^COUNT:/ { n += $2 } END { print n+0 }')"
+cmd_bare="$(printf '%s\n' "$cmd_scan" | awk 'NF && !/^COUNT:/')"
 if [ "$cmd_total" -ge 13 ] && [ -z "$cmd_bare" ]; then pass "every *_COMMAND launch record says never run ($cmd_total)"
 else fail "every *_COMMAND launch record says never run" "total $cmd_total (want >= 13), bare:$cmd_bare"; fi
+
+for kind in PING COMMAND; do
+  case "$kind" in
+    PING) text='PING: A skipped or failed send is never an answer'; hidden='PING: wait nowhere' ;;
+    COMMAND) text='SEAT_COMMAND=<seat> you are already that seat, never run it'; hidden='SEAT_COMMAND=<seat>' ;;
+  esac
+  mkdir "$read_ctl/$kind"
+  printf '%s\n' "$text" > "$read_ctl/$kind/a.md"
+  out="$(reference_contract_findings "$read_ctl/$kind" "$kind")"
+  if [ "$out" = 'COUNT:1' ]; then
+    pass "control: $kind contract scan accepts the adjacent readable clause"
+  else fail "control: $kind contract scan accepts the adjacent readable clause" "$out"; fi
+  printf '%s\n' "$hidden" > "$read_ctl/$kind/a.md"
+  if [ "$(id -u)" -eq 0 ]; then
+    printf '  SKIP control: %s contract unreadable file (uid 0 bypasses chmod 000)\n' "$kind"
+  else
+    chmod 000 "$read_ctl/$kind/a.md"
+    out="$(reference_contract_findings "$read_ctl/$kind" "$kind" 2>&1)"
+    chmod 600 "$read_ctl/$kind/a.md"
+    if [ "$out" = "SCAN-ERROR $kind contract $read_ctl/$kind/a.md: not a readable regular file" ]; then
+      pass "control: $kind contract scan rejects an unreadable file by name"
+    else fail "control: $kind contract scan rejects an unreadable file by name" "$out"; fi
+  fi
+  out="$(reference_contract_findings "$read_ctl/$kind" "$kind")"
+  if [ "$out" = "$(printf '%s:1\nCOUNT:1' "$read_ctl/$kind/a.md")" ]; then
+    pass "control: $kind contract scan reads the adjacent readable violation"
+  else fail "control: $kind contract scan reads the adjacent readable violation" "$out"; fi
+done
+mkdir "$read_ctl/empty"
+for kind in PING COMMAND; do
+  out="$(reference_contract_findings "$read_ctl/empty" "$kind")"
+  if [ -z "$out" ]; then pass "control: $kind contract scan skips unmatched globs"
+  else fail "control: $kind contract scan skips unmatched globs" "$out"; fi
+done
 brief_pin 'SEAT_EXPECTED_MODEL=' "#751: no leaf template keeps its unused own-model slot" 0
 brief_pin 'SEAT_EFFORT=' "every dispatched template names its effort" 10
 brief_pin 'NOTIFY_RUN=' "every dispatched template names the run file its ping reads" 10
@@ -378,7 +429,7 @@ rm -f "$tmp_wrap"
 # loop's own guard is what is asserted; the command substitution isolates the
 # planted failure from this suite's own count. The message is checked too:
 # a failure for any other reason means the guard is not what fired.
-tmp_unreadable="$(mktemp)"; printf 'claude-glm\n' > "$tmp_unreadable"
+tmp_unreadable="$read_ctl/sweep.md"; printf 'claude-glm\n' > "$tmp_unreadable"
 chmod 000 "$tmp_unreadable"
 if [ -r "$tmp_unreadable" ]; then
   # Running as root, or a filesystem that ignores 0000: no mode makes a file
@@ -390,16 +441,23 @@ if [ -r "$tmp_unreadable" ]; then
   rm -f "$tmp_unreadable"
   ln -s "$tmp_unreadable.absent" "$tmp_unreadable"
 fi
-if out="$(sweep_file "$tmp_unreadable" "control fixture")"; then
+if out="$(sweep_file "$tmp_unreadable" "$tmp_unreadable")"; then
   fail "control: an unreadable file fails the sweep, not passes it" \
     "the sweep certified a file it could not open: $out"
-elif printf '%s' "$out" | grep -F 'missing or unreadable' >/dev/null; then
-  pass "control: an unreadable file fails the sweep, not passes it"
+elif printf '%s' "$out" | grep -F 'missing or unreadable' >/dev/null \
+     && printf '%s' "$out" | grep -F "$tmp_unreadable" >/dev/null; then
+  pass "control: an unreadable file fails the sweep by name, not passes it"
 else
-  fail "control: an unreadable file fails the sweep, not passes it" \
-    "the sweep failed it, but for another reason — the guard is not what fired: $out"
+  fail "control: an unreadable file fails the sweep by name, not passes it" \
+    "the sweep failed it, but for another reason: $out"
 fi
-chmod 644 "$tmp_unreadable" 2>/dev/null
+# Back to a readable regular file for the adjacent control.
+rm -f "$tmp_unreadable"; printf 'claude-glm\n' > "$tmp_unreadable"
+if out="$(sweep_file "$tmp_unreadable" "$tmp_unreadable")"; then
+  fail "control: the adjacent readable personal name is detected" "$out"
+elif printf '%s' "$out" | grep -F 'occurrence(s)' >/dev/null; then
+  pass "control: the adjacent readable personal name is detected"
+else fail "control: the adjacent readable personal name is detected" "$out"; fi
 rm -f "$tmp_unreadable"
 
 # Adjacent control: the same function must PASS a readable, clean file.

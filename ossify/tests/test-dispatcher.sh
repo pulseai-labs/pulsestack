@@ -2,6 +2,32 @@
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
 OSS="$HERE/../bin/oss"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/dispatcher-read.XXXXXX")"
+trap 'chmod -R u+rwx "$WORK"; rm -rf "$WORK"' EXIT
+
+dispatcher_bridge() { # $1=command markdown file
+  local f="$1"
+  if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+    printf 'dispatcher bridge scan: %s: not a readable regular file\n' "$f"
+    return 1
+  fi
+  awk '/^```bash$/ {b=1; s=""; next} b && /^```$/ {if (s ~ /bash -c/) printf "%s", s; b=0; next} b {s=s $0 "\n"}' "$f"
+}
+
+printf '```bash\nbash -c hidden_bridge\n```\n' > "$WORK/hidden.md"
+if [ "$(id -u)" -eq 0 ]; then
+  echo 'SKIP: dispatcher bridge unreadable-file control (uid 0 bypasses chmod 000)'
+else
+  chmod 000 "$WORK/hidden.md"
+  t_capture dispatcher_bridge "$WORK/hidden.md"
+  chmod 600 "$WORK/hidden.md"
+  t_assert_rc 1 'control: dispatcher bridge refuses an unreadable file'
+  t_assert_eq "dispatcher bridge scan: $WORK/hidden.md: not a readable regular file" "$T_OUT" \
+    'control: dispatcher bridge names the unreadable file'
+fi
+t_capture dispatcher_bridge "$WORK/hidden.md"
+t_assert_rc 0 'control: dispatcher bridge reads the adjacent readable file'
+t_assert_eq 'bash -c hidden_bridge' "$T_OUT" 'control: dispatcher bridge still extracts the real bridge'
 
 t_capture "$OSS" help
 t_assert_rc 0 "oss help exits 0"
@@ -75,7 +101,12 @@ done
 # avoids Claude's positional rendering. Execute empty and multiword controls.
 bridges=0
 for f in "$HERE"/../commands/*.md "$HERE/../../crew/commands/orchestrate.md"; do
-  bridge="$(awk '/^```bash$/ {b=1; s=""; next} b && /^```$/ {if (s ~ /bash -c/) printf "%s", s; b=0; next} b {s=s $0 "\n"}' "$f")"
+  [ -e "$f" ] || [ -L "$f" ] || continue
+  if bridge="$(dispatcher_bridge "$f" 2>&1)"; then :
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: $bridge"
+    continue
+  fi
   [ -n "$bridge" ] || continue
   bridges=$((bridges+1)); name="$(basename "$f" .md)"
   t_assert_contains "$(cat "$f")" 'Bash(bash:*)' "$name grants its bridge"
