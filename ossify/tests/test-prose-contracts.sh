@@ -339,6 +339,57 @@ WIC="$OSSSK/skills/close/references/work-item-close.md"
 # because the claim is about a block's internals rather than a line's presence.
 . "$HERE/lib/blocks.sh"
 _PC_TMP="$(mktemp -d)"; _F="$_PC_TMP/wic-block.sh"
+trap 'if [ -d "$_PC_TMP" ]; then chmod -R u+rwx "$_PC_TMP"; rm -rf "$_PC_TMP"; fi' EXIT
+prose_find_controls() {
+  local root="$_PC_TMP/find-control" out rc saved_fail
+  mkdir -p "$root/locked"
+  printf 'visible\n' > "$root/visible"
+  printf 'hidden\n' > "$root/locked/hidden"
+  : > "$root/allocated"
+  out="$(prose_file_count "$root" control-count 2>&1)"; rc=$?
+  t_assert_eq 0 "$rc" 'prose count readable traversal succeeds'
+  t_assert_eq 3 "$out" 'prose count readable traversal counts actual files'
+  out="$(prose_file_count "$root" control-exclusion ! -name allocated 2>&1)"; rc=$?
+  t_assert_eq 0 "$rc" 'prose excluded-marker readable traversal succeeds'
+  t_assert_eq 2 "$out" 'prose count retains files other than allocation marker'
+  if [ "$(id -u)" -eq 0 ]; then
+    printf 'SKIP: prose find unreadable-directory control (uid 0 bypasses chmod 000)\n'
+    return
+  fi
+  chmod 000 "$root/locked"
+  out="$(prose_file_count "$root" control-count 2>&1)"; rc=$?
+  t_assert_eq 1 "$rc" 'prose count refuses a partial traversal'
+  t_assert_contains "$out" "prose control-count scan: $root: find exited 1" 'prose count names site, root and find status'
+  out="$(prose_file_count "$root" control-exclusion ! -name allocated 2>&1)"; rc=$?
+  t_assert_eq 1 "$rc" 'prose count with exclusion refuses a partial traversal'
+  t_assert_contains "$out" "prose control-exclusion scan: $root: find exited 1" 'prose excluded-marker count names site, root and find status'
+  saved_fail="$T_FAIL"
+  prose_assert_no_scan_temporaries "$root" control-parent > "$_PC_TMP/count-control.out"
+  rc="$T_FAIL"; T_FAIL="$saved_fail"
+  t_assert_eq "$((saved_fail+1))" "$rc" 'prose traversal failure reaches parent counter'
+  t_assert_contains "$(cat "$_PC_TMP/count-control.out")" "prose control-parent scan: $root: find exited 1" 'prose parent reports the named scan failure'
+  chmod 700 "$root/locked"
+}
+prose_file_count() { # $1=root $2=site; remaining args are find predicates
+  local root="$1" site="$2" files status
+  shift 2
+  if files="$(find "$root" -type f "$@")"; then
+    if [ -z "$files" ]; then printf '0\n'; else printf '%s\n' "$files" | wc -l | tr -d ' '; fi
+  else
+    status=$?
+    printf 'prose %s scan: %s: find exited %s\n' "$site" "$root" "$status" >&2
+    return 1
+  fi
+}
+prose_assert_no_scan_temporaries() { # $1=root $2=site $3=label
+  local count
+  if count="$(prose_file_count "$1" "$2" ! -name allocated 2>&1)"; then
+    t_assert_eq 0 "$count" "${3:-$2}"
+  else
+    T_FAIL=$((T_FAIL+1)); printf 'FAIL: %s: %s\n' "${3:-$2}" "$count"
+  fi
+}
+prose_find_controls
 if oss_block_extract "$WIC" 'no recorded worktree for' "$_F" 2>/dev/null && [ -s "$_F" ]; then
   T_PASS=$((T_PASS+1))
 else
@@ -1061,7 +1112,7 @@ _o_next2() { # $1=dir $2=repos $3=destination repo (the block consumes both)
 }
 _o_next() { _o_next2 "$1" canonical canonical; }
 _o_fresh() { # $1=workspace $2=mode $3=repos or [unset] $4=destination $5=invocations
-  local temp="$_PC_TMP/fresh-$2-$5-$RANDOM" rc
+  local temp="$_PC_TMP/fresh-$2-$5-$RANDOM" rc count
   mkdir -p "$temp"
   ( cd "$1" && env -u OSS_STATE_FILE -u repos -u dest_repo TMPDIR="$temp" \
     "PATH=$OSSDIR:$PATH" adr_scan_mode="$2" bash -c '
@@ -1071,8 +1122,32 @@ _o_fresh() { # $1=workspace $2=mode $3=repos or [unset] $4=destination $5=invoca
       for ((i=0;i<$4;i++)); do . "$1"; done
     ' fresh "$_SF" "$3" "$4" "$5" )
   rc=$?
-  printf 'STATUS %s TEMPS %s\n' "$rc" "$(find "$temp" -type f | wc -l | tr -d ' ')"
+  if count="$(prose_file_count "$temp" "fresh-$2-$5" 2>&1)"; then
+    printf 'STATUS %s TEMPS %s\n' "$rc" "$count"
+  else
+    printf '%s\n' "$count" >&2
+    return 1
+  fi
 }
+# Isolate the reporting wrapper from the ADR fence: its own failed walk must fail.
+_o_fresh_control() (
+  _SF="$_PC_TMP/fresh-count-$1.sh"
+  _o_fresh "$_PC_TMP" mint canonical canonical 1
+)
+printf 'printf "kept\\n" > "$TMPDIR/visible"\n' > "$_PC_TMP/fresh-count-readable.sh"
+t_capture _o_fresh_control readable
+t_assert_rc 0 'prose fresh wrapper readable count succeeds'
+t_assert_contains "$T_OUT" 'STATUS 0 TEMPS 1' 'prose fresh wrapper reports the real readable file'
+if [ "$(id -u)" -eq 0 ]; then
+  printf 'SKIP: prose fresh wrapper unreadable-directory control (uid 0 bypasses chmod 000)\n'
+else
+  printf 'printf "hidden\\n" > "$TMPDIR/hidden"; chmod 000 "$TMPDIR"\n' > "$_PC_TMP/fresh-count-locked.sh"
+  t_capture _o_fresh_control locked
+  t_assert_rc 1 'prose fresh wrapper refuses an unreadable count root'
+  t_assert_contains "$T_OUT" "prose fresh-mint-1 scan: $_PC_TMP/fresh-mint-1-" 'prose fresh wrapper names the site and count root'
+  t_assert_contains "$T_OUT" 'find exited 1' 'prose fresh wrapper preserves the find status'
+  chmod -R u+rwx "$_PC_TMP"
+fi
 _o_next_keep() { _o_fresh "$1" mint canonical canonical 1; }
 # THE DEFECT: an uppercase three-digit series is read, and the mint continues it.
 _O_U="$(_o_ws upper)"; : > "$_O_U/canon/docs/adr/ADR-001-redb-for-storage.md"; : > "$_O_U/canon/docs/adr/ADR-002-single-writer.md"
@@ -1205,8 +1280,7 @@ SH
       repos=canonical dest_repo=canonical adr_scan_mode="$mode" bash -c \
       "cd '$_O_U'; set -euo pipefail; . '$_SF'"
     t_assert_rc 1 "S2 $mode $failure failure refuses"
-    _left="$(find "$_O_TEMP" -type f ! -name allocated | wc -l | tr -d ' ')"
-    t_assert_eq 0 "$_left" "S2 $mode $failure failure removes all allocated scan files"
+    prose_assert_no_scan_temporaries "$_O_TEMP" "S2-$mode-$failure" "S2 $mode $failure failure removes all allocated scan files"
   done
 done
 # (f6) ROUND 1, C2/CR2: the minted WIDTH comes from the DESTINATION repo's

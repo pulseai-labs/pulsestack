@@ -255,12 +255,38 @@ grep_fence_count() { # $1=ossify-root
 #      the 7th. Excluded tokens are printed so the exclusion set stays visible
 #      instead of quietly absorbing a typo.
 # ---------------------------------------------------------------------------
+# A no-match grep is healthy; an unread file is not an empty definition set.
+shell_function_names() { # <ossify root> <2|12> -> matched function declarations
+  local r="$1" check="$2" pattern f matches status
+  case "$check" in
+    2) pattern='^oss_cmd_[A-Za-z0-9_]+\(\)'; set -- "$r/bin/oss" "$r"/lib/*.sh ;;
+    12) pattern='^[A-Za-z_][A-Za-z0-9_]*\(\)'; set -- "$r"/lib/*.sh ;;
+  esac
+  for f in "$@"; do
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      printf 'check %s shell-function scan: %s: not a readable regular file\n' "$check" "$f" >&2
+      return 1
+    fi
+    if matches="$(grep -hoE "$pattern" "$f")"; then
+      printf '%s\n' "$matches"
+    else
+      status=$?
+      if [ "$status" -ne 1 ]; then
+        printf 'check %s shell-function scan: %s: grep exited %s\n' "$check" "$f" "$status" >&2
+        return "$status"
+      fi
+    fi
+  done
+  return 0
+}
+
 check_2_verbs() { # $1=ossify-root $2=workdir; writes $2/check2-{verbs,ctx,tokens,excluded}.txt
-  local r="$1" w="$2" loc tok files
+  local r="$1" w="$2" loc tok files definitions
   files="$(_md_files "$r" 2>&1)" || { printf '%s\n' "$files"; return 1; }
   mkdir -p "$w"
-  { grep -hoE '^oss_cmd_[A-Za-z0-9_]+\(\)' "$r/bin/oss" "$r"/lib/*.sh 2>/dev/null || true; } \
-    | sed -E 's/^oss_cmd_//; s/\(\)$//' | sort -u > "$w/check2-verbs.txt"
+  definitions="$(shell_function_names "$r" 2 2>&1)" || { printf '%s\n' "$definitions"; return 1; }
+  printf '%s\n' "$definitions" | sed -E 's/^oss_cmd_//; s/\(\)$//' | sort -u > "$w/check2-verbs.txt"
   awk -f "$WORK/code-context.awk" $files > "$w/check2-ctx.txt"
   awk '{ s=$0
          split($0, _p, ":")
@@ -653,8 +679,9 @@ check_11_oss_bin_assigned() { # $1=blocks-dir holding blk-N.sh + manifest.tsv
 # it. Comment lines are skipped: citing a function in a comment is not a call.
 # ---------------------------------------------------------------------------
 check_12_no_lib_calls() { # $1=ossify-root $2=blocks-dir
-  local r="$1" w="$2" n f fence names hit own body fn
-  names="$({ grep -hoE '^[A-Za-z_][A-Za-z0-9_]*\(\)' "$r"/lib/*.sh 2>/dev/null || true; } | sed 's/()$//' | sort -u)"
+  local r="$1" w="$2" n f fence names hit own body fn definitions
+  definitions="$(shell_function_names "$r" 12 2>&1)" || { printf '%s\n' "$definitions"; return 1; }
+  names="$(printf '%s\n' "$definitions" | sed 's/()$//' | sort -u)"
   [ -n "$names" ] || { echo "check 12: no lib functions found under $r/lib - extractor broken"; return; }
   # COMMAND POSITION, not a mere mention. A name handed to another command as an
   # argument (`printf '%s\n' oss_verify_parse_acs`) or quoted into a message is not
@@ -681,12 +708,65 @@ check_12_no_lib_calls() { # $1=ossify-root $2=blocks-dir
   done < "$w/manifest.tsv"
 }
 
+shell_function_file_controls() {
+  local root="$WORK/shell-file-control" check out rc expected
+  mkdir -p "$root/lib" "$root/bin" "$root/skills" "$root/blocks"
+  printf '# dispatcher\n' > "$root/bin/oss"
+  printf '# readable\n' > "$root/skills/visible.md"
+  : > "$root/blocks/manifest.tsv"
+  for check in 2 12; do
+    printf 'oss_cmd_hidden() { :; }\nhidden() { :; }\n' > "$root/lib/hidden.sh"
+    if [ "$(id -u)" -eq 0 ]; then
+      echo "SKIP: check $check unreadable shell file (uid 0 bypasses chmod 000)"
+    else
+      chmod 000 "$root/lib/hidden.sh"
+      case "$check" in
+        2) out="$(check_2_verbs "$root" "$root/verbs" 2>&1)"; rc=$? ;;
+        12) out="$(check_12_no_lib_calls "$root" "$root/blocks" 2>&1)"; rc=$? ;;
+      esac
+      chmod 600 "$root/lib/hidden.sh"
+      if [ "$rc" -ne 0 ] && [ "$out" = "check $check shell-function scan: $root/lib/hidden.sh: not a readable regular file" ]; then
+        T_PASS=$((T_PASS+1))
+      else
+        T_FAIL=$((T_FAIL+1)); echo "FAIL: control: check $check must reject an unreadable lib file by name (rc=$rc): $out"
+      fi
+    fi
+    out="$(shell_function_names "$root" "$check" 2>&1)"; rc=$?
+    case "$check" in
+      2) expected='oss_cmd_hidden()' ;;
+      12) expected="$(printf 'oss_cmd_hidden()\nhidden()')" ;;
+    esac
+    if [ "$rc" -eq 0 ] && [ "$out" = "$expected" ]; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: check $check must read the adjacent readable lib definitions (rc=$rc): $out"
+    fi
+    printf '# no function definitions\n' > "$root/lib/hidden.sh"
+    out="$(shell_function_names "$root" "$check" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: check $check no-match is healthy (rc=$rc): $out"
+    fi
+  done
+  rm "$root/lib/hidden.sh"
+  for check in 2 12; do
+    out="$(shell_function_names "$root" "$check" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: check $check skips unmatched lib globs (rc=$rc): $out"
+    fi
+  done
+}
+
 # ===========================================================================
 # PART 1 - the shipped tree. Expect zero findings from every check.
 # ===========================================================================
 echo "-- ossify tree: $OSSIFY"
 md_find_controls
 md_file_controls
+shell_function_file_controls
 if markdown_files="$(_md_files "$OSSIFY" 2>&1)"; then
   T_PASS=$((T_PASS+1))
 else

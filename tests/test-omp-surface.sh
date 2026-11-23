@@ -170,7 +170,7 @@ check_agents() { # $1=root $2=plugins whose skills may be autoloaded
 }
 
 # --- fixture: a minimal valid tree; each control plants one defect into a copy ---
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/omp-surface.XXXXXX")"; trap 'rm -rf "$WORK"' EXIT
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/omp-surface.XXXXXX")"; trap 'chmod -R u+rwx "$WORK"; rm -rf "$WORK"' EXIT
 make_fixture() { # $1=dir
   local d=$1 p
   mkdir -p "$d/.claude-plugin" "$d/.omp-plugin"
@@ -217,6 +217,31 @@ control() { # $1=label $2=expected finding prefix $3=planting command (run in th
 printf 'OMP surface gate\n'
 make_fixture "$WORK/clean"
 out=$(findings "$WORK/clean" "$OMP_FIVE"); [ -z "$out" ] && pass "clean fixture has no findings" || fail "clean fixture: $out"
+
+# These consumers already fail closed: failed reads produce named findings.
+# Keep the controls on fixture files, never on the shipped tree.
+for scan in check_wrappers check_agents; do
+  d="$WORK/read-control-$scan"; make_fixture "$d"
+  case "$scan" in
+    check_wrappers) f="$d/ossify/commands/c.md"; expected='wrapper: ossify/commands/c.md names no' ;;
+    check_agents) f="$d/omp-roles/agents/seat-reviewer.md"; expected='agent: omp-roles/agents/seat-reviewer.md lacks frontmatter' ;;
+  esac
+  if [ "$(id -u)" -eq 0 ]; then
+    printf '  SKIP %s unreadable-file control (uid 0 bypasses chmod 000)\n' "$scan"
+  else
+    chmod 000 "$f"
+    out="$("$scan" "$d" "$OMP_FIVE" 2>/dev/null)"
+    chmod 600 "$f"
+    if printf '%s\n' "$out" | awk -v prefix="$expected" 'index($0, prefix)==1 { hit=1 } END { exit !hit }'; then
+      pass "control $scan rejects an unreadable regular file by name"
+    else
+      fail "control $scan accepted an unreadable regular file: ${out:-<none>}"
+    fi
+  fi
+  out="$("$scan" "$d" "$OMP_FIVE")"
+  [ -z "$out" ] && pass "control $scan accepts the adjacent readable tree" \
+    || fail "control $scan readable tree: $out"
+done
 
 control catalog-extra   "catalog: lists"            'jq ".plugins += [{name:\"extra\",source:\"./extra\",description:\"d\",category:\"c\"}]" .omp-plugin/marketplace.json > t && mv t .omp-plugin/marketplace.json'
 # Adjacent controls: absence is the list finding; a present shared entry must still match Claude.

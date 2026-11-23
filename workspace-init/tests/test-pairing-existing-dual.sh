@@ -28,7 +28,7 @@ source "$WI_LIB_DIR/trace-filter.sh"
 _WI_TMP="$(mktemp -d "${TMPDIR:-/tmp}/wi-existing-dual.XXXXXX")"
 _wi_ed_cleanup() {
   if [[ -d "$_WI_TMP" ]]; then
-    chmod -R u+w "$_WI_TMP" 2>/dev/null || true
+    chmod -R u+rwx "$_WI_TMP" 2>/dev/null || true
     rm -rf "$_WI_TMP"
   fi
 }
@@ -314,14 +314,54 @@ test_C_non_git_ai_workspace_skips_ai_hook() {
 # Canonical safety — 2 tests
 # ---------------------------------------------------------------------------
 
+_dual_working_tree_snapshot() { # <canonical root> <before|after site>
+  local root="$1" site="$2" files find_status
+  if files="$(cd "$root" && find . -not -path './.git' -not -path './.git/*')"; then
+    [[ -z "$files" ]] || printf '%s\n' "$files" | sort
+  else
+    find_status=$?
+    printf 'dual canonical %s snapshot %s: find exited %s\n' "$site" "$root" "$find_status" >&2
+    return "$find_status"
+  fi
+}
+
+test_C_snapshot_rejects_unreadable_directory() {
+  local root="$_WI_TMP/snapshot-find-control" site out rc
+  mkdir -p "$root/locked"
+  printf 'hidden\n' > "$root/locked/hidden.txt"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    printf '    SKIP dual snapshot unreadable-directory control: uid 0 bypasses chmod 000\n'
+    return 0
+  fi
+  for site in before after; do
+    chmod 000 "$root/locked"
+    rc=0
+    out="$(_dual_working_tree_snapshot "$root" "$site" 2>&1)" || rc=$?
+    chmod 700 "$root/locked"
+    [[ "$rc" -ne 0 ]] || { echo "    $site snapshot accepted an unreadable directory: $out"; return 1; }
+    assert_contains "dual canonical $site snapshot $root: find exited $rc" "$out" || return 1
+  done
+}
+
+test_C_snapshot_reads_sorted_complete_tree() {
+  local root="$_WI_TMP/snapshot-find-readable" site out
+  mkdir -p "$root/locked" "$root/.git"
+  printf 'hidden\n' > "$root/locked/hidden.txt"
+  : > "$root/z.txt"; : > "$root/a.txt"; : > "$root/.git/ignored"
+  for site in before after; do
+    out="$(_dual_working_tree_snapshot "$root" "$site")" || return 1
+    assert_eq $'.\n./a.txt\n./locked\n./locked/hidden.txt\n./z.txt' "$out" || return 1
+  done
+}
+
 test_C_canonical_working_tree_unchanged() {
   local d="$_WI_TMP/s0"; mkdir -p "$d"
   local canonical; canonical="$(_make_existing_canonical "$d" "proj")"
   local ai;        ai="$(_make_existing_ai_workspace "$d" "proj-ws")"
-  local before; before="$(cd "$canonical" && find . -not -path './.git' -not -path './.git/*' | sort)"
+  local before; before="$(_dual_working_tree_snapshot "$canonical" before)" || return 1
   local before_main; before_main="$(cat "$canonical/src/main.txt")"
   _run_existing_dual_pairing "$ai" "$canonical" personal >/dev/null 2>&1
-  local after; after="$(cd "$canonical" && find . -not -path './.git' -not -path './.git/*' | sort)"
+  local after; after="$(_dual_working_tree_snapshot "$canonical" after)" || return 1
   assert_eq "$before" "$after" || { echo "    canonical working tree changed"; return 1; }
   assert_eq "$before_main" "$(cat "$canonical/src/main.txt")" || return 1
 }
@@ -368,6 +408,8 @@ wi_test_run test_C_both_repos_have_hook
 wi_test_run test_C_nested_ai_workspace_records_false_and_skips_hook
 wi_test_run test_C_non_git_ai_workspace_skips_ai_hook
 
+wi_test_run test_C_snapshot_rejects_unreadable_directory
+wi_test_run test_C_snapshot_reads_sorted_complete_tree
 wi_test_run test_C_canonical_working_tree_unchanged
 wi_test_run test_C_git_remote_null_then_url
 

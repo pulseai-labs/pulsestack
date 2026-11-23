@@ -97,7 +97,11 @@ section "every send line opens with its tag"
 class_findings() { # <references dir>
   local dir="$1" f
   for f in "$dir"/*.md; do
-    [ -e "$f" ] || continue
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      printf 'SCAN-ERROR class_findings %s: not a readable regular file\n' "$f"
+      continue
+    fi
     awk -v F="${f##*/}" '
       /^PING: / && $0 !~ /\[crew report [a-z-]+\] <task id/ { print F ": " FNR ": a PING line carries no [crew report <role>] tag" }
       /^MOLT: / && $0 !~ /\[crew molt [a-z-]+\] <pct>/ { print F ": " FNR ": a MOLT line carries no [crew molt <role>] tag" }
@@ -121,6 +125,7 @@ else
 fi
 
 ctl="$(mktemp -d)"; mkdir -p "$ctl/clean" "$ctl/dirty"
+trap 'if [ -d "${ctl:-}" ]; then chmod -R u+rwx "$ctl"; rm -rf "$ctl"; fi' EXIT
 printf 'PING: x `<PING_SEND> '"'"'[crew report implementer] <task id> <kind> <path>'"'"'` y\nMOLT: x `<PING_SEND> '"'"'[crew molt implementer] <pct> <task id>'"'"'` y\n' > "$ctl/clean/a.md"
 cp "$ctl/clean/a.md" "$ctl/dirty/a.md"
 printf 'PING: x `<PING_SEND> '"'"'REPORT READY: <task id> <kind> <path>'"'"'` y\n' >> "$ctl/dirty/a.md"
@@ -128,6 +133,26 @@ printf 'MOLT: x `<PING_SEND> '"'"'MOLT WARNING <pct> <task id>'"'"'` y\n' >> "$c
 out="$(class_findings "$ctl/clean")"
 if [ -z "$out" ]; then pass "control: the tags pass, including the send-line rule"
 else fail "control: the tags pass, including the send-line rule" "$out"; fi
+printf 'PING: x `<PING_SEND> '\''REPORT READY: <task id>'\''`\n' > "$ctl/clean/hidden.md"
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP control: class_findings unreadable file (uid 0 bypasses chmod 000)\n'
+else
+  chmod 000 "$ctl/clean/hidden.md"
+  out="$(class_findings "$ctl/clean" 2>&1)"
+  chmod 600 "$ctl/clean/hidden.md"
+  if [ "$out" = "SCAN-ERROR class_findings $ctl/clean/hidden.md: not a readable regular file" ]; then
+    pass "control: class_findings rejects an unreadable file by name"
+  else fail "control: class_findings rejects an unreadable file by name" "$out"; fi
+fi
+out="$(class_findings "$ctl/clean")"
+if [ "$(printf '%s\n' "$out" | grep -c '^hidden.md: 1:')" -eq 2 ]; then
+  pass "control: class_findings reads the adjacent readable violation"
+else fail "control: class_findings reads the adjacent readable violation" "$out"; fi
+rm "$ctl/clean/hidden.md"
+mkdir "$ctl/empty"
+out="$(class_findings "$ctl/empty")"
+if [ -z "$out" ]; then pass "control: class_findings skips unmatched globs"
+else fail "control: class_findings skips unmatched globs" "$out"; fi
 out="$(class_findings "$ctl/dirty")"
 n="$(printf '%s\n' "$out" | grep -c .)"
 if [ "$n" -eq 4 ] \
@@ -147,7 +172,11 @@ section "each template carries its own role word"
 roles_of() { # <references dir> <PING|MOLT> -> "<file>:<fence>:<role>" per send line
   local dir="$1" kind="$2" f
   for f in "$dir"/*.md; do
-    [ -e "$f" ] || continue
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      printf 'SCAN-ERROR roles_of %s: not a readable regular file\n' "$f"
+      continue
+    fi
     awk -v F="${f##*/}" -v K="$kind" '
       /^```text/ { n++ }
       index($0, K ": ") == 1 {
@@ -178,6 +207,24 @@ done
 ctl="$(mktemp -d)"
 { printf '```text\n'; printf 'PING: x `<PING_SEND> '"'"'[crew report implementer] <task id> <kind> <path>'"'"'` y\n'; printf '```\n'; } > "$ctl/a.md"
 before="$(roles_of "$ctl" PING)"
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP control: roles_of unreadable file (uid 0 bypasses chmod 000)\n'
+else
+  chmod 000 "$ctl/a.md"
+  out="$(roles_of "$ctl" PING 2>&1)"
+  chmod 600 "$ctl/a.md"
+  if [ "$out" = "SCAN-ERROR roles_of $ctl/a.md: not a readable regular file" ]; then
+    pass "control: roles_of rejects an unreadable file by name"
+  else fail "control: roles_of rejects an unreadable file by name" "$out"; fi
+fi
+out="$(roles_of "$ctl" PING)"
+if [ "$out" = 'a.md:1:implementer' ]; then
+  pass "control: roles_of reads the adjacent readable role"
+else fail "control: roles_of reads the adjacent readable role" "$out"; fi
+mkdir "$ctl/empty"
+out="$(roles_of "$ctl/empty" PING)"
+if [ -z "$out" ]; then pass "control: roles_of skips unmatched globs"
+else fail "control: roles_of skips unmatched globs" "$out"; fi
 sed 's/\[crew report implementer\]/[crew report reviewer]/' "$ctl/a.md" > "$ctl/b.md" && rm "$ctl/a.md"
 after="$(roles_of "$ctl" PING)"
 if [ "$before" = 'a.md:1:implementer' ] && [ "$after" = 'b.md:1:reviewer' ]; then

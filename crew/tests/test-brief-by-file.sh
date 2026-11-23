@@ -41,7 +41,11 @@ ORCA_MD="$ORCH/references/layers/orca.md"
 inline_brief_findings() { # <skills/orchestrate dir>
   local dir="$1" f
   for f in "$dir"/SKILL.md "$dir"/references/*.md "$dir"/references/layers/*.md; do
-    [ -f "$f" ] || continue
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      printf 'SCAN-ERROR inline_brief_findings %s: not a readable regular file\n' "$f"
+      continue
+    fi
     awk -v name="${f#"$dir"/}" '
       function bad(s) { return s ~ /(herdr agent prompt|herdr pane run|orca terminal send)/ && s ~ /<[^<>]*brief[^<>]*>/ }
       { line = $0; start = NR }
@@ -71,6 +75,7 @@ section "controls: the predicate passes the fixed line and still fails an inline
 # A small tree of its own, not a copy of the shipped one: a defect in the shipped files turns
 # fact 1 red alone, and these controls keep saying what the predicate can and cannot see.
 ctl="$(mktemp -d)"
+trap 'if [ -d "$ctl" ]; then chmod -R u+rwx "$ctl"; rm -rf "$ctl"; fi' EXIT
 C="$ctl/orchestrate"
 mkdir -p "$C/references/layers"
 reset_fixture() {
@@ -88,6 +93,32 @@ if [ -z "$out" ]; then
 else
   fail "control: a tree whose sends carry the fixed pointer line has no finding" "$out"
 fi
+
+# The unread file holds a real violation; losing its read must be named, not clean.
+printf '%s\n' 'herdr pane run <pane> "<brief>"' > "$C/references/hidden.md"
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP control: inline_brief_findings unreadable file (uid 0 bypasses chmod 000)\n'
+else
+  chmod 000 "$C/references/hidden.md"
+  out="$(inline_brief_findings "$C" 2>&1)"
+  chmod 600 "$C/references/hidden.md"
+  if [ "$out" = "SCAN-ERROR inline_brief_findings $C/references/hidden.md: not a readable regular file" ]; then
+    pass "control: inline_brief_findings rejects an unreadable file by name"
+  else
+    fail "control: inline_brief_findings rejects an unreadable file by name" "$out"
+  fi
+fi
+out="$(inline_brief_findings "$C")"
+if [ "$out" = 'references/hidden.md:1' ]; then
+  pass "control: inline_brief_findings reads the adjacent readable violation"
+else
+  fail "control: inline_brief_findings reads the adjacent readable violation" "$out"
+fi
+rm "$C/references/hidden.md"
+empty="$ctl/empty"; mkdir "$empty"
+out="$(inline_brief_findings "$empty")"
+if [ -z "$out" ]; then pass "control: inline_brief_findings skips unmatched globs"
+else fail "control: inline_brief_findings skips unmatched globs" "$out"; fi
 
 # The pass case beside the failing ones: the fixed pointer line with flags after it is no finding.
 printf '%s\n' "herdr agent prompt <pane> 'Read <path> and follow it.' --wait --until working" >> "$C/references/briefs.md"

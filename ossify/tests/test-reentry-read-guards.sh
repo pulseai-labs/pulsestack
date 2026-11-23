@@ -5,8 +5,50 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/lib/blocks.sh"
 OSS="$HERE/../bin/oss"
 TMP="$(mktemp -d)"
-trap 'find "$TMP" -depth -delete' EXIT
+trap 'chmod -R u+rwx "$TMP"; find "$TMP" -depth -delete' EXIT
 only="${1:-all}"
+reentry_find_controls() {
+  local root="$TMP/find-control" out rc saved_fail
+  mkdir -p "$root/locked"
+  printf 'visible\n' > "$root/visible"
+  printf 'hidden\n' > "$root/locked/hidden"
+  out="$(reentry_file_count "$root" control-count 2>&1)"; rc=$?
+  t_assert_eq 0 "$rc" 'reentry count readable traversal succeeds'
+  t_assert_eq 2 "$out" 'reentry count readable traversal counts actual files'
+  if [ "$(id -u)" -eq 0 ]; then
+    printf 'SKIP: reentry find unreadable-directory control (uid 0 bypasses chmod 000)\n'
+    return
+  fi
+  chmod 000 "$root/locked"
+  out="$(reentry_file_count "$root" control-count 2>&1)"; rc=$?
+  t_assert_eq 1 "$rc" 'reentry count refuses a partial traversal'
+  t_assert_contains "$out" "reentry control-count scan: $root: find exited 1" 'reentry count names site, root and find status'
+  saved_fail="$T_FAIL"
+  reentry_assert_no_temporaries "$root" control-parent > "$TMP/count-control.out"
+  rc="$T_FAIL"; T_FAIL="$saved_fail"
+  t_assert_eq "$((saved_fail+1))" "$rc" 'reentry traversal failure reaches parent counter'
+  t_assert_contains "$(cat "$TMP/count-control.out")" "reentry control-parent scan: $root: find exited 1" 'reentry parent reports the named scan failure'
+  chmod 700 "$root/locked"
+}
+reentry_file_count() { # $1=root $2=site
+  local root="$1" site="$2" files status
+  if files="$(find "$root" -type f)"; then
+    if [ -z "$files" ]; then printf '0\n'; else printf '%s\n' "$files" | wc -l | tr -d ' '; fi
+  else
+    status=$?
+    printf 'reentry %s scan: %s: find exited %s\n' "$site" "$root" "$status" >&2
+    return 1
+  fi
+}
+reentry_assert_no_temporaries() { # $1=root $2=site $3=label
+  local count
+  if count="$(reentry_file_count "$1" "$2" 2>&1)"; then
+    t_assert_eq 0 "$count" "${3:-$2}"
+  else
+    T_FAIL=$((T_FAIL+1)); printf 'FAIL: %s: %s\n' "${3:-$2}" "$count"
+  fi
+}
+reentry_find_controls
 fixture() {
   F="$TMP/$1"; mkdir -p "$F/ws/.ossify" "$F/core" "$F/ui"
   for repo in core ui; do
@@ -292,11 +334,11 @@ OSS
   t_assert_rc 1 'R5 failed state read halts alone in a fresh shell without pipefail'
   t_assert_contains "$T_OUT" 'halt: cannot read' 'R5 failed state read names halt'
   t_assert_eq no "$(if [ -e "$TMP/record" ]; then echo yes; else echo no; fi)" 'R5 failed state read never RECORDs'
-  t_assert_eq 0 "$(find "$TMP/temporaries" -type f | wc -l | tr -d ' ')" 'R5 halt removes both owned temp files'
+  reentry_assert_no_temporaries "$TMP/temporaries" R5-halt 'R5 halt removes both owned temp files'
   t_capture fresh no
   t_assert_rc 0 'R5 valid state control succeeds in fresh shell'
   t_assert_eq RECORD "$(cat "$TMP/record")" 'R5 valid state still RECORDs'
   t_assert_eq spine/r0.s1-demo "$(git -C "$F/core" rev-parse --abbrev-ref HEAD)" 'R5 valid state still cuts branch'
-  t_assert_eq 0 "$(find "$TMP/temporaries" -type f | wc -l | tr -d ' ')" 'R5 success removes both owned temp files'
+  reentry_assert_no_temporaries "$TMP/temporaries" R5-success 'R5 success removes both owned temp files'
 fi
 t_summary

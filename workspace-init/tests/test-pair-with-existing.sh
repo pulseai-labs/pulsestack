@@ -28,7 +28,7 @@ source "$WI_LIB_DIR/rollback.sh"
 _WI_TMP="$(mktemp -d "${TMPDIR:-/tmp}/wi-pair-with.XXXXXX")"
 _wi_pair_cleanup() {
   if [[ -d "$_WI_TMP" ]]; then
-    chmod -R u+w "$_WI_TMP" 2>/dev/null || true
+    chmod -R u+rwx "$_WI_TMP" 2>/dev/null || true
     rm -rf "$_WI_TMP"
   fi
 }
@@ -119,18 +119,62 @@ test_PH1_bootstrap_succeeds_against_clean_canonical() {
   fi
 }
 
+_pair_working_tree_snapshot() { # <canonical root> <before|after site>
+  local root="$1" site="$2" files find_status
+  if files="$(cd "$root" && find . -not -path './.git' -not -path './.git/*')"; then
+    [[ -z "$files" ]] || (cd "$root" && printf '%s\n' "$files" \
+      | sort | xargs -I{} sh -c 'printf "%s\t" "{}"; stat -c "%Y %s" "{}" 2>/dev/null || stat -f "%m %z" "{}"')
+  else
+    find_status=$?
+    printf 'pair-with canonical %s snapshot %s: find exited %s\n' "$site" "$root" "$find_status" >&2
+    return "$find_status"
+  fi
+}
+
+test_PH_snapshot_rejects_unreadable_directory() {
+  local root="$_WI_TMP/snapshot-find-control" site out rc
+  mkdir -p "$root/locked"
+  printf 'hidden\n' > "$root/locked/hidden.txt"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    printf '    SKIP pair-with snapshot unreadable-directory control: uid 0 bypasses chmod 000\n'
+    return 0
+  fi
+  for site in before after; do
+    chmod 000 "$root/locked"
+    rc=0
+    out="$(_pair_working_tree_snapshot "$root" "$site" 2>&1)" || rc=$?
+    chmod 700 "$root/locked"
+    [[ "$rc" -ne 0 ]] || { echo "    $site snapshot accepted an unreadable directory: $out"; return 1; }
+    assert_contains "pair-with canonical $site snapshot $root: find exited $rc" "$out" || return 1
+  done
+}
+
+test_PH_snapshot_reads_sorted_complete_tree() {
+  local root="$_WI_TMP/snapshot-find-readable" site out paths
+  mkdir -p "$root/locked" "$root/.git"
+  printf 'hidden\n' > "$root/locked/hidden.txt"
+  : > "$root/z.txt"; : > "$root/a.txt"; : > "$root/.git/ignored"
+  for site in before after; do
+    out="$(_pair_working_tree_snapshot "$root" "$site")" || return 1
+    paths="$(printf '%s\n' "$out" | cut -f1)"
+    assert_eq $'.\n./a.txt\n./locked\n./locked/hidden.txt\n./z.txt' "$paths" || return 1
+    printf '%s\n' "$out" | awk -F '\t' '
+      NF != 2 || $2 !~ /^[0-9]+ [0-9]+$/ { bad=1 }
+      $1 == "./locked/hidden.txt" && $2 ~ / 7$/ { hidden=1 }
+      END { exit (bad || !hidden) }' || { echo "    snapshot metadata missing or changed: $out"; return 1; }
+  done
+}
+
 test_PH2_ai_created_canonical_working_tree_unchanged() {
   local parent="$_WI_TMP/ph2"; mkdir -p "$parent"
   local canonical; canonical="$(_make_existing_canonical "$parent" "proj1")"
 
   # Snapshot canonical working-tree state (everything except .git) before bootstrap.
   local before
-  before="$(cd "$canonical" && find . -not -path './.git' -not -path './.git/*' \
-            | sort | xargs -I{} sh -c 'printf "%s\t" "{}"; stat -c "%Y %s" "{}" 2>/dev/null || stat -f "%m %z" "{}"')"
+  before="$(_pair_working_tree_snapshot "$canonical" before)" || return 1
   _run_pair_with_bootstrap "$parent" "proj1" "$canonical" work >/dev/null 2>&1
   local after
-  after="$(cd "$canonical" && find . -not -path './.git' -not -path './.git/*' \
-           | sort | xargs -I{} sh -c 'printf "%s\t" "{}"; stat -c "%Y %s" "{}" 2>/dev/null || stat -f "%m %z" "{}"')"
+  after="$(_pair_working_tree_snapshot "$canonical" after)" || return 1
 
   assert_dir_exists "$parent/proj1-ai" || return 1
   if [[ "$before" != "$after" ]]; then
@@ -354,6 +398,8 @@ test_PN2_canonical_hook_not_installed_after_abort() {
 # Run all (15 tests)
 # ---------------------------------------------------------------------------
 
+wi_test_run test_PH_snapshot_rejects_unreadable_directory
+wi_test_run test_PH_snapshot_reads_sorted_complete_tree
 wi_test_run test_PH1_bootstrap_succeeds_against_clean_canonical
 wi_test_run test_PH2_ai_created_canonical_working_tree_unchanged
 wi_test_run test_PH3_ai_has_skeleton_manifest_stubs
