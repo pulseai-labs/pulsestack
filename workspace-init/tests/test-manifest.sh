@@ -922,6 +922,32 @@ test_L8_relocate_preserves_manifest_mode() {
   return 0
 }
 
+# Supply a terminal to wi even when the suite itself runs in a pipe. Give
+# script EOF so a regression can't wait for someone to answer the mv prompt.
+_manifest_on_pty() {
+  local cmd
+  printf -v cmd '%q ' "$WI_BIN" "$@"
+  SHELL="$BASH" _with_timeout 10 script -eqc "test -t 0 && exec $cmd" /dev/null </dev/null
+}
+
+test_W6_write_replaces_read_only_manifest_on_pty() {
+  local ai; ai="$(_setup_pair w6)" || return 1
+  local m="$ai/.workspace/pairing.json"
+  chmod 444 "$m" || return 1
+  _manifest_on_pty manifest_write "$ai" "$_WI_TMP/w6/foo" work || return 1
+  assert_eq work "$(jq -r '.git_policy.project_type' "$m")"
+}
+
+test_L11_relocate_replaces_read_only_manifest_on_pty() {
+  local ai; ai="$(_setup_pair l11)" || return 1
+  local moved="$_WI_TMP/l11/moved-ai"
+  mv "$ai" "$moved" || return 1
+  local m="$moved/.workspace/pairing.json"
+  chmod 444 "$m" || return 1
+  _manifest_on_pty manifest_relocate "$moved" || return 1
+  assert_eq "$(cd "$moved" && pwd -P)" "$(jq -r '.ai_workspace.root' "$m")"
+}
+
 test_V5_validate_rejects_wrong_typed_leaves() {
   # Every required leaf carries its schema type, not
   # just presence. One edit per case so each refusal names that field.
@@ -1244,5 +1270,14 @@ wi_test_run test_L10_relocate_refuses_a_raced_temp_name
 wi_test_run test_V8_validate_rejects_relative_roots
 wi_test_run test_W4_write_records_relative_roots_absolute
 wi_test_run test_W5_write_refuses_an_empty_canonical_root
+
+if ! command -v script >/dev/null 2>&1 || [[ $(script --version </dev/null 2>/dev/null) != *util-linux* ]]; then
+  echo "  SKIP: manifest overwrite PTY tests need util-linux script"
+elif (( EUID == 0 )); then
+  echo "  SKIP: manifest overwrite PTY tests need an unprivileged user (root can write mode 444)"
+else
+  wi_test_run test_W6_write_replaces_read_only_manifest_on_pty
+  wi_test_run test_L11_relocate_replaces_read_only_manifest_on_pty
+fi
 
 wi_test_summary

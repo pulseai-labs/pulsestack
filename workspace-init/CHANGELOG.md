@@ -1,5 +1,10 @@
 # workspace-init changelog
 
+## 0.10.10
+
+### Fixed
+- **Manifest replacement no longer prompts in a terminal (#1253).** `manifest_write` and `manifest_relocate` replace a read-only `pairing.json` without waiting for input. Relocation still preserves the manifest's file mode.
+
 ## 0.10.9
 
 ### Changed
