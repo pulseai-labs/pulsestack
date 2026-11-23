@@ -249,7 +249,9 @@ done
 
 product_files() { # directory roots and explicit product files, one argument each
   local files status f
-  if files="$(find "$@" -type f -print)"; then
+  # -H: a symlinked explicit product file is listed by its target's type; without it
+  # `-type f` drops the link and the file leaves the scan silently.
+  if files="$(find -H "$@" -type f -print)"; then
     while IFS= read -r f; do
       [ -n "$f" ] || continue
       if [ ! -f "$f" ] || [ ! -r "$f" ]; then
@@ -313,6 +315,28 @@ product_find_controls() {
       T_FAIL=$((T_FAIL+1)); echo "FAIL: control: external-executor product must enumerate the adjacent readable-file tree (rc=$rc): $out"
     fi
   done
+  # A symlinked explicit product file stays in the scan: listed when its target is
+  # readable, refused by name when it is not.
+  printf 'orca\n' > "$WORK/link-target.md"
+  ln -s "$WORK/link-target.md" "$WORK/linked-product.md"
+  out="$(product_files "$root/skills" "$WORK/linked-product.md" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && [ "$out" = "$WORK/linked-product.md" ]; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: control: external-executor product must list a symlinked explicit file (rc=$rc): $out"
+  fi
+  if [ "$(id -u)" -eq 0 ]; then
+    echo 'SKIP: external-executor product unreadable symlink-target control (uid 0 bypasses chmod 000)'
+  else
+    chmod 000 "$WORK/link-target.md"
+    out="$(product_files "$root/skills" "$WORK/linked-product.md" 2>&1)"; rc=$?
+    chmod 600 "$WORK/link-target.md"
+    if [ "$rc" -ne 0 ] && [ "$out" = "external-executor product scan: $WORK/linked-product.md: not a readable regular file" ]; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: external-executor product must reject a symlinked explicit file with an unreadable target by path (rc=$rc): $out"
+    fi
+  fi
 }
 
 product_find_controls
