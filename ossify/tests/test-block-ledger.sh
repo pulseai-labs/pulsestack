@@ -24,8 +24,15 @@ pass() { PASS=$((PASS+1)); }
 fail() { FAIL=$((FAIL+1)); echo "FAIL: $*"; }
 
 ledger_completeness_files() { # $1=ossify-root
-  local completeness_listing status
+  local completeness_listing status file
   if completeness_listing="$(cd "$1" && find skills commands agents -name '*.md')"; then
+    while IFS= read -r file; do
+      [ -n "$file" ] || continue
+      if [ ! -f "$1/$file" ] || [ ! -r "$1/$file" ]; then
+        printf 'ledger completeness scan: %s: not a readable regular file\n' "$1/$file" >&2
+        return 1
+      fi
+    done <<< "$completeness_listing"
     printf '%s\n' "$completeness_listing" | sort
   else
     status=$?
@@ -35,8 +42,15 @@ ledger_completeness_files() { # $1=ossify-root
 }
 
 ledger_digest_files() { # $1=ossify-root
-  local digest_listing status
+  local digest_listing status file
   if digest_listing="$(cd "$1" && find skills commands agents -name '*.md')"; then
+    while IFS= read -r file; do
+      [ -n "$file" ] || continue
+      if [ ! -f "$1/$file" ] || [ ! -r "$1/$file" ]; then
+        printf 'ledger digest coverage scan: %s: not a readable regular file\n' "$1/$file" >&2
+        return 1
+      fi
+    done <<< "$digest_listing"
     printf '%s\n' "$digest_listing" | sort
   else
     status=$?
@@ -77,7 +91,40 @@ ledger_find_controls() {
   done
 }
 
+ledger_file_controls() {
+  local root scan label out rc
+  for scan in ledger_completeness_files ledger_digest_files; do
+    root="$FIX/file-control/$scan"
+    mkdir -p "$root/skills" "$root/commands" "$root/agents"
+    printf '# readable\n' > "$root/skills/visible.md"
+    case "$scan" in
+      ledger_completeness_files) label='ledger completeness' ;;
+      ledger_digest_files) label='ledger digest coverage' ;;
+    esac
+    out="$("$scan" "$root" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ] && [ "$out" = 'skills/visible.md' ]; then
+      pass
+    else
+      fail "control: $label must enumerate the adjacent readable file tree (rc=$rc): $out"
+    fi
+    printf '```bash\necho unclassified_block\n```\n' > "$root/skills/hidden.md"
+    if [ "$(id -u)" -eq 0 ]; then
+      echo "SKIP: $label unreadable-file control (uid 0 bypasses chmod 000)"
+    else
+      chmod 000 "$root/skills/hidden.md"
+      out="$("$scan" "$root" 2>&1)"; rc=$?
+      chmod 600 "$root/skills/hidden.md"
+      if [ "$rc" -ne 0 ] && [ "$out" = "$label scan: $root/skills/hidden.md: not a readable regular file" ]; then
+        pass
+      else
+        fail "control: $label must reject an unreadable regular file by path (rc=$rc): $out"
+      fi
+    fi
+  done
+}
+
 ledger_find_controls
+ledger_file_controls
 
 echo "-- ossify tree: $OSS_TREE"
 

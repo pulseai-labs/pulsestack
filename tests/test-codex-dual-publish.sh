@@ -237,7 +237,7 @@ skill_frontmatter_files() { # <skills root>
 
 # A real unreadable subtree, not a stubbed find. Restore access even on early exit.
 find_ctl="$(mktemp -d)"
-trap 'chmod 700 "$find_ctl/locked" 2>/dev/null || :; rm -rf "$find_ctl"' EXIT
+trap 'chmod -R u+rwx "$find_ctl"; rm -rf "$find_ctl"' EXIT
 mkdir -p "$find_ctl/locked"
 printf '%s\n' '---' 'name: control' '---' > "$find_ctl/SKILL.md"
 if [ "$(id -u)" -eq 0 ]; then
@@ -261,6 +261,40 @@ if [ "$ctl_status" -eq 0 ] && [ "$ctl_files" = "$find_ctl/SKILL.md" ]; then
   pass "control: frontmatter scan enumerates a readable tree"
 else
   fail "control: frontmatter scan enumerates a readable tree (rc=$ctl_status; $ctl_files)"
+fi
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP frontmatter unreadable-file control: uid 0 bypasses chmod 000\n'
+else
+  printf '%s\n' '---' 'description: invalid: YAML' '---' > "$find_ctl/locked/SKILL.md"
+  chmod 000 "$find_ctl/locked/SKILL.md"
+  ctl_status=0
+  ctl_files="$(
+    before_fail="$FAIL"; before_pass="$PASS"
+    assert_yaml_frontmatter "$find_ctl/locked/SKILL.md" "control/locked SKILL.md frontmatter" 2>&1
+    [ "$FAIL" -eq "$((before_fail + 1))" ] && [ "$PASS" -eq "$before_pass" ]
+  )" || ctl_status=$?
+  # The label carries no path, so the path reaches this output only through awk's own
+  # open error: the substring check proves the consumer tried this file and failed on it.
+  if [ "$ctl_status" -eq 0 ] && [[ "$ctl_files" == *"control/locked SKILL.md frontmatter"* ]] \
+     && [[ "$ctl_files" == *"$find_ctl/locked/SKILL.md"* ]]; then
+    pass "control: frontmatter consumer rejects an unreadable regular file by name"
+  else
+    fail "control: frontmatter consumer rejects an unreadable regular file by name (rc=$ctl_status; $ctl_files)"
+  fi
+  chmod 600 "$find_ctl/locked/SKILL.md"
+  printf '%s\n' '---' 'name: control' '---' > "$find_ctl/locked/SKILL.md"
+  ctl_status=0
+  ctl_files="$(
+    before_fail="$FAIL"; before_pass="$PASS"
+    assert_yaml_frontmatter "$find_ctl/locked/SKILL.md" "$find_ctl/locked/SKILL.md" 2>&1
+    [ "$FAIL" -eq "$before_fail" ] && [ "$PASS" -eq "$((before_pass + 1))" ]
+  )" || ctl_status=$?
+  if [ "$ctl_status" -eq 0 ]; then
+    pass "control: frontmatter consumer accepts the adjacent readable valid file"
+  else
+    fail "control: frontmatter consumer accepts the adjacent readable valid file (rc=$ctl_status; $ctl_files)"
+  fi
+  rm "$find_ctl/locked/SKILL.md"
 fi
 
 for plugin in $V0_PLUGINS; do
