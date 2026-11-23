@@ -247,9 +247,18 @@ for f in $PRODUCT_FILES; do
   else T_FAIL=$((T_FAIL+1)); echo "FAIL: product file $f is missing or empty — the neutrality scan below would be vacuous"; fi
 done
 
-product_files() { # directory roots, one argument each
-  local files status
-  if files="$(find "$@" -type f -print)"; then
+product_files() { # directory roots and explicit product files, one argument each
+  local files status f
+  # -H: a symlinked explicit product file is listed by its target's type; without it
+  # `-type f` drops the link and the file leaves the scan silently.
+  if files="$(find -H "$@" -type f -print)"; then
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+        printf 'external-executor product scan: %s: not a readable regular file\n' "$f" >&2
+        return 1
+      fi
+    done <<< "$files"
     [ -z "$files" ] || printf '%s\n' "$files"
   else
     status=$?
@@ -282,19 +291,64 @@ product_find_controls() {
   else
     T_FAIL=$((T_FAIL+1)); echo "FAIL: control: external-executor product must enumerate the adjacent readable tree (rc=$rc): $out"
   fi
+  local hidden
+  printf '# clean\n' > "$WORK/explicit-product.md"
+  for hidden in "$root/commands/unreadable.md" "$WORK/explicit-product.md"; do
+    printf 'orca\n' > "$hidden"
+    if [ "$(id -u)" -eq 0 ]; then
+      echo "SKIP: external-executor product unreadable-file control for $hidden (uid 0 bypasses chmod 000)"
+    else
+      chmod 000 "$hidden"
+      out="$(product_files "$root/commands" "$root/skills" "$root/agents" "$WORK/explicit-product.md" 2>&1)"; rc=$?
+      chmod 600 "$hidden"
+      if [ "$rc" -ne 0 ] && [ "$out" = "external-executor product scan: $hidden: not a readable regular file" ]; then
+        T_PASS=$((T_PASS+1))
+      else
+        T_FAIL=$((T_FAIL+1)); echo "FAIL: control: external-executor product must reject an unreadable regular file by path (rc=$rc): $out"
+      fi
+    fi
+    printf '# clean\n' > "$hidden"
+    out="$(product_files "$root/commands" "$root/skills" "$root/agents" "$WORK/explicit-product.md" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | LC_ALL=C sort)" = "$(printf '%s\n' "$root/commands/locked/hidden.md" "$root/commands/unreadable.md" "$root/commands/visible.md" "$WORK/explicit-product.md" | LC_ALL=C sort)" ]; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: external-executor product must enumerate the adjacent readable-file tree (rc=$rc): $out"
+    fi
+  done
+  # A symlinked explicit product file stays in the scan: listed when its target is
+  # readable, refused by name when it is not.
+  printf 'orca\n' > "$WORK/link-target.md"
+  ln -s "$WORK/link-target.md" "$WORK/linked-product.md"
+  out="$(product_files "$root/skills" "$WORK/linked-product.md" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && [ "$out" = "$WORK/linked-product.md" ]; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: control: external-executor product must list a symlinked explicit file (rc=$rc): $out"
+  fi
+  if [ "$(id -u)" -eq 0 ]; then
+    echo 'SKIP: external-executor product unreadable symlink-target control (uid 0 bypasses chmod 000)'
+  else
+    chmod 000 "$WORK/link-target.md"
+    out="$(product_files "$root/skills" "$WORK/linked-product.md" 2>&1)"; rc=$?
+    chmod 600 "$WORK/link-target.md"
+    if [ "$rc" -ne 0 ] && [ "$out" = "external-executor product scan: $WORK/linked-product.md: not a readable regular file" ]; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: external-executor product must reject a symlinked explicit file with an unreadable target by path (rc=$rc): $out"
+    fi
+  fi
 }
 
 product_find_controls
 
 scan_list="$WORK/scan-list"
-if product_listing="$(product_files $PRODUCT_ROOTS 2>&1)"; then
+if product_listing="$(product_files $PRODUCT_ROOTS $PRODUCT_FILES 2>&1)"; then
   printf '%s\n' "$product_listing" > "$scan_list"
 else
   T_FAIL=$((T_FAIL+1)); echo "FAIL: $product_listing"
   t_summary
   exit 1
 fi
-for f in $PRODUCT_FILES; do printf '%s\n' "$f" >> "$scan_list"; done
 
 # One awk pass over the whole set, case-folded, literal.
 _scan_hits() { # $1=lowercased needle -> "file:line" hits on stdout

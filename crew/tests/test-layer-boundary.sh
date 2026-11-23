@@ -79,6 +79,10 @@ sweep_findings() { # <skills/orchestrate dir>
   [ -n "$files" ] || return 0
   printf '%s\n' "$files" | sort | while IFS= read -r f; do
     case "$f" in */references/layers/*) continue ;; esac
+    if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      printf 'SCAN-ERROR sweep_findings %s: not a readable regular file\n' "$f"
+      continue
+    fi
     n=0
     while IFS= read -r line; do
       n=$((n + 1))
@@ -116,6 +120,21 @@ if [ -z "$out" ]; then
   pass "control: the sweep passes a shared file with no layer command"
 else
   fail "control: the sweep passes a shared file with no layer command" "$out"
+fi
+# A listed but unreadable file must not certify a clean scan.
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP control: sweep_findings unreadable file (uid 0 bypasses chmod 000)\n'
+else
+  printf 'herdr pane run hidden\n' > "$ctl/hidden.md"
+  chmod 000 "$ctl/hidden.md"
+  out="$(sweep_findings "$ctl")"
+  chmod 600 "$ctl/hidden.md"
+  if [ "$out" = "SCAN-ERROR sweep_findings $ctl/hidden.md: not a readable regular file" ]; then
+    pass "control: sweep_findings rejects an unreadable regular file by name"
+  else
+    fail "control: sweep_findings rejects an unreadable regular file by name" "got: ${out:-<none>}"
+  fi
+  rm "$ctl/hidden.md"
 fi
 # A partial walk must not certify the readable files it happened to visit.
 if [ "$(id -u)" -eq 0 ]; then
@@ -179,6 +198,10 @@ layer_pointer_findings() { # <skills/orchestrate dir>
   [ -n "$files" ] || return 0
   printf '%s\n' "$files" | sort | while IFS= read -r f; do
     case "$f" in */references/layers/*) continue ;; esac
+    if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      printf 'SCAN-ERROR layer_pointer_findings %s: not a readable regular file\n' "$f"
+      continue
+    fi
     n=0
     while IFS= read -r line; do
       n=$((n + 1))
@@ -207,6 +230,21 @@ if [ -z "$out" ]; then
   pass "control: the check passes a shared file that names no layer file"
 else
   fail "control: the check passes a shared file that names no layer file" "$out"
+fi
+# A listed but unreadable file must not certify a clean scan.
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP control: layer_pointer_findings unreadable file (uid 0 bypasses chmod 000)\n'
+else
+  printf 'See layers/herdr.md\n' > "$ctl/hidden.md"
+  chmod 000 "$ctl/hidden.md"
+  out="$(layer_pointer_findings "$ctl")"
+  chmod 600 "$ctl/hidden.md"
+  if [ "$out" = "SCAN-ERROR layer_pointer_findings $ctl/hidden.md: not a readable regular file" ]; then
+    pass "control: layer_pointer_findings rejects an unreadable regular file by name"
+  else
+    fail "control: layer_pointer_findings rejects an unreadable regular file by name" "got: ${out:-<none>}"
+  fi
+  rm "$ctl/hidden.md"
 fi
 # Adjacent to the readable pass: losing a subtree must be a named scan error.
 if [ "$(id -u)" -eq 0 ]; then
@@ -379,6 +417,10 @@ orchestration_findings() { # <root>
   fi
   [ -n "$files" ] || return 0
   printf '%s\n' "$files" | sort | while IFS= read -r f; do
+    if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      printf 'SCAN-ERROR orchestration_findings %s: not a readable regular file\n' "$f"
+      continue
+    fi
     n=0
     while IFS= read -r line; do
       n=$((n + 1))
@@ -404,6 +446,21 @@ printf 'a clean file\n' > "$ctl/clean.md"
 out="$(orchestration_findings "$ctl")"
 if [ -z "$out" ]; then pass "control: the scan passes a clean fixture"
 else fail "control: the scan passes a clean fixture" "$out"; fi
+# A listed but unreadable file must not certify a clean scan.
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  SKIP control: orchestration_findings unreadable file (uid 0 bypasses chmod 000)\n'
+else
+  printf '%s\n' "$ORC_NEEDLE hidden" > "$ctl/hidden.txt"
+  chmod 000 "$ctl/hidden.txt"
+  out="$(orchestration_findings "$ctl")"
+  chmod 600 "$ctl/hidden.txt"
+  if [ "$out" = "SCAN-ERROR orchestration_findings $ctl/hidden.txt: not a readable regular file" ]; then
+    pass "control: orchestration_findings rejects an unreadable regular file by name"
+  else
+    fail "control: orchestration_findings rejects an unreadable regular file by name" "got: ${out:-<none>}"
+  fi
+  rm "$ctl/hidden.txt"
+fi
 # Adjacent to the readable pass: all file types need a complete traversal.
 if [ "$(id -u)" -eq 0 ]; then
   printf '  SKIP control: orchestration_findings unreadable traversal (uid 0 bypasses chmod 000)\n'

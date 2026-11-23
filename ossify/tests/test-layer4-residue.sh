@@ -107,11 +107,18 @@ six-agent
 NEEDLES
 
 residue_files() { # $1=ossify-root $2=self basename
-  local files status
+  local files status f
   if files="$(find "$1" -type f \
       -not -path "$1/tests/eval/results/*" \
       -not -path "$1/tests/eval/evidence/*" \
       -not -name "$2")"; then
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+        printf 'layer4 residue scan: %s: not a readable regular file\n' "$f" >&2
+        return 1
+      fi
+    done <<< "$files"
     printf '%s\n' "$files" | LC_ALL=C sort
   else
     status=$?
@@ -143,6 +150,26 @@ residue_find_controls() {
     T_PASS=$((T_PASS+1))
   else
     T_FAIL=$((T_FAIL+1)); echo "FAIL: control: layer4 residue must enumerate the adjacent readable tree (rc=$rc): $out"
+  fi
+  awk 'NR==1 { print; exit }' "$NEEDLES_INNER" > "$root/hidden.md"
+  if [ "$(id -u)" -eq 0 ]; then
+    echo 'SKIP: layer4 residue unreadable-file control (uid 0 bypasses chmod 000)'
+  else
+    chmod 000 "$root/hidden.md"
+    out="$(residue_files "$root" "$SELF" 2>&1)"; rc=$?
+    chmod 600 "$root/hidden.md"
+    if [ "$rc" -ne 0 ] && [ "$out" = "layer4 residue scan: $root/hidden.md: not a readable regular file" ]; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: layer4 residue must reject an unreadable regular file by path (rc=$rc): $out"
+    fi
+  fi
+  printf '# clean\n' > "$root/hidden.md"
+  out="$(residue_files "$root" "$SELF" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && [ "$out" = "$(printf '%s/hidden.md\n%s/locked/hidden.md\n%s/visible.md' "$root" "$root" "$root")" ]; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: control: layer4 residue must enumerate the adjacent readable-file tree (rc=$rc): $out"
   fi
 }
 
@@ -199,6 +226,11 @@ done < "$NEEDLES_INNER"
 # scanned here: README's own structure carries `.github/workflows` references
 # for CI that have nothing to do with this mechanism).
 for f in "$REPO/README.md"; do
+  if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+    T_FAIL=$((T_FAIL+1))
+    echo "FAIL: layer4 residue scan: $f: not a readable regular file"
+    continue
+  fi
   while IFS= read -r needle; do
     [ -n "$needle" ] || continue
     hits="$(awk -v needle="$needle" 'index($0, needle) { print FILENAME ":" FNR }' "$f")"

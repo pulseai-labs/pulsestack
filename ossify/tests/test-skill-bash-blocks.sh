@@ -63,7 +63,7 @@ t_assert_grep() { # $1=file $2=ERE $3=label
 }
 
 _md_files() { # $1=ossify-root -> every markdown file the harness owns
-  local r="$1" d files listing='' status
+  local r="$1" d files listing='' status file
   # references/ included since the route gates landed: three wrappers load
   # the plugin-root references tree directly (handoff, handoff-resume,
   # work-pr), so its prose is shipped contract with the same claim to scanning
@@ -80,6 +80,13 @@ _md_files() { # $1=ossify-root -> every markdown file the harness owns
       return "$status"
     fi
   done
+  while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    if [ ! -f "$file" ] || [ ! -r "$file" ]; then
+      printf 'skill bash-blocks scan: %s: not a readable regular file\n' "$file" >&2
+      return 1
+    fi
+  done <<< "$listing"
   [ -z "$listing" ] || printf '%s' "$listing" | sort
 }
 
@@ -106,6 +113,31 @@ md_find_controls() {
     T_PASS=$((T_PASS+1))
   else
     T_FAIL=$((T_FAIL+1)); echo "FAIL: control: skill bash-blocks must enumerate the adjacent readable tree (rc=$rc): $out"
+  fi
+}
+
+md_file_controls() {
+  local root="$WORK/file-control" out rc
+  mkdir -p "$root/skills" "$root/commands" "$root/agents" "$root/references"
+  printf '# readable\n' > "$root/skills/visible.md"
+  out="$(_md_files "$root" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && [ "$out" = "$root/skills/visible.md" ]; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: control: skill bash-blocks must enumerate the adjacent readable file tree (rc=$rc): $out"
+  fi
+  printf '```bash\nif\n```\nSkill(ossify:close, target=hidden)\n' > "$root/skills/hidden.md"
+  if [ "$(id -u)" -eq 0 ]; then
+    echo 'SKIP: skill bash-blocks unreadable-file control (uid 0 bypasses chmod 000)'
+  else
+    chmod 000 "$root/skills/hidden.md"
+    out="$(_md_files "$root" 2>&1)"; rc=$?
+    chmod 600 "$root/skills/hidden.md"
+    if [ "$rc" -ne 0 ] && [ "$out" = "skill bash-blocks scan: $root/skills/hidden.md: not a readable regular file" ]; then
+      T_PASS=$((T_PASS+1))
+    else
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: control: skill bash-blocks must reject an unreadable regular file by path (rc=$rc): $out"
+    fi
   fi
 }
 
@@ -654,6 +686,7 @@ check_12_no_lib_calls() { # $1=ossify-root $2=blocks-dir
 # ===========================================================================
 echo "-- ossify tree: $OSSIFY"
 md_find_controls
+md_file_controls
 if markdown_files="$(_md_files "$OSSIFY" 2>&1)"; then
   T_PASS=$((T_PASS+1))
 else
