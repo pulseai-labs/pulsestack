@@ -377,7 +377,7 @@ wi_manifest_write() {
     return 1
   fi
 
-  mv "$tmp" "$manifest" || {
+  mv -f "$tmp" "$manifest" || {
     wi_log_error "wi_manifest_write: failed to mv tmp to $manifest"
     rm -f "$tmp"
     return 1
@@ -541,7 +541,7 @@ wi_manifest_relocate() {
     wi_log_error "wi_manifest_relocate: could not restore the mode of $manifest"
     return 1
   fi
-  mv "$tmp" "$manifest" || {
+  mv -f "$tmp" "$manifest" || {
     rm -f "$tmp"
     wi_log_error "wi_manifest_relocate: failed to mv tmp to $manifest"
     return 1
