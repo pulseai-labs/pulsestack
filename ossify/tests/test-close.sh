@@ -32,6 +32,7 @@ for lib in id state manifest commands entities registries ledger demo doctor ver
 OSS="$HERE/../bin/oss"
 SKILLS="$HERE/../skills"
 TMP="$(mktemp -d)"
+trap 'cd /; if [ -d "$TMP/qcount-control/locked" ]; then chmod 700 "$TMP/qcount-control/locked"; fi; rm -rf "$TMP"' EXIT
 
 # ---------------------------------------------------------------------------
 # A. Routing mechanics, through the dispatcher.
@@ -1232,8 +1233,41 @@ _qshim() { # $1=shim-dir $2=command the demo line runs
   } > "$1/oss"; chmod +x "$1/oss"
 }
 
-_qcount() { find "$QTMP" -mindepth 1 | wc -l | tr -d ' '; }
+_qcount() {
+  local entries find_status
+  if entries="$(find "$QTMP" -mindepth 1)"; then
+    if [ -z "$entries" ]; then printf '0\n'; else printf '%s\n' "$entries" | wc -l | tr -d ' '; fi
+  else
+    find_status=$?
+    # The disposed assertions compare stdout to zero, not the exit status.
+    printf '_qcount: %s: find exited %s\n' "$QTMP" "$find_status"
+    return "$find_status"
+  fi
+}
 QTMP="$TMP/qtmp"; mkdir -p "$QTMP"
+
+_qcount_controls() {
+  local QTMP="$TMP/qcount-control"
+  mkdir -p "$QTMP"
+  t_capture _qcount
+  t_assert_rc 0 '_qcount: readable empty root succeeds'
+  t_assert_eq 0 "$T_OUT" '_qcount: readable empty root counts zero entries'
+  mkdir -p "$QTMP/locked"
+  : > "$QTMP/locked/hidden"
+  t_capture _qcount
+  t_assert_rc 0 '_qcount: readable nonempty root succeeds'
+  t_assert_eq 2 "$T_OUT" '_qcount: readable nonempty root counts the directory and file'
+  if [ "$(id -u)" -eq 0 ]; then
+    printf 'SKIP: _qcount unreadable-directory control (uid 0 bypasses chmod 000)\n'
+    return
+  fi
+  chmod 000 "$QTMP/locked"
+  t_capture _qcount
+  t_assert_rc 1 '_qcount: unreadable subdirectory is not a successful count'
+  t_assert_contains "$T_OUT" "_qcount: $QTMP: find exited 1" '_qcount: unreadable subdirectory names the count root and find status'
+  chmod 700 "$QTMP/locked"
+}
+_qcount_controls
 
 # Path 1 - same output on both trees: the diff is empty, the block is green,
 # and nothing is left in TMPDIR.
@@ -3083,8 +3117,6 @@ _b4_run_other
 t_assert_rc 0 "R3: a flesh spine whose row was skipped closes the step cleanly"
 t_assert_eq "flesh" "$(cd "$B4WS" && bash "$OSS" get ".spines[] | select(.id==\"$OSP\") | .class")" \
   "R3: ...and stays flesh - nothing was created"
-
-cd /; rm -rf "$TMP"
 
 # A FLOOR ON THE ASSERTION COUNT. Every check in test-block-ledger.sh proves
 # this file EXTRACTS and SOURCES each covered block; none of them can see the
