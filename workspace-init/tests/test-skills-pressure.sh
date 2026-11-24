@@ -538,7 +538,16 @@ scan_older_ossify_routes() { # $1=plugin root
   # Case-insensitive: the sentence-initial "On an older ossify it" survived
   # the first version of the scan.
   local root="$1" gone='an older ossify does|on an older ossify it|merge by hand|1\.23\.0'
-  local f hit
+  local d f hit
+  # Every directory the globs walk must be listable and searchable. Under r-- a
+  # matched name fails -e, and under 000 the glob never expands, so the file
+  # guard below would skip either one as an unmatched glob (#1257 round 1 C1).
+  for d in "$root" "$root/templates" "$root/skills" "$root"/skills/*/ "$root"/skills/*/examples; do
+    [ -e "$d" ] || continue
+    if [ ! -r "$d" ] || [ ! -x "$d" ]; then
+      printf '    older-ossify surface scan: %s: not a searchable directory\n' "${d%/}"; return 1
+    fi
+  done
   for f in "$root"/templates/*.tmpl "$root"/skills/*/SKILL.md \
            "$root"/skills/*/examples/*.md "$root/README.md"; do
     [ -e "$f" ] || [ -L "$f" ] || continue
@@ -584,6 +593,39 @@ test_older_ossify_scan_controls() (
   rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
   if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify surface scan: $root/templates/dangling.tmpl: not a readable regular file" "$out"; then
     echo "    dangling older-ossify surface was not refused by name (rc=$rc): $out"; return 1
+  fi
+  rm -f "$root/templates/dangling.tmpl"
+
+  # A readable directory that matches a file glob is not a regular file: this is
+  # the case only the -f half refuses (#1257 round 1 C2).
+  mkdir "$root/templates/dir.tmpl" || return 1
+  rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify surface scan: $root/templates/dir.tmpl: not a readable regular file" "$out"; then
+    echo "    a directory matching a file glob was not refused by name (rc=$rc): $out"; return 1
+  fi
+  rmdir "$root/templates/dir.tmpl"
+
+  # A violation inside a directory the scan cannot list (--x) or search (r--)
+  # must not read as clean (#1257 round 1 C1). Each mode pins one half of the
+  # directory guard; 000 is the case where the glob never expands.
+  printf 'merge by hand\n' > "$root/templates/stub.tmpl"
+  if [ "$(id -u)" -eq 0 ]; then
+    echo '    SKIP older-ossify surface unsearchable-directory controls (uid 0 bypasses directory modes)'
+  else
+    local mode
+    for mode in 100 400 000; do
+      chmod "$mode" "$root/templates" || return 1
+      rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+      chmod 700 "$root/templates" || return 1
+      if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify surface scan: $root/templates: not a searchable directory" "$out"; then
+        echo "    a mode-$mode templates directory was not refused by name (rc=$rc): $out"; return 1
+      fi
+    done
+  fi
+  # Adjacent control: the same violation in a searchable directory is still found.
+  rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify route survives in $root/templates/stub.tmpl" "$out"; then
+    echo "    a readable templates violation was not found (rc=$rc): $out"; return 1
   fi
 )
 
