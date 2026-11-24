@@ -34,8 +34,8 @@ oss_state_init() { # $1=state-file $2=project-name
   local btmp
   btmp="$(mktemp "${sf}.base.tmp.XXXXXX")" || { rm -f "$tmp"; return 1; }
   cp "$tmp" "$btmp" || { rm -f "$tmp" "$btmp"; return 1; }
-  mv "$btmp" "$sf.base.json" || { rm -f "$tmp" "$btmp"; return 1; }
-  mv "$tmp" "$sf" || { rm -f "$tmp"; return 1; }
+  mv -f "$btmp" "$sf.base.json" || { rm -f "$tmp" "$btmp"; return 1; }
+  mv -f "$tmp" "$sf" || { rm -f "$tmp"; return 1; }
 }
 
 oss_state_read() { jq -r "$2" "$1"; }
@@ -453,7 +453,7 @@ _oss_state_mutate_body() { # $1=state-file $2=op $3=payload $4=mint-spec $5=uniq
     echo "oss: mutation produced invalid state; aborted (original untouched)" >&2
     return 4
   fi
-  mv "$tmp" "$sf" || { rm -f "$tmp"; return 4; }
+  mv -f "$tmp" "$sf" || { rm -f "$tmp"; return 4; }
   # Report the minted id (success only). Explicit `return 0`: a bare
   # `[ -n "$minted_id" ] && printf ...` as the last line would make the
   # function return 1 for non-mint ops (empty minted_id) - a false failure.
@@ -579,7 +579,7 @@ _oss_state_restore_body() { # $1=state-file $2=base
   # Keep the pre-restore file so a wrong restore is recoverable by hand. Best
   # effort: a failure to copy must not block a restore that is otherwise sound.
   cp "$sf" "$sf.pre-restore" 2>/dev/null || true
-  mv "$tmp" "$sf" || { rm -f "$tmp"; return 4; }
+  mv -f "$tmp" "$sf" || { rm -f "$tmp"; return 4; }
   _OSS_RESTORE_APPLIED="$i"
 }
 
