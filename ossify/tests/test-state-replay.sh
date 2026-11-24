@@ -371,5 +371,26 @@ t_assert_eq "https://github.com/o/r/pull/7" "$T_OUT" "replay reproduces pr_url"
 t_capture oss_state_read "$SP" '[.work_items[] | select(.pr_url != null) | .id] | join(",")'
 t_assert_eq "r0.s1.w1" "$T_OUT" "set_work_item_pr gives pr_url to the named item only"
 
+_restore_read_only_state() {
+  local sf="$TMP/restore-pty.json"
+  OSS_STATE_FILE="$sf" "$OSS" init restore-pty || return 1
+  OSS_STATE_FILE="$sf" "$OSS" posture_set open-core || return 1
+  jq '.project.posture = "tampered"' "$sf" > "$sf.x" && mv "$sf.x" "$sf" || return 1
+  chmod 444 "$sf" || return 1
+  t_on_pty env OSS_STATE_FILE="$sf" "$OSS" state_restore || return $?
+  jq -e '.project.posture == "open-core" and [.mutations[].op] == ["set_posture"]' "$sf" || return 1
+  # The first backup copied the read-only mode. A second restore over new
+  # drift must still replace it, not keep the first drift (#1258 round 1 C1).
+  jq '.project.posture = "tampered2"' "$sf" > "$sf.x" && mv "$sf.x" "$sf" || return 1
+  chmod 444 "$sf" || return 1
+  t_on_pty env OSS_STATE_FILE="$sf" "$OSS" state_restore || return $?
+  jq -e '.project.posture == "tampered2"' "$sf.pre-restore"
+}
+
+if t_pty_available; then
+  t_capture _restore_read_only_state
+  t_assert_rc 0 "#1256: restore replaces read-only state on a PTY: $T_OUT"
+fi
+
 rm -rf "$TMP"
 t_summary

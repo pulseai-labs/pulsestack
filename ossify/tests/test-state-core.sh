@@ -100,5 +100,48 @@ t_assert_rc 0 "control: check_version on the current schema_version passes"
 ( set -euo pipefail; oss_state_mutate "$C" set_posture '{"posture":"x"}' ) 2>/dev/null
 t_assert_eq "4" "$?" "corrupt (unparseable) source still aborts rc 4, not rc 6"
 
+# #1256: use the real dispatcher; the destination directory stays writable.
+OSS="$HERE/../bin/oss"
+_init_over_read_only_base() {
+  local sf="$TMP/base-pty.json"
+  printf '%s\n' '{"project":{"name":"old-base"}}' > "$sf.base.json" || return 1
+  chmod 444 "$sf.base.json" || return 1
+  t_on_pty env OSS_STATE_FILE="$sf" "$OSS" init new-base || return $?
+  jq -es '[.[].project.name] == ["new-base", "new-base"]' "$sf.base.json" "$sf"
+}
+
+_init_over_read_only_state() (
+  export OSS_STATE_FILE="$TMP/init-pty.json"
+  # Init refuses a file present at entry. Simulate a file appearing just after
+  # that check, at the first mktemp; still run the real mktemp and writer.
+  mktemp() {
+    if [ "$1" = "$OSS_STATE_FILE.tmp.XXXXXX" ]; then
+      printf '%s\n' '{"project":{"name":"appeared"}}' > "$OSS_STATE_FILE" || return 1
+      chmod 444 "$OSS_STATE_FILE" || return 1
+    fi
+    command mktemp "$@"
+  }
+  export -f mktemp
+  t_on_pty "$OSS" init new-state || return $?
+  jq -e '.project.name == "new-state"' "$OSS_STATE_FILE"
+)
+
+_mutate_read_only_state() {
+  local sf="$TMP/mutate-pty.json"
+  OSS_STATE_FILE="$sf" "$OSS" init mutate-pty || return 1
+  chmod 444 "$sf" || return 1
+  t_on_pty env OSS_STATE_FILE="$sf" "$OSS" posture_set open-core || return $?
+  jq -e '.project.posture == "open-core" and [.mutations[].op] == ["set_posture"]' "$sf"
+}
+
+if t_pty_available; then
+  t_capture _init_over_read_only_base
+  t_assert_rc 0 "#1256: init replaces a read-only base snapshot on a PTY: $T_OUT"
+  t_capture _init_over_read_only_state
+  t_assert_rc 0 "#1256: init replaces read-only state that appeared after the check on a PTY: $T_OUT"
+  t_capture _mutate_read_only_state
+  t_assert_rc 0 "#1256: mutation replaces read-only state on a PTY: $T_OUT"
+fi
+
 rm -rf "$TMP"
 t_summary
