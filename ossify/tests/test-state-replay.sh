@@ -378,7 +378,13 @@ _restore_read_only_state() {
   jq '.project.posture = "tampered"' "$sf" > "$sf.x" && mv "$sf.x" "$sf" || return 1
   chmod 444 "$sf" || return 1
   t_on_pty env OSS_STATE_FILE="$sf" "$OSS" state_restore || return $?
-  jq -e '.project.posture == "open-core" and [.mutations[].op] == ["set_posture"]' "$sf"
+  jq -e '.project.posture == "open-core" and [.mutations[].op] == ["set_posture"]' "$sf" || return 1
+  # The first backup copied the read-only mode. A second restore over new
+  # drift must still replace it, not keep the first drift (#1258 round 1 C1).
+  jq '.project.posture = "tampered2"' "$sf" > "$sf.x" && mv "$sf.x" "$sf" || return 1
+  chmod 444 "$sf" || return 1
+  t_on_pty env OSS_STATE_FILE="$sf" "$OSS" state_restore || return $?
+  jq -e '.project.posture == "tampered2"' "$sf.pre-restore"
 }
 
 if t_pty_available; then

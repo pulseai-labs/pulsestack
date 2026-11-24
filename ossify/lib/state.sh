@@ -578,7 +578,7 @@ _oss_state_restore_body() { # $1=state-file $2=base
   fi
   # Keep the pre-restore file so a wrong restore is recoverable by hand. Best
   # effort: a failure to copy must not block a restore that is otherwise sound.
-  cp "$sf" "$sf.pre-restore" 2>/dev/null || true
+  cp -f "$sf" "$sf.pre-restore" 2>/dev/null || true
   mv -f "$tmp" "$sf" || { rm -f "$tmp"; return 4; }
   _OSS_RESTORE_APPLIED="$i"
 }

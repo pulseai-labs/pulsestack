@@ -11,8 +11,7 @@ they cover.
 
 ## 1.45.8
 
-### Fixed
-- **State replacement no longer prompts in a terminal (#1256).** `oss init` can replace a read-only base snapshot, and state mutations and `oss state_restore` can replace a read-only project state file without waiting for input. A mutation still publishes its state change and journal entry in one atomic rename.
+Since 1.45.8 (#1256), ossify's state writers replace a read-only state file without a prompt when stdin is a terminal: `oss init` over a read-only base snapshot, every state mutation, and `oss state_restore` use `mv -f`, where GNU `mv` used to ask and, with no answer, decline. A mutation still publishes its state change and its journal entry in one rename. Restore's best-effort `.pre-restore` backup is written with `cp -f`, so a backup left read-only by an earlier restore is replaced, not silently kept. The replaced state file has the writer's temporary-file mode (0600), as a run without a terminal always gave: a read-only mode set by hand does not survive the next write. Membrane's state writers are unchanged (membrane is frozen). Closes #1256.
 
 ## 1.45.7
 
