@@ -627,6 +627,29 @@ test_older_ossify_scan_controls() (
   if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify route survives in $root/templates/stub.tmpl" "$out"; then
     echo "    a readable templates violation was not found (rc=$rc): $out"; return 1
   fi
+
+  # Every other entry of the directory guard, one at a time: with that directory
+  # at r--, the violation below it is unreachable, so only its own entry can
+  # refuse it (#1257 round 2 C5).
+  printf 'clean surface\n' > "$root/templates/stub.tmpl"
+  mkdir -p "$root/skills/s/examples" || return 1
+  printf 'clean surface\n' > "$root/skills/s/SKILL.md"
+  printf 'merge by hand\n' > "$root/skills/s/examples/e.md"
+  if [ "$(id -u)" -ne 0 ]; then
+    local dir
+    for dir in "$root" "$root/skills" "$root/skills/s" "$root/skills/s/examples"; do
+      chmod 400 "$dir" || return 1
+      rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+      chmod 700 "$dir" || return 1
+      if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify surface scan: $dir: not a searchable directory" "$out"; then
+        echo "    an unsearchable $dir was not refused by name (rc=$rc): $out"; return 1
+      fi
+    done
+  fi
+  rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify route survives in $root/skills/s/examples/e.md" "$out"; then
+    echo "    a readable examples violation was not found (rc=$rc): $out"; return 1
+  fi
 )
 
 test_ossify_versions_are_conditioned_in_the_stub_and_scenario_c() {
