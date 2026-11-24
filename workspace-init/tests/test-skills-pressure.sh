@@ -534,6 +534,124 @@ test_claude_md_stub_scan_rejects_unreadable_file() (
   }
 )
 
+scan_older_ossify_routes() { # $1=plugin root
+  # Case-insensitive: the sentence-initial "On an older ossify it" survived
+  # the first version of the scan.
+  local root="$1" gone='an older ossify does|on an older ossify it|merge by hand|1\.23\.0'
+  local d f hit
+  # Every directory the globs walk must be listable and searchable. Under r-- a
+  # matched name fails -e, and under 000 the glob never expands, so the file
+  # guard below would skip either one as an unmatched glob (#1257 round 1 C1).
+  for d in "$root" "$root/templates" "$root/skills" "$root"/skills/*/ "$root"/skills/*/examples; do
+    [ -e "$d" ] || continue
+    if [ ! -r "$d" ] || [ ! -x "$d" ]; then
+      printf '    older-ossify surface scan: %s: not a searchable directory\n' "${d%/}"; return 1
+    fi
+  done
+  for f in "$root"/templates/*.tmpl "$root"/skills/*/SKILL.md \
+           "$root"/skills/*/examples/*.md "$root/README.md"; do
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+      printf '    older-ossify surface scan: %s: not a readable regular file\n' "$f"; return 1
+    fi
+    if hit="$(grep -Eni "$gone" "$f")"; then
+      echo "    older-ossify route survives in $f"; printf '%s\n' "$hit"; return 1
+    fi
+  done
+}
+
+test_older_ossify_scan_controls() (
+  local root file out rc
+  root="$(mktemp -d "${TMPDIR:-/tmp}/wi-gone.XXXXXX")" || return 1
+  trap 'chmod -R u+rwx "$root"; rm -rf "$root"' EXIT
+  file="$root/README.md"
+  printf 'clean surface\n' > "$file"
+  scan_older_ossify_routes "$root" || return 1
+
+  # The same detector must still fire on a readable violation.
+  printf 'On an older ossify it merges that section into CLAUDE.md.\n' > "$file"
+  rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify route survives in $file" "$out"; then
+    echo "    the older-ossify detector no longer fires"; return 1
+  fi
+
+  if [ "$(id -u)" -eq 0 ]; then
+    echo '    SKIP older-ossify surface unreadable-file control (uid 0 bypasses chmod 000)'
+  else
+    chmod 000 "$file" || return 1
+    rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+    chmod 600 "$file" || return 1
+    if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify surface scan: $file: not a readable regular file" "$out"; then
+      echo "    unreadable older-ossify surface was not refused by name (rc=$rc): $out"; return 1
+    fi
+  fi
+
+  # An unmatched glob is fine, but a matched dangling symlink is not.
+  printf 'clean surface\n' > "$file"
+  mkdir -p "$root/templates"
+  ln -s missing "$root/templates/dangling.tmpl" || return 1
+  rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify surface scan: $root/templates/dangling.tmpl: not a readable regular file" "$out"; then
+    echo "    dangling older-ossify surface was not refused by name (rc=$rc): $out"; return 1
+  fi
+  rm -f "$root/templates/dangling.tmpl"
+
+  # A readable directory that matches a file glob is not a regular file: this is
+  # the case only the -f half refuses (#1257 round 1 C2).
+  mkdir "$root/templates/dir.tmpl" || return 1
+  rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify surface scan: $root/templates/dir.tmpl: not a readable regular file" "$out"; then
+    echo "    a directory matching a file glob was not refused by name (rc=$rc): $out"; return 1
+  fi
+  rmdir "$root/templates/dir.tmpl"
+
+  # A violation inside a directory the scan cannot list (--x) or search (r--)
+  # must not read as clean (#1257 round 1 C1). Each mode pins one half of the
+  # directory guard; 000 is the case where the glob never expands.
+  printf 'merge by hand\n' > "$root/templates/stub.tmpl"
+  if [ "$(id -u)" -eq 0 ]; then
+    echo '    SKIP older-ossify surface unsearchable-directory controls (uid 0 bypasses directory modes)'
+  else
+    local mode
+    for mode in 100 400 000; do
+      chmod "$mode" "$root/templates" || return 1
+      rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+      chmod 700 "$root/templates" || return 1
+      if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify surface scan: $root/templates: not a searchable directory" "$out"; then
+        echo "    a mode-$mode templates directory was not refused by name (rc=$rc): $out"; return 1
+      fi
+    done
+  fi
+  # Adjacent control: the same violation in a searchable directory is still found.
+  rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify route survives in $root/templates/stub.tmpl" "$out"; then
+    echo "    a readable templates violation was not found (rc=$rc): $out"; return 1
+  fi
+
+  # Every other entry of the directory guard, one at a time: with that directory
+  # at r--, the violation below it is unreachable, so only its own entry can
+  # refuse it (#1257 round 2 C5).
+  printf 'clean surface\n' > "$root/templates/stub.tmpl"
+  mkdir -p "$root/skills/s/examples" || return 1
+  printf 'clean surface\n' > "$root/skills/s/SKILL.md"
+  printf 'merge by hand\n' > "$root/skills/s/examples/e.md"
+  if [ "$(id -u)" -ne 0 ]; then
+    local dir
+    for dir in "$root" "$root/skills" "$root/skills/s" "$root/skills/s/examples"; do
+      chmod 400 "$dir" || return 1
+      rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+      chmod 700 "$dir" || return 1
+      if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify surface scan: $dir: not a searchable directory" "$out"; then
+        echo "    an unsearchable $dir was not refused by name (rc=$rc): $out"; return 1
+      fi
+    done
+  fi
+  rc=0; out="$(scan_older_ossify_routes "$root" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ] || ! assert_contains "older-ossify route survives in $root/skills/s/examples/e.md" "$out"; then
+    echo "    a readable examples violation was not found (rc=$rc): $out"; return 1
+  fi
+)
+
 test_ossify_versions_are_conditioned_in_the_stub_and_scenario_c() {
   # D1/D2: the stub replaces itself and the Scenario C route relies on doctor's
   # repair; both ship in ossify 1.24.0, and a shipped 1.23.0 does neither. Each
@@ -604,29 +722,8 @@ test_ossify_versions_are_conditioned_in_the_stub_and_scenario_c() {
   assert_contains 'Claude Code 2.1.277 or later' "$(cat "$WI_PLUGIN_ROOT/templates/AGENTS.md.stub.tmpl")" || return 1
   assert_contains 'an older Claude Code reads only `CLAUDE.md`' \
     "$(printf '%s' "$(cat "$WI_PLUGIN_ROOT/skills/pairing-canonical-repo/SKILL.md")" | tr '\n' ' ' | tr -s ' ')" || return 1
-  # Adjacent control: the older-ossify descriptions and the by-hand route are gone
-  # from every shipped surface. Each of these strings was asserted present by the
-  # previous round and must now be absent. Case-insensitive: the first version was
-  # case-sensitive and a sentence-initial "On an older ossify it" SURVIVED it.
-  local gone='an older ossify does|on an older ossify it|merge by hand|1\.23\.0'
-  local f hit
-  for f in "$WI_PLUGIN_ROOT"/templates/*.tmpl "$WI_PLUGIN_ROOT"/skills/*/SKILL.md \
-           "$WI_PLUGIN_ROOT"/skills/*/examples/*.md "$WI_PLUGIN_ROOT/README.md"; do
-    [[ -f "$f" ]] || continue
-    if hit="$(grep -Eni "$gone" "$f")"; then
-      echo "    older-ossify route survives in $f"; printf '%s\n' "$hit"; return 1
-    fi
-  done
-  # …and the control's own teeth: the same predicate must still fire on the text
-  # it exists to reject. Locally written, never in the tree.
-  local probe
-  probe="$(mktemp "${TMPDIR:-/tmp}/wi-gone.XXXXXX")"
-  printf 'On an older ossify it merges that section into CLAUDE.md.\n' > "$probe"
-  if grep -Eni "$gone" "$probe" >/dev/null; then :; else
-    rm -f "$probe"
-    echo "    the older-ossify detector no longer fires"; return 1
-  fi
-  rm -f "$probe"
+  # The older-ossify descriptions and by-hand route are gone from every shipped surface.
+  scan_older_ossify_routes "$WI_PLUGIN_ROOT"
 }
 
 test_marker_string_matches_across_surfaces() {
@@ -871,6 +968,7 @@ wi_test_run test_claude_md_stub_scan_fails_on_an_empty_surface
 wi_test_run test_claude_md_stub_scan_rejects_unreadable_file
 wi_test_run test_marker_string_matches_across_surfaces
 wi_test_run test_ossify_versions_are_conditioned_in_the_stub_and_scenario_c
+wi_test_run test_older_ossify_scan_controls
 wi_test_run test_claude_code_fallback_is_version_gated
 wi_test_run test_release_record_matches_the_shipped_files
 wi_test_run test_root_readme_has_no_version_labels
