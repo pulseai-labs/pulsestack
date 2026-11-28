@@ -45,7 +45,7 @@ error; do NOT start any tasks (per **SPEC §8.1**, **SPEC §13.3**).
 
 ## 3. Input collection
 
-For `/pair-workspace`, read the raw argument text after `Arguments:` in the
+For `/pair-workspace`, read the argument text after `Arguments:` in the
 command prompt. For a direct skill invocation or a natural-language request,
 read the value tokens from that invocation or request. Never use shell
 positional parameters `\$1`/`\$2`.

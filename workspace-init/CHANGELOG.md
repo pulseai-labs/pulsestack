@@ -1,5 +1,10 @@
 # workspace-init changelog
 
+## 0.10.12
+
+### Fixed
+- **Workspace commands keep their argument instructions when rendered (#1263).** Init and both pairing commands render the argument text once, after `Arguments:`, without substituting it into the parsing instructions. The skills refer to that rendered text without assuming it is the raw input.
+
 ## 0.10.11
 
 ### Fixed

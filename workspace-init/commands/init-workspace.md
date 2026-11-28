@@ -15,7 +15,7 @@ Accepted forms:
 /init-workspace <name> [--wrapper <existing-dir>] --ai-dir-name <dir>
 ```
 
-Pass the raw `$ARGUMENTS` text to the skill for interpretation. The skill must
+Pass the argument text after `Arguments:` to the skill for interpretation. The skill must
 reject an unknown option, duplicate `--wrapper`, extra positional values, or a
 missing/empty wrapper value with an error containing `--wrapper requires an
 existing writable directory` plus the accepted forms above. It rejects a
