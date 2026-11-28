@@ -4,7 +4,7 @@ argument-hint: "[release-name]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Skill
 ---
 
-Parse the raw argument text via the trailing argument (never write a dollar-digit positional here),
+Parse the argument text via the trailing argument (never write a dollar-digit positional here),
 then load the `ossify:plan-release` skill body, which owns release planning.
 
 ```bash

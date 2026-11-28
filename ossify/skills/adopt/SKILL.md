@@ -349,7 +349,7 @@ Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 
 ## 8. Slash-command interaction
 
-The `/adopt` command's recipe passes the raw argument text to `bash -c` as a
+The `/adopt` command's recipe passes the argument text to `bash -c` as a
 trailing argument. Parse it in bash; never write a dollar-digit positional in the command body. On a direct
 skill invocation (`Skill()`) or a natural-language request, read the literal
 argument token from the invocation or request.

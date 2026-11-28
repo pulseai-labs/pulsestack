@@ -4,7 +4,7 @@ argument-hint: "<absolute-handoff-path>"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Skill
 ---
 
-Parse the raw argument text via the trailing argument (never write a dollar-digit positional here),
+Parse the argument text via the trailing argument (never write a dollar-digit positional here),
 then load the `ossify:work-item` skill body, which owns work-item execution.
 
 ```bash

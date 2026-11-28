@@ -185,7 +185,7 @@ adopt it.
 
 ## 8. Slash-command interaction
 
-`/ossify:patch` (`commands/patch.md`) renders the raw argument text inline after
+`/ossify:patch` (`commands/patch.md`) renders the argument text inline after
 `Invoke the patch skill with:`; there is no shell shim. On Codex, a direct skill
 invocation (`Skill()`), or a natural-language request, read the literal tokens
 from the invocation or request. **Never write a dollar-digit positional.** With no

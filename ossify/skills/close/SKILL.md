@@ -465,7 +465,7 @@ A versioned patch — a shipped defect or a can't-fake request — is
 
 ## 9. Slash-command interaction
 
-The `/close <id>` recipe (`commands/close.md`) passes the raw argument text to
+The `/close <id>` recipe (`commands/close.md`) passes the argument text to
 `bash -c` as a trailing argument. **Parse it in bash; never write a dollar-digit positional**: Claude Code and OMP substitute such tokens when they render the command body.
 On a direct skill invocation (`Skill()`) or a natural-language request, read
 the literal id token from the invocation or request.

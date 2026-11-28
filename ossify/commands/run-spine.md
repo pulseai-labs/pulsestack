@@ -4,7 +4,7 @@ argument-hint: "<spine-id> [--external-executor [--detach]]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Task, Skill
 ---
 
-Parse the raw argument text via the trailing argument (never write a dollar-digit positional here),
+Parse the argument text via the trailing argument (never write a dollar-digit positional here),
 then run the execution lane, whose contract you load below.
 
 ```bash

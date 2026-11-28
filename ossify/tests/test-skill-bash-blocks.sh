@@ -311,12 +311,14 @@ check_3_skill_args() { # $1=ossify-root
 # Check 4 (#1263) - Claude Code substitutes argument tokens even in code
 # spans and fences. In a SKILL.md, exactly one backslash immediately before
 # the dollar protects it (Claude Code's native Skill() render). Command files
-# are also rendered by OMP, whose substitution has no escape and also takes
-# $@, so in commands an escaped token is flagged too, and so is $@. Stricter
-# than both renderers on purpose: $N and, in commands, brace positionals are
-# flagged although neither host substitutes them. Exceptions are exact command
-# path + line pairs, each usable once, and each must be present once in its
-# file when that file is scanned. Reference files are read, not rendered.
+# are also rendered by OMP, whose substitution has no escape, takes $@, and
+# takes a dollar-digit run with no word-boundary test ($12x), so in commands an
+# escaped token, $@ and any dollar-digit are flagged. Stricter than both
+# renderers on purpose: $N and, in commands, brace positionals are flagged
+# although neither host substitutes them. Exceptions are exact command
+# path + line pairs, each usable once, and each must be present exactly once:
+# a missing, emptied or deleted command file fails. Output is sorted.
+# Reference files are read, not rendered.
 # ---------------------------------------------------------------------------
 check_4_rendered_arguments() ( # $1=ossify-root
   cd "$1" || return 1
@@ -325,18 +327,17 @@ check_4_rendered_arguments() ( # $1=ossify-root
   while IFS= read -r f; do
     case "$f" in
       ./skills/*/SKILL.md) files+=("${f#./}") ;;
-      ./commands/*/*) ;;
       ./commands/*.md) files+=("${f#./}") ;;
     esac
   done <<< "$listing"
   if [ "${#files[@]}" -eq 0 ]; then
     echo 'argument-placeholder scan found no rendered files'; return 1
   fi
+  set -o pipefail
   awk '
     NR == FNR { allowed[$0]++; next }
-    { scanned[FILENAME] = 1 }
     (FILENAME !~ /^commands\// && /(^|[^\\]|\\\\)\$(ARGUMENTS|([0-9]+|N)([^[:alnum:]_]|$))/) ||
-      (FILENAME ~ /^commands\// && /\$(ARGUMENTS|@|([0-9]+|N)([^[:alnum:]_]|$)|\{([0-9]+|N)\})/) {
+      (FILENAME ~ /^commands\// && /\$(ARGUMENTS|@|[0-9]|N([^[:alnum:]_]|$)|\{([0-9]+|N)\})/) {
         key = FILENAME "\t" $0
         if (allowed[key] > 0) allowed[key]--
         else print FILENAME ":" FNR ": unintended argument placeholder: " $0
@@ -344,10 +345,10 @@ check_4_rendered_arguments() ( # $1=ossify-root
     END {
       for (k in allowed) {
         split(k, kp, "\t")
-        if (allowed[k] > 0 && (kp[1] in scanned)) print kp[1] ": missing argument placeholder: " kp[2]
+        if (allowed[k] > 0) print kp[1] ": missing argument placeholder: " kp[2]
       }
     }
-  ' /dev/stdin "${files[@]}" <<'EOF'
+  ' /dev/stdin "${files[@]}" <<'EOF' | LC_ALL=C sort
 commands/adopt.md	' _ "$ARGUMENTS"
 commands/challenge.md	' _ "$ARGUMENTS"
 commands/close.md	' _ "$ARGUMENTS"
@@ -936,6 +937,8 @@ This line ends with $1
 awk '{print $0}'
 A doubled backslash does not protect: \\$2 here.
 The mnemonic $N. is flagged too.
+A multi-digit $12 here.
+Controls that stay silent: $1abc, $1_x, $NR and $NAME.
 EOF
 cat > "$FIX/commands/adopt.md" <<'EOF'
 Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
@@ -944,7 +947,17 @@ An escaped mention: `\$ARGUMENTS`.
 ' _ "$ARGUMENTS"
 A brace positional ${1} here.
 Forward everything with $@ here.
+Only a bare $2 here.
+Only a mnemonic $N. here.
+This command line ends with $3
+This command line ends with $N
+A glued $12x here.
+A brace mnemonic ${N} here.
+A command control that stays silent: $NAME.
 EOF
+mkdir -p "$FIX/commands/sub"
+printf '%s\n' 'A nested command with $1 here.' > "$FIX/commands/sub/nested.md"
+: > "$FIX/commands/handoff.md"
 printf '%s\n' "' _ \"\$ARGUMENTS\"" > "$FIX/commands/c4.md"
 printf '%s\n' 'Invoke the patch skill with the arguments.' > "$FIX/commands/patch.md"
 
@@ -984,8 +997,8 @@ echo "# c6ref" > "$FIX/skills/c6/references/c6ref.md"
 echo "# agent" > "$FIX/agents/a.md"
 
 # --- check 7 plants: TWO DEDICATED ROOTS, deliberately not the shared $FIX ---
-# The shared fixture's commands/c4.md carries no frontmatter description (it
-# is check 4's plant), so running check 7 against $FIX would emit a
+# The shared fixture's check-4 command plants (commands/adopt.md, c4.md,
+# patch.md, handoff.md, sub/nested.md) carry no frontmatter description, so running check 7 against $FIX would emit a
 # no-description finding and couple this plant's count to check 4's fixture -
 # the fixtures-coupled-through-shared-state vacuity mode. Separate roots keep
 # the count exact and stable when a check 8 is added later.
@@ -1033,21 +1046,45 @@ t_assert_contains "$F3" "c3/SKILL.md:4" "self-test: check 3 names the planted fi
 
 t_capture check_4_rendered_arguments "$FIX"
 t_assert_rc 0 'self-test: check 4 scans the fixture'
-t_assert_eq 'commands/adopt.md:1: unintended argument placeholder: Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
+t_assert_eq 'commands/adopt.md:10: unintended argument placeholder: This command line ends with $N
+commands/adopt.md:11: unintended argument placeholder: A glued $12x here.
+commands/adopt.md:12: unintended argument placeholder: A brace mnemonic ${N} here.
+commands/adopt.md:1: unintended argument placeholder: Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
 commands/adopt.md:2: unintended argument placeholder: An escaped mention: `\$ARGUMENTS`.
 commands/adopt.md:4: unintended argument placeholder: '\'' _ "$ARGUMENTS"
 commands/adopt.md:5: unintended argument placeholder: A brace positional ${1} here.
 commands/adopt.md:6: unintended argument placeholder: Forward everything with $@ here.
+commands/adopt.md:7: unintended argument placeholder: Only a bare $2 here.
+commands/adopt.md:8: unintended argument placeholder: Only a mnemonic $N. here.
+commands/adopt.md:9: unintended argument placeholder: This command line ends with $3
 commands/c4.md:1: unintended argument placeholder: '\'' _ "$ARGUMENTS"
+commands/challenge.md: missing argument placeholder: '\'' _ "$ARGUMENTS"
+commands/close.md: missing argument placeholder: '\'' _ "$ARGUMENTS"
+commands/doctor.md: missing argument placeholder: '\'' _ "$ARGUMENTS"
+commands/handoff-resume.md: missing argument placeholder: Handoff to resume, if one was named: $ARGUMENTS
+commands/handoff.md: missing argument placeholder: Topic, if one was given: $ARGUMENTS
+commands/patch.md: missing argument placeholder: Invoke the patch skill with: $ARGUMENTS
+commands/plan-release.md: missing argument placeholder: '\'' _ "$ARGUMENTS"
+commands/plan-spine.md: missing argument placeholder: '\'' _ "$ARGUMENTS"
+commands/run-spine.md: missing argument placeholder: '\'' _ "$ARGUMENTS"
+commands/start.md: missing argument placeholder: '\'' _ "$ARGUMENTS"
+commands/sub/nested.md:1: unintended argument placeholder: A nested command with $1 here.
+commands/wayfinder.md: missing argument placeholder: Invoke the wayfinder skill with: $ARGUMENTS
+commands/work-item.md: missing argument placeholder: '\'' _ "$ARGUMENTS"
+commands/work-pr.md: missing argument placeholder: The PR to work, and any flags: $ARGUMENTS
+skills/outer/inner/SKILL.md:10: unintended argument placeholder: The mnemonic $N. is flagged too.
+skills/outer/inner/SKILL.md:11: unintended argument placeholder: A multi-digit $12 here.
 skills/outer/inner/SKILL.md:1: unintended argument placeholder: Prose mentions `$ARGUMENTS[1]`.
 skills/outer/inner/SKILL.md:4: unintended argument placeholder: The numeric token $1 also renders in a fence.
 skills/outer/inner/SKILL.md:6: unintended argument placeholder: $ARGUMENTS opens this line.
 skills/outer/inner/SKILL.md:7: unintended argument placeholder: This line ends with $1
 skills/outer/inner/SKILL.md:8: unintended argument placeholder: awk '\''{print $0}'\''
-skills/outer/inner/SKILL.md:9: unintended argument placeholder: A doubled backslash does not protect: \\$2 here.
-skills/outer/inner/SKILL.md:10: unintended argument placeholder: The mnemonic $N. is flagged too.
-commands/patch.md: missing argument placeholder: Invoke the patch skill with: $ARGUMENTS' "$T_OUT" \
-  'self-test: check 4 finds bare tokens in both trees and escaped ones in commands, not escaped skill tokens or the first exact exception, and a lost placeholder'
+skills/outer/inner/SKILL.md:9: unintended argument placeholder: A doubled backslash does not protect: \\$2 here.' "$T_OUT" \
+  'self-test: check 4 finds bare tokens in both trees, escaped tokens, \$@ and glued digits in commands, nested commands, and every missing or emptied placeholder; escaped skill tokens and word-glued controls stay silent'
+EMPTY4="$WORK/fixture-c4-empty"; mkdir -p "$EMPTY4/skills" "$EMPTY4/commands"
+t_capture check_4_rendered_arguments "$EMPTY4"
+t_assert_rc 1 'self-test: check 4 fails a tree with no rendered files'
+t_assert_eq 'argument-placeholder scan found no rendered files' "$T_OUT" 'self-test: check 4 names the empty scan'
 
 F5="$(check_5_refs "$FIX" "$WORK/fix5")"
 t_assert_eq 4 "$(_count "$F5")" "self-test: check 5 finds exactly its 4 planted defects (1 orphan, 1 skill dangling, 1 root bare dangling, 1 sibling-swallowed root miss)${F5:+ -- $F5}"

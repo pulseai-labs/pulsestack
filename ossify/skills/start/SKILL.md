@@ -435,7 +435,7 @@ the skeleton spine pre-seeded from the cut.
 
 ## 14. Slash-command interaction
 
-The `/start` recipe (`commands/start.md`) passes the raw argument text to
+The `/start` recipe (`commands/start.md`) passes the argument text to
 `bash -c` as a trailing argument. **Parse it in bash; never write a dollar-digit positional**: Claude Code and OMP substitute such tokens when they render the command body.
 On a direct skill invocation (`Skill()`) or a natural-language request, read
 the name from the invocation or request.

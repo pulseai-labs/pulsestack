@@ -394,7 +394,7 @@ you here.
 
 ## 11. Slash-command interaction
 
-The `/work-item <handoff-path>` recipe (`commands/work-item.md`) passes the raw
+The `/work-item <handoff-path>` recipe (`commands/work-item.md`) passes the
 argument text to `bash -c` as a trailing argument. **Parse it in bash; never write a dollar-digit
 positional**: Claude Code and OMP substitute such tokens when they render the command body.
 On a direct skill invocation (`Skill()`) or a natural-language request, read

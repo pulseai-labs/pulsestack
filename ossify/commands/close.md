@@ -4,7 +4,7 @@ argument-hint: "<id> [--pr] [--verdict <file>]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Skill, Task
 ---
 
-Parse the raw argument text via the trailing argument (never write a dollar-digit positional here),
+Parse the argument text via the trailing argument (never write a dollar-digit positional here),
 then load the `ossify:close` skill body, which owns the close ceremony.
 
 ```bash

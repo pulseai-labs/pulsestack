@@ -416,7 +416,7 @@ With `SPINE.md` finished, §6's optional adversarial pass may run.
 
 ## 10. Slash-command interaction
 
-The `/plan-spine` recipe (`commands/plan-spine.md`) passes the raw argument
+The `/plan-spine` recipe (`commands/plan-spine.md`) passes the argument
 text to `bash -c` as a trailing argument. **Parse it in bash; never write a dollar-digit positional**: Claude Code and OMP substitute such tokens when they render the command body.
 On a direct skill invocation (`Skill()`) or a natural-language request, read
 the literal id token from the invocation or request.

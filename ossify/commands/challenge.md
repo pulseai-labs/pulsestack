@@ -4,7 +4,7 @@ argument-hint: "[artifact-path]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep
 ---
 
-Parse the raw argument text via the trailing argument (never write a dollar-digit positional here),
+Parse the argument text via the trailing argument (never write a dollar-digit positional here),
 then load the challenge skill body, whose router you load below.
 
 ```bash
