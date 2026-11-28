@@ -30,7 +30,7 @@ These are validated by `"$wi_bin" skeleton_preflight_existing_dual "$ai_root" "$
 
 ## 3. Input collection
 
-For `/pair-existing-dual`, read the raw argument text after `Arguments:` in the
+For `/pair-existing-dual`, read the argument text after `Arguments:` in the
 command prompt. For a direct skill invocation or a natural-language request,
 read the value tokens from that invocation or request. Never use shell
 positional parameters `\$1`/`\$2`.

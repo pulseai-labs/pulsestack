@@ -52,19 +52,152 @@ test_pair_skill_body_size_in_range() {
   (( lines >= 150 && lines <= 500 )) || { echo "    pair SKILL.md: $lines lines"; return 1; }
 }
 
-# 4. Slash command wrappers render arguments inline, not via shell positionals.
-test_init_command_renders_arguments_inline() {
-  local cmd="$WI_PLUGIN_ROOT/commands/init-workspace.md"
-  [[ -f "$cmd" ]] || return 1
-  grep -Fxq 'Arguments: $ARGUMENTS' "$cmd" || return 1
-  ! grep -nE '\$[1-9]' "$cmd" | grep -v '\$ARGUMENTS' | grep -v '^[^:]*:#' >/dev/null
+# #1263: scan rendered Markdown, including code spans and fences. Claude
+# Code's native Skill() protects exactly one backslash; OMP commands have no
+# escape and substitute $@ and dollar-digits even before word characters.
+# The $N mnemonic and command brace positionals are banned by convention.
+check_rendered_arguments() ( # <plugin root>
+  cd "$1" || return 1
+  export LC_ALL=C
+  local f listing files=()
+  listing="$(find . \( -type f -o -type l \) -name '*.md' -print)" || return 1
+  while IFS= read -r f; do
+    case "$f" in
+      ./commands/*.md) files+=("${f#./}") ;;
+      ./skills/*/SKILL.md) files+=("${f#./}") ;;
+    esac
+  done <<< "$listing"
+  if [ "${#files[@]}" -eq 0 ]; then
+    echo 'argument-placeholder scan found no rendered files'; return 1
+  fi
+  set -o pipefail
+  awk '
+    FILENAME == "/dev/stdin" { allowed[$0]++; next }
+    (FILENAME ~ /^commands\// && /\$(ARGUMENTS|@|[0-9]|N([^[:alnum:]_]|$)|\{([0-9]+|N)\})/) ||
+      (FILENAME ~ /^skills\// && /(^|[^\\]|\\\\)\$(ARGUMENTS|([0-9]+|N)([^[:alnum:]_]|$))/) {
+        key = FILENAME "\t" $0
+        if (allowed[key] > 0) allowed[key]--
+        else print FILENAME ":" FNR ": unintended argument placeholder: " $0
+    }
+    END {
+      for (k in allowed) {
+        split(k, parts, "\t")
+        if (allowed[k] > 0) print parts[1] ": missing argument placeholder: " parts[2]
+      }
+    }
+  ' /dev/stdin "${files[@]}" <<'EOF' | sort
+commands/init-workspace.md	Arguments: $ARGUMENTS
+commands/pair-workspace.md	Arguments: $ARGUMENTS
+commands/pair-existing-dual.md	Arguments: $ARGUMENTS
+EOF
+)
+
+test_rendered_arguments_use_only_intended_placeholders() {
+  local out
+  out="$(check_rendered_arguments "$WI_PLUGIN_ROOT" 2>&1)" || { printf '%s\n' "$out"; return 1; }
+  assert_eq '' "$out"
 }
-test_pair_command_renders_arguments_inline() {
-  local cmd="$WI_PLUGIN_ROOT/commands/pair-workspace.md"
-  [[ -f "$cmd" ]] || return 1
-  grep -Fxq 'Arguments: $ARGUMENTS' "$cmd" || return 1
-  ! grep -nE '\$[1-9]' "$cmd" | grep -v '\$ARGUMENTS' | grep -v '^[^:]*:#' >/dev/null
-}
+
+test_rendered_arguments_fixture() (
+  local fixture out expected name
+  fixture="$(mktemp -d)" || return 1
+  trap 'rm -rf -- "$fixture"' EXIT
+  mkdir -p "$fixture/commands/sub" "$fixture/skills/outer/inner" "$fixture/agents" "$fixture/empty" || return 1
+  # Each line isolates one branch; the first exact line alone is allowed.
+  cat > "$fixture/commands/init-workspace.md" <<'EOF' || return 1
+Not the exact line: Arguments: $ARGUMENTS
+Arguments: $ARGUMENTS
+Arguments: $ARGUMENTS
+Prose names `$ARGUMENTS[1]`.
+\$ARGUMENTS
+$@
+\$@[1]
+$0
+\$1abc
+$1_x
+$N.
+$N
+\${12}
+${N}
+$NR
+$NAME
+$N_x
+EOF
+  printf '%s\n' '$2' > "$fixture/commands/sub/nested.md" || return 1
+  for name in other pair-workspace pair-existing-dual; do
+    printf '%s\n' 'Arguments: $ARGUMENTS' > "$fixture/commands/$name.md" || return 1
+  done
+  cat > "$fixture/skills/outer/inner/SKILL.md" <<'EOF' || return 1
+Prose names `$ARGUMENTS[1]`.
+$ARGUMENTS
+\\$ARGUMENTS
+\\\$2.
+```
+$12.
+```
+$0
+$N.
+$N
+$1abc
+$1_x
+$NR
+$NAME
+$N_x
+\$ARGUMENTS
+\$1.
+\$N
+EOF
+  printf '%s\n' '$ARGUMENTS' > "$fixture/skills/outer/reference.md" &&
+    ln -s absent.md "$fixture/agents/agent.md" &&
+    printf '%s\n' '$ARGUMENTS' > "$fixture/commands/not-markdown" || return 1
+  expected="$(cat <<'EOF'
+commands/init-workspace.md:10: unintended argument placeholder: $1_x
+commands/init-workspace.md:11: unintended argument placeholder: $N.
+commands/init-workspace.md:12: unintended argument placeholder: $N
+commands/init-workspace.md:13: unintended argument placeholder: \${12}
+commands/init-workspace.md:14: unintended argument placeholder: ${N}
+commands/init-workspace.md:1: unintended argument placeholder: Not the exact line: Arguments: $ARGUMENTS
+commands/init-workspace.md:3: unintended argument placeholder: Arguments: $ARGUMENTS
+commands/init-workspace.md:4: unintended argument placeholder: Prose names `$ARGUMENTS[1]`.
+commands/init-workspace.md:5: unintended argument placeholder: \$ARGUMENTS
+commands/init-workspace.md:6: unintended argument placeholder: $@
+commands/init-workspace.md:7: unintended argument placeholder: \$@[1]
+commands/init-workspace.md:8: unintended argument placeholder: $0
+commands/init-workspace.md:9: unintended argument placeholder: \$1abc
+commands/other.md:1: unintended argument placeholder: Arguments: $ARGUMENTS
+commands/sub/nested.md:1: unintended argument placeholder: $2
+skills/outer/inner/SKILL.md:10: unintended argument placeholder: $N
+skills/outer/inner/SKILL.md:1: unintended argument placeholder: Prose names `$ARGUMENTS[1]`.
+skills/outer/inner/SKILL.md:2: unintended argument placeholder: $ARGUMENTS
+skills/outer/inner/SKILL.md:3: unintended argument placeholder: \\$ARGUMENTS
+skills/outer/inner/SKILL.md:4: unintended argument placeholder: \\\$2.
+skills/outer/inner/SKILL.md:6: unintended argument placeholder: $12.
+skills/outer/inner/SKILL.md:8: unintended argument placeholder: $0
+skills/outer/inner/SKILL.md:9: unintended argument placeholder: $N.
+EOF
+)"
+  out="$(check_rendered_arguments "$fixture")" || return 1
+  assert_eq "$expected" "$out" || return 1
+
+  if out="$(check_rendered_arguments "$fixture/empty")"; then
+    echo '    empty argument-placeholder scan succeeded'; return 1
+  fi
+  assert_eq 'argument-placeholder scan found no rendered files' "$out" || return 1
+
+  # An emptied command and an absent command must both report missing lines.
+  : > "$fixture/commands/pair-workspace.md" || return 1
+  mv "$fixture/commands/pair-existing-dual.md" "$fixture/removed.md" || return 1
+  out="$(check_rendered_arguments "$fixture")" || return 1
+  assert_contains 'commands/pair-workspace.md: missing argument placeholder: Arguments: $ARGUMENTS' "$out" || return 1
+  assert_contains 'commands/pair-existing-dual.md: missing argument placeholder: Arguments: $ARGUMENTS' "$out" || return 1
+
+  # A dangling Markdown symlink makes awk fail even under uid 0; sort succeeds.
+  ln -s absent.md "$fixture/commands/broken.md" || return 1
+  if out="$(check_rendered_arguments "$fixture" 2>&1)"; then
+    echo '    sort hid a Markdown read failure'; return 1
+  fi
+  assert_contains 'commands/broken.md' "$out"
+)
 
 # #1220: the skills read prompt text, not a shell argument channel.
 test_skills_reject_shell_argument_channel() {
@@ -966,8 +1099,8 @@ wi_test_run test_pair_triggers_on_existing_canonical
 wi_test_run test_pair_triggers_on_pair_workspace
 wi_test_run test_init_skill_body_size_in_range
 wi_test_run test_pair_skill_body_size_in_range
-wi_test_run test_init_command_renders_arguments_inline
-wi_test_run test_pair_command_renders_arguments_inline
+wi_test_run test_rendered_arguments_use_only_intended_placeholders
+wi_test_run test_rendered_arguments_fixture
 wi_test_run test_skills_reject_shell_argument_channel
 wi_test_run test_init_skill_documents_explicit_wrapper_mode
 wi_test_run test_init_command_forwards_wrapper_grammar

@@ -2,6 +2,10 @@
 
 All notable changes to the `crew` plugin.
 
+## 0.13.7
+
+**`/crew:orchestrate` keeps its objective-parsing instructions when rendered (#1263).** Claude Code and OMP substitute the objective only in the trailing argument, not in the prose that explains it. Crew's suite now checks that the trailing placeholder is present exactly once.
+
 ## 0.13.6
 
 The eval aggregator copy (`tests/eval/lib/aggregate-scores.sh`) carries ossify 1.45.6's STALE check: a result whose fixture or rubric changed since it was judged fails the gate, and a shallow clone fails it as `STALE-CHECK UNAVAILABLE`. With no `results/` directory it now reports every fixture UNSCORED instead of stopping at the missing directory. Test tooling only (#231).

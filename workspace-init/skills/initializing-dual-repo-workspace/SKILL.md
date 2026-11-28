@@ -63,7 +63,7 @@ Slash-command grammar:
 /init-workspace <name> [--wrapper <existing-dir>] --ai-dir-name <dir>
 ```
 
-For `/init-workspace`, read the raw argument text after `Arguments:` in the
+For `/init-workspace`, read the argument text after `Arguments:` in the
 command prompt. For a direct skill invocation or a natural-language request,
 read the name, `--wrapper` and `--ai-dir-name` tokens from that invocation or
 request. Never use shell positional parameters `\$1`/`\$2`.

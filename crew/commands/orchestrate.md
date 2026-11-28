@@ -4,7 +4,7 @@ argument-hint: "[objective]"
 allowed-tools: Bash(bash:*), Bash(crew-run:*), Bash(dagr:*), Bash(herdr:*), Bash(git:*), Bash(gh:*), Bash(mv:*), Bash(orca:*), Bash(orca-ide:*), Read, Write, Edit
 ---
 
-Parse the objective from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`):
+Parse the objective from the trailing argument (never write a dollar-digit positional here):
 
 ```bash
 bash -c '

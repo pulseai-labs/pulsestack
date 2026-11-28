@@ -2347,6 +2347,152 @@ pin "$CONFIG_MD" 'for a work-item id, work-item close dispatches `verifier` thro
 pin "$CONFIG_MD" "\`subagents\` (the lane's \`Agent\`-tool workers)" "B7: the can: definition names the lane's Agent-tool workers" flat
 absent "$CONFIG_MD" '| close session | `/ossify:close` | `slash-commands` |' "#973-old: the one-capability close row is gone" flat
 
+# #1263: scan rendered Markdown, including code spans and fences. Claude
+# Code's native Skill() protects exactly one backslash; OMP commands have no
+# escape and substitute $@ and dollar-digits even before word characters.
+# The $N mnemonic and command brace positionals are banned by convention.
+check_rendered_arguments() ( # <plugin root>
+  cd "$1" || return 1
+  export LC_ALL=C
+  local f listing files=()
+  listing="$(find . \( -type f -o -type l \) -name '*.md' -print)" || return 1
+  while IFS= read -r f; do
+    case "$f" in
+      ./commands/*.md) files+=("${f#./}") ;;
+      ./skills/*/SKILL.md) files+=("${f#./}") ;;
+    esac
+  done <<< "$listing"
+  if [ "${#files[@]}" -eq 0 ]; then
+    echo 'argument-placeholder scan found no rendered files'; return 1
+  fi
+  set -o pipefail
+  awk '
+    FILENAME == "/dev/stdin" { allowed[$0]++; next }
+    (FILENAME ~ /^commands\// && /\$(ARGUMENTS|@|[0-9]|N([^[:alnum:]_]|$)|\{([0-9]+|N)\})/) ||
+      (FILENAME ~ /^skills\// && /(^|[^\\]|\\\\)\$(ARGUMENTS|([0-9]+|N)([^[:alnum:]_]|$))/) {
+        key = FILENAME "\t" $0
+        if (allowed[key] > 0) allowed[key]--
+        else print FILENAME ":" FNR ": unintended argument placeholder: " $0
+    }
+    END {
+      for (k in allowed) {
+        split(k, parts, "\t")
+        if (allowed[k] > 0) print parts[1] ": missing argument placeholder: " parts[2]
+      }
+    }
+  ' /dev/stdin "${files[@]}" <<'EOF' | sort
+commands/orchestrate.md	' _ "$ARGUMENTS"
+EOF
+)
+
+section "rendered argument placeholders (#1263, #1222 item 2)"
+if out="$(check_rendered_arguments "$PLUGIN_ROOT" 2>&1)" && [ -z "$out" ]; then
+  pass 'only the intended argument bridge is present in rendered Crew Markdown'
+else
+  fail 'only the intended argument bridge is present in rendered Crew Markdown' "$out"
+fi
+
+test_rendered_arguments_fixture() (
+  local fixture out expected
+  fixture="$(mktemp -d)" || return 1
+  trap 'rm -rf -- "$fixture"' EXIT
+  mkdir -p "$fixture/commands/sub" "$fixture/skills/outer/inner" "$fixture/agents" "$fixture/empty" || return 1
+  # Each line isolates one branch; the first bridge line alone is allowed.
+  cat > "$fixture/commands/orchestrate.md" <<'EOF' || return 1
+Not the exact line: ' _ "$ARGUMENTS"
+' _ "$ARGUMENTS"
+' _ "$ARGUMENTS"
+Prose names `$ARGUMENTS[1]`.
+\$ARGUMENTS
+$@
+\$@[1]
+$0
+\$1abc
+$1_x
+$N.
+$N
+\${12}
+${N}
+$NR
+$NAME
+$N_x
+EOF
+  printf '%s\n' '$2' > "$fixture/commands/sub/nested.md" || return 1
+  printf '%s\n' "' _ \"\$ARGUMENTS\"" > "$fixture/commands/other.md" || return 1
+  cat > "$fixture/skills/outer/inner/SKILL.md" <<'EOF' || return 1
+Prose names `$ARGUMENTS[1]`.
+$ARGUMENTS
+\\$ARGUMENTS
+\\\$2.
+```
+$12.
+```
+$0
+$N.
+$N
+$1abc
+$1_x
+$NR
+$NAME
+$N_x
+\$ARGUMENTS
+\$1.
+\$N
+EOF
+  printf '%s\n' '$ARGUMENTS' > "$fixture/skills/outer/reference.md" &&
+    ln -s absent.md "$fixture/agents/agent.md" &&
+    printf '%s\n' '$ARGUMENTS' > "$fixture/commands/not-markdown" || return 1
+  expected="$(cat <<'EOF'
+commands/orchestrate.md:10: unintended argument placeholder: $1_x
+commands/orchestrate.md:11: unintended argument placeholder: $N.
+commands/orchestrate.md:12: unintended argument placeholder: $N
+commands/orchestrate.md:13: unintended argument placeholder: \${12}
+commands/orchestrate.md:14: unintended argument placeholder: ${N}
+commands/orchestrate.md:1: unintended argument placeholder: Not the exact line: ' _ "$ARGUMENTS"
+commands/orchestrate.md:3: unintended argument placeholder: ' _ "$ARGUMENTS"
+commands/orchestrate.md:4: unintended argument placeholder: Prose names `$ARGUMENTS[1]`.
+commands/orchestrate.md:5: unintended argument placeholder: \$ARGUMENTS
+commands/orchestrate.md:6: unintended argument placeholder: $@
+commands/orchestrate.md:7: unintended argument placeholder: \$@[1]
+commands/orchestrate.md:8: unintended argument placeholder: $0
+commands/orchestrate.md:9: unintended argument placeholder: \$1abc
+commands/other.md:1: unintended argument placeholder: ' _ "$ARGUMENTS"
+commands/sub/nested.md:1: unintended argument placeholder: $2
+skills/outer/inner/SKILL.md:10: unintended argument placeholder: $N
+skills/outer/inner/SKILL.md:1: unintended argument placeholder: Prose names `$ARGUMENTS[1]`.
+skills/outer/inner/SKILL.md:2: unintended argument placeholder: $ARGUMENTS
+skills/outer/inner/SKILL.md:3: unintended argument placeholder: \\$ARGUMENTS
+skills/outer/inner/SKILL.md:4: unintended argument placeholder: \\\$2.
+skills/outer/inner/SKILL.md:6: unintended argument placeholder: $12.
+skills/outer/inner/SKILL.md:8: unintended argument placeholder: $0
+skills/outer/inner/SKILL.md:9: unintended argument placeholder: $N.
+EOF
+)"
+  if ! out="$(check_rendered_arguments "$fixture")" || [ "$out" != "$expected" ]; then
+    printf 'Unexpected fixture findings:\n%s\n' "$out"; return 1
+  fi
+  if out="$(check_rendered_arguments "$fixture/empty")" ||
+    [ "$out" != 'argument-placeholder scan found no rendered files' ]; then
+    printf 'Empty scan was not refused: %s\n' "$out"; return 1
+  fi
+  # The rest of the tree still scans: a missing command must fail by name.
+  mv "$fixture/commands/orchestrate.md" "$fixture/removed.md" || return 1
+  out="$(check_rendered_arguments "$fixture")" &&
+    [[ "$out" == *"commands/orchestrate.md: missing argument placeholder: ' _ \"\$ARGUMENTS\""* ]] || {
+      printf 'Missing bridge was not reported:\n%s\n' "$out"; return 1;
+    }
+  # A dangling Markdown symlink makes awk fail even under uid 0; sort succeeds.
+  ln -s absent.md "$fixture/commands/broken.md" || return 1
+  if out="$(check_rendered_arguments "$fixture" 2>&1)" || [[ "$out" != *commands/broken.md* ]]; then
+    printf 'Read failure was hidden by sort:\n%s\n' "$out"; return 1
+  fi
+)
+if out="$(test_rendered_arguments_fixture)"; then
+  pass 'argument scan isolates render tokens, checks exact once-use and presence, and rejects empty or unreadable input'
+else
+  fail 'argument scan fixture' "$out"
+fi
+
 section "reference line budgets"
 
 budget "$EXEC_MD" "ossify-execution.md is within the reference budget"
