@@ -954,6 +954,8 @@ This command line ends with $N
 A glued $12x here.
 A brace mnemonic ${N} here.
 A command control that stays silent: $NAME.
+Only a zero $0 here.
+A command control that stays silent: $N_x.
 EOF
 mkdir -p "$FIX/commands/sub"
 printf '%s\n' 'A nested command with $1 here.' > "$FIX/commands/sub/nested.md"
@@ -997,9 +999,10 @@ echo "# c6ref" > "$FIX/skills/c6/references/c6ref.md"
 echo "# agent" > "$FIX/agents/a.md"
 
 # --- check 7 plants: TWO DEDICATED ROOTS, deliberately not the shared $FIX ---
-# The shared fixture's check-4 command plants (commands/adopt.md, c4.md,
-# patch.md, handoff.md, sub/nested.md) carry no frontmatter description, so running check 7 against $FIX would emit a
-# no-description finding and couple this plant's count to check 4's fixture -
+# The shared fixture's top-level check-4 command plants (commands/adopt.md,
+# c4.md, patch.md, handoff.md) carry no frontmatter description, so running
+# check 7 against $FIX would emit a no-description finding and couple this
+# plant's count to check 4's fixture -
 # the fixtures-coupled-through-shared-state vacuity mode. Separate roots keep
 # the count exact and stable when a check 8 is added later.
 FIX7="$WORK/fixture7"; FIX7B="$WORK/fixture7b"
@@ -1049,6 +1052,7 @@ t_assert_rc 0 'self-test: check 4 scans the fixture'
 t_assert_eq 'commands/adopt.md:10: unintended argument placeholder: This command line ends with $N
 commands/adopt.md:11: unintended argument placeholder: A glued $12x here.
 commands/adopt.md:12: unintended argument placeholder: A brace mnemonic ${N} here.
+commands/adopt.md:14: unintended argument placeholder: Only a zero $0 here.
 commands/adopt.md:1: unintended argument placeholder: Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
 commands/adopt.md:2: unintended argument placeholder: An escaped mention: `\$ARGUMENTS`.
 commands/adopt.md:4: unintended argument placeholder: '\'' _ "$ARGUMENTS"
