@@ -2,6 +2,10 @@
 
 All notable changes to the `merge-bar` plugin.
 
+## 0.11.3
+
+**`review-pr` pre-approves only `gh pr view` (#1205).** The report-only command used to pre-approve every `git`, `gh` and `rg` command, so a verb that writes a file (`git log --output`), runs a program (`rg --pre`) or posts (`gh api -X POST`, `gh pr comment`) ran with no prompt. It now keeps `gh pr view`, which reads the PR (its one other effect, `--web`, opens a browser), and its file-reading, report-writing and agent tools. Every other shell command goes through Claude Code's normal permission checks.
+
 ## 0.11.2
 
 **OMP bin-path drops the pre-rename marketplace name (#1082).** The OMP bin-path module (VERSION 4) and loader (LOADER_VERSION 4) read only installs under the `pulsestack` marketplace name; the pre-rename `claude-agent-scaffolding` entries are no longer read, now that every host has moved. MIN_LOADER_VERSION is 4, so loaders 2 and 3 warn once per session with their re-download command (loader 3 writes over its own file, loader 2 to `~/.omp/agent/extensions/`); loader 1 reads only the old name, so on a moved host it finds no module and says so instead of warning.

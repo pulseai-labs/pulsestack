@@ -2,6 +2,11 @@
 
 All notable changes to the `remodel` plugin (named `code-judo` through 0.2.4).
 
+## 0.3.2
+
+`deep-review` no longer pre-approves Bash or Git commands (#1205). It still reads the
+branch diff and reports its findings; Git calls use Claude Code's normal permission checks.
+
 ## 0.3.1
 
 The recommendation policy copy in `deepen-architecture` follows the source of truth: TOP SEVERITY's

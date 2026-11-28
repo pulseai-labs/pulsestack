@@ -1,7 +1,7 @@
 ---
 description: Strict maintainability review of a branch or diff — abstraction quality, giant files, spaghetti growth, boundary leaks — pushed toward restructurings that delete complexity rather than rearrange it. One report, one disposition pass, no loop.
 argument-hint: "[base-ref]"
-allowed-tools: Bash(bash:*), Bash(git:*), Read, Glob, Grep, Task
+allowed-tools: Read, Glob, Grep, Task
 disable-model-invocation: true
 ---
 
