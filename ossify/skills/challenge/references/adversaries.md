@@ -32,9 +32,9 @@ is a value, not an omission.
 ## 2. Recipes
 
 Each recipe: a probe, an invocation, the output contract (§3), a timeout, and
-the failure path (§4). `codex` and `claude` are ported verbatim from
-architect-critic 0.6.0's proven invocations, and `devin` joined after a real
-audit run (§2.1). These three are the complete validated set.
+the failure path (§4). The `codex` and `claude` recipes originated in
+architect-critic 0.6.0, and `devin` joined after a real audit run (§2.1).
+These three are the complete validated set.
 
 _Dispatcher invocations below are `"$oss_bin" …` — THIS fence resolves `oss` itself and checks that what answers is ossify's own dispatcher before using it, so nothing here depends on an earlier Bash call._
 
@@ -75,20 +75,22 @@ Read the `--output-last-message` file, not stdout. Validate it against §3.
 
 ### claude — ported, proven
 
-**Probe:** `command -v claude`.
+**Probe:** `command -v claude && command -v jq`.
 
-**Invocation:**
+**Invocation:** Claude rejects the template's `$schema` dialect declaration;
+omit it only from the Claude CLI argument.
 
 ```bash
+claude_schema="$(jq -c 'del(."$schema")' "$schema")" || exit 1
 claude --print \
   --output-format json \
-  --json-schema "$(cat "$schema")" \
+  --json-schema "$claude_schema" \
   --permission-mode dontAsk \
   --no-session-persistence \
   "<prompt>"
 ```
 
-Validate the response against §3.
+Read `structured_output` from the JSON response and validate it against §3.
 
 ### devin — proven on a real audit
 
