@@ -4,7 +4,7 @@ argument-hint: "[project-name]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Skill
 ---
 
-Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
+Parse the raw argument text via the trailing argument (never write a dollar-digit positional here),
 then load the adoption ceremony, whose contract you load below.
 
 ```bash

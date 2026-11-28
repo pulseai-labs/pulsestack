@@ -185,7 +185,8 @@ adopt it.
 
 ## 8. Slash-command interaction
 
-`/ossify:patch` (`commands/patch.md`) passes the raw argument string as
-`$ARGUMENTS`; on shim-less channels (Codex, `Skill()`, natural language) the issue
-numbers arrive as literal tokens in the request. **Never reference `$1` / `$2` /
-`$N`.** With no argument, ask which issues or which defect; never pick one.
+`/ossify:patch` (`commands/patch.md`) renders the raw argument text inline after
+`Invoke the patch skill with:`; there is no shell shim. On Codex, a direct skill
+invocation (`Skill()`), or a natural-language request, read the literal tokens
+from the invocation or request. **Never write a dollar-digit positional.** With no
+argument, ask which issues or which defect; never pick one.

@@ -38,7 +38,7 @@ recorded, and the recovery is the user's to pick.
 
 **Trigger phrases (description-match):**
 
-- `/close <id>` (slash command — see §9 for the `$ARGUMENTS` bridge)
+- `/close <id>` (slash command — see §9 for argument handling)
 - "close work item r1.s2.w3", "close the spine", "close spine r1.s2", "close the
   release", "run the close ceremony", "run the impl-check gate"
 
@@ -62,9 +62,9 @@ the user meant, and never infer it from the wording of the request.
 Call the `oss` dispatcher by name. The plugin loader puts `bin/` on `$PATH` on Claude Code, Codex and OMP, so `oss` resolves in every Bash call; a variable set in one call is gone in the next.
 
 ```bash
-id="<the id from $ARGUMENTS>"
+id="<the id from the invocation or request>"
 parts="$(oss id_parse "$id")" || parts=""
-scope="$(printf '%s\n' "$parts" | awk '{print $1}')"
+scope="$(printf '%s\n' "$parts" | awk '{print $(1)}')"
 ```
 
 `oss id_parse` echoes **one space-separated line whose first field is the scope
@@ -465,11 +465,10 @@ A versioned patch — a shipped defect or a can't-fake request — is
 
 ## 9. Slash-command interaction
 
-`/close <id>` (`commands/close.md`) passes `$ARGUMENTS` to `bash -c` as a trailing
-argument — on shim-less channels (`Skill()`, natural language), the id arrives as a literal
-token in the invocation/request text. **Parse `$ARGUMENTS` in bash; never
-reference `$1` / `$2` / `$N`** — Claude Code substitutes positional tokens in
-command bodies at template-render time and silently corrupts them.
+The `/close <id>` recipe (`commands/close.md`) passes the raw argument text to
+`bash -c` as a trailing argument. **Parse it in bash; never write a dollar-digit positional**: Claude Code and OMP substitute such tokens when they render the command body.
+On a direct skill invocation (`Skill()`) or a natural-language request, read
+the literal id token from the invocation or request.
 
 The arguments are the id and, after a work-item id only, `--pr` (`/close <wi-id> --pr`) and `--verdict <file>` (`/close <wi-id> --pr --verdict <file>`: a caller's verifier verdict replaces the close's own dispatch, `references/work-item-close.md` §2). Both apply to a work-item close only: on a spine or release id, twice, before the id, with `--verdict` and no file, or with any other token, refuse with that sentence before §3's pre-flight. With no id, emit one line, list what is open, and stop (§2).
 

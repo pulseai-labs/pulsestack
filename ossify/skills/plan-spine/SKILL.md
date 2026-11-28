@@ -34,7 +34,7 @@ implementer dispatch, verification, and merge belong to the execution engine
 
 **Trigger phrases (description-match):**
 
-- `/plan-spine <spine-id>` (slash command — see §10 for the `$ARGUMENTS` bridge)
+- `/plan-spine <spine-id>` (slash command — see §10 for argument handling)
 - "plan the spine", "decompose r1.s2", "break this spine into work items",
   "author the demo criteria", "let's start building this spine"
 
@@ -110,7 +110,7 @@ For a spine not yet declared in an open release, use
 `plan-release/references/amending-a-release.md` before returning; otherwise correct the id.
 
 ```bash
-spine="<spine-id from $ARGUMENTS>"
+spine="<spine-id from the invocation or request>"
 class="$(oss get ".spines[] | select(.id == \"$spine\") | .class" "$sp")"
 rel="$(oss get ".spines[] | select(.id == \"$spine\") | .release" "$sp")"
 name="$(oss get ".spines[] | select(.id == \"$spine\") | .name" "$sp")"
@@ -416,14 +416,13 @@ With `SPINE.md` finished, §6's optional adversarial pass may run.
 
 ## 10. Slash-command interaction
 
-The `/plan-spine` slash command (`commands/plan-spine.md`) passes
-`$ARGUMENTS` to `bash -c` as a trailing argument; on shim-less channels
-(`Skill()`, natural language) the spine id arrives as a literal token in
-the request. **Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` / `$N`** —
-Claude Code substitutes positional tokens in command bodies at template-render
-time and silently corrupts them. The only argument is the spine id (`r1.s2`);
-when it is absent, list the planned spines (`oss spine_list`) and ask which
-one — never pick for the user, never infer a spine from a name when the id missed (§3).
+The `/plan-spine` recipe (`commands/plan-spine.md`) passes the raw argument
+text to `bash -c` as a trailing argument. **Parse it in bash; never write a dollar-digit positional**: Claude Code and OMP substitute such tokens when they render the command body.
+On a direct skill invocation (`Skill()`) or a natural-language request, read
+the literal id token from the invocation or request.
+The only argument is the spine id (`r1.s2`); when it is absent, list the planned
+spines (`oss spine_list`) and ask which one — never pick for the user, never infer
+a spine from a name when the id missed (§3).
 
 ---
 

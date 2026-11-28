@@ -39,7 +39,7 @@ do **not** decompose spines into work items, author demo lines, or author specs 
 
 **Trigger phrases (description-match):**
 
-- `/plan-release` (slash command — see §10 for the `$ARGUMENTS` trailing argument)
+- `/plan-release` (slash command — see §10 for argument handling)
 - "plan the next release", "plan Release 0", "groom the feature map", "pick the
   spines for MVP", "what's in this release?"
 
@@ -426,13 +426,10 @@ in the DAG.
 
 ## 10. Slash-command interaction
 
-The `/plan-release` slash command (`commands/plan-release.md`) passes
-`$ARGUMENTS` to `bash -c` as a trailing argument — on shim-less channels
-(`Skill()`, natural language), the release name
-arrives as a literal token in the invocation/request text. **Parse `$ARGUMENTS`
-in bash; never reference `$1` / `$2` / `$N`** — Claude Code substitutes
-positional tokens in command bodies at template-render time and silently
-corrupts them.
+The `/plan-release` recipe (`commands/plan-release.md`) passes the raw argument
+text to `bash -c` as a trailing argument. **Parse it in bash; never write a dollar-digit positional**: Claude Code and OMP substitute such tokens when they render the command body.
+On a direct skill invocation (`Skill()`) or a natural-language request, read
+the release name from the invocation or request.
 
 The only argument is an optional release name (`"Release 0"`, `"MVP"`, `"v1"`),
 passed to `oss release_add`. When it is absent, ask for it before creating the
