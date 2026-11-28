@@ -4,7 +4,7 @@ All notable changes to the `crew` plugin.
 
 ## 0.13.7
 
-**`/crew:orchestrate` keeps its objective-parsing instructions when rendered (#1263).** Claude Code and OMP substitute the objective only in the trailing argument, not in the prose that explains it. Crew's suite now checks that the trailing placeholder is present exactly once.
+**`/crew:orchestrate` keeps its objective-parsing instructions when rendered (#1263).** The command now holds one argument token, in its trailing argument; the prose that explains it no longer names one, so neither Claude Code nor OMP turns that prose into the objective. Crew's suite now checks that the trailing placeholder is present exactly once.
 
 ## 0.13.6
 

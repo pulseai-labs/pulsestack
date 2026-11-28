@@ -2385,7 +2385,7 @@ commands/orchestrate.md	' _ "$ARGUMENTS"
 EOF
 )
 
-section "rendered argument placeholders (#1263, #1222 item 2)"
+section "rendered argument placeholders (#1263)"
 if out="$(check_rendered_arguments "$PLUGIN_ROOT" 2>&1)" && [ -z "$out" ]; then
   pass 'only the intended argument bridge is present in rendered Crew Markdown'
 else
@@ -2416,6 +2416,7 @@ ${N}
 $NR
 $NAME
 $N_x
+$N1
 EOF
   printf '%s\n' '$2' > "$fixture/commands/sub/nested.md" || return 1
   printf '%s\n' "' _ \"\$ARGUMENTS\"" > "$fixture/commands/other.md" || return 1
@@ -2435,6 +2436,7 @@ $1_x
 $NR
 $NAME
 $N_x
+$12x
 \$ARGUMENTS
 \$1.
 \$N

@@ -938,7 +938,7 @@ awk '{print $0}'
 A doubled backslash does not protect: \\$2 here.
 The mnemonic $N. is flagged too.
 A multi-digit $12 here.
-Controls that stay silent: $1abc, $1_x, $NR and $NAME.
+Controls that stay silent: $1abc, $1_x, $12x, $NR and $NAME.
 EOF
 cat > "$FIX/commands/adopt.md" <<'EOF'
 Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
@@ -955,7 +955,7 @@ A glued $12x here.
 A brace mnemonic ${N} here.
 A command control that stays silent: $NAME.
 Only a zero $0 here.
-A command control that stays silent: $N_x.
+A command control that stays silent: $N_x and $N1.
 EOF
 mkdir -p "$FIX/commands/sub"
 printf '%s\n' 'A nested command with $1 here.' > "$FIX/commands/sub/nested.md"

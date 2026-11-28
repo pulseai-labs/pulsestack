@@ -122,6 +122,7 @@ ${N}
 $NR
 $NAME
 $N_x
+$N1
 EOF
   printf '%s\n' '$2' > "$fixture/commands/sub/nested.md" || return 1
   for name in other pair-workspace pair-existing-dual; do
@@ -143,6 +144,7 @@ $1_x
 $NR
 $NAME
 $N_x
+$12x
 \$ARGUMENTS
 \$1.
 \$N
