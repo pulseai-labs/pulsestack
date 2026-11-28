@@ -45,10 +45,12 @@ error; do NOT start any tasks (per **SPEC §8.1**, **SPEC §13.3**).
 
 ## 3. Input collection
 
-Inputs (prompt the user OR read from `$ARGUMENTS` for the slash command —
-never positional `$1`/`$2` per the slash-command `$N` substitution bug; on
-shim-less channels (`Skill()`, natural language) nothing exports `$ARGUMENTS`, so read the values
-as literal tokens in the invocation/request text):
+For `/pair-workspace`, read the raw argument text after `Arguments:` in the
+command prompt. For a direct skill invocation or a natural-language request,
+read the value tokens from that invocation or request. Never use shell
+positional parameters `\$1`/`\$2`.
+
+Inputs (prompt when needed):
 
 - **project name** (kebab-case). Often the user wants it to match the
   existing canonical's basename, but it doesn't have to.
@@ -59,8 +61,8 @@ as literal tokens in the invocation/request text):
   AI workspace's own remote name. Pass it through as typed — preflight refuses
   a name that is not a plain directory name, so do not rewrite it. Reject a
   duplicate `--ai-dir-name` or a missing/empty value with a usage error.
-- **existing canonical absolute path** (required; supplied via `$ARGUMENTS`
-  for `/pair-workspace`). This is where the user's existing repo lives.
+- **existing canonical absolute path** (required; the path in the
+  `/pair-workspace` arguments). This is where the user's existing repo lives.
 - **project_type** — `personal` or `work` (per **SPEC §7.1** prompt:
   *"Is this a personal project or a work/company project?"*). Both
   enforce the trace filter; the distinction is a forward hook for v0.2.

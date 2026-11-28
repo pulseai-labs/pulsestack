@@ -52,18 +52,36 @@ test_pair_skill_body_size_in_range() {
   (( lines >= 150 && lines <= 500 )) || { echo "    pair SKILL.md: $lines lines"; return 1; }
 }
 
-# 4. Slash command wrappers use $ARGUMENTS bridge (per feedback_slash_command_dollar_n_bug)
-test_init_command_uses_arguments_bridge() {
+# 4. Slash command wrappers render arguments inline, not via shell positionals.
+test_init_command_renders_arguments_inline() {
   local cmd="$WI_PLUGIN_ROOT/commands/init-workspace.md"
   [[ -f "$cmd" ]] || return 1
-  grep -q '\$ARGUMENTS' "$cmd" || return 1
+  grep -Fxq 'Arguments: $ARGUMENTS' "$cmd" || return 1
   ! grep -nE '\$[1-9]' "$cmd" | grep -v '\$ARGUMENTS' | grep -v '^[^:]*:#' >/dev/null
 }
-test_pair_command_uses_arguments_bridge() {
+test_pair_command_renders_arguments_inline() {
   local cmd="$WI_PLUGIN_ROOT/commands/pair-workspace.md"
   [[ -f "$cmd" ]] || return 1
-  grep -q '\$ARGUMENTS' "$cmd" || return 1
+  grep -Fxq 'Arguments: $ARGUMENTS' "$cmd" || return 1
   ! grep -nE '\$[1-9]' "$cmd" | grep -v '\$ARGUMENTS' | grep -v '^[^:]*:#' >/dev/null
+}
+
+# #1220: the skills read prompt text, not a shell argument channel.
+test_skills_reject_shell_argument_channel() {
+  local skill body rc=0
+  for skill in "$INIT_SKILL" "$PAIR_SKILL" "$DUAL_SKILL"; do
+    body="$(cat "$skill")" || return 1
+    body="${body//$'\n'/ }"
+    if grep -Eiq 'env-var[[:space:]]+bridge|exports[[:space:]]+`?\$ARGUMENTS' <<<"$body"; then
+      echo "    $skill: describes a nonexistent argument environment variable"
+      rc=1
+    fi
+    if ! grep -Eiq 'never[^.!?]*\$1[^.!?]*\$2' <<<"$body"; then
+      echo "    $skill: must still forbid shell positionals \$1/\$2"
+      rc=1
+    fi
+  done
+  return "$rc"
 }
 
 test_init_skill_documents_explicit_wrapper_mode() {
@@ -948,8 +966,9 @@ wi_test_run test_pair_triggers_on_existing_canonical
 wi_test_run test_pair_triggers_on_pair_workspace
 wi_test_run test_init_skill_body_size_in_range
 wi_test_run test_pair_skill_body_size_in_range
-wi_test_run test_init_command_uses_arguments_bridge
-wi_test_run test_pair_command_uses_arguments_bridge
+wi_test_run test_init_command_renders_arguments_inline
+wi_test_run test_pair_command_renders_arguments_inline
+wi_test_run test_skills_reject_shell_argument_channel
 wi_test_run test_init_skill_documents_explicit_wrapper_mode
 wi_test_run test_init_command_forwards_wrapper_grammar
 wi_test_run test_readme_uses_canonical_ai_suffix_in_both_fresh_modes
