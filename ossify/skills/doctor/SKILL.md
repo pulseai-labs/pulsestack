@@ -60,7 +60,7 @@ the verb, let the user run it.
 
 **Trigger phrases (description-match):**
 
-- `/ossify:doctor [surface]` (slash command — see §12 for the `$ARGUMENTS` bridge)
+- `/ossify:doctor [surface]` (slash command — see §12 for argument handling)
 - "run doctor", "check project health", "is my state healthy", "what's wrong
   with this project"
 - "validate the spec", "check my MASTER-SPEC"
@@ -95,7 +95,7 @@ named, run the full sweep (§3) — that is the common case and the default for 
 bare `/ossify:doctor`.
 
 ```bash
-surface="<the surface token from $ARGUMENTS, lowercased; empty if none>"
+surface="<the requested surface token, lowercased; empty if none>"
 ```
 
 | `surface` | Go to |
@@ -448,11 +448,10 @@ Named here rather than left to read as executed:
 
 ## 12. Slash-command interaction
 
-`/ossify:doctor [surface]` (`commands/doctor.md`) passes `$ARGUMENTS` to `bash -c`
-as a trailing argument — on shim-less channels (`Skill()`,
-natural language), read the surface token from the
-invocation/request text. **Parse `$ARGUMENTS` in bash; never reference
-`$1`/`$2`/`$N`** — Claude Code substitutes positionals at render time.
+The `/ossify:doctor [surface]` recipe (`commands/doctor.md`) passes the argument
+text to `bash -c` as a trailing argument. **Parse it in bash; never write a dollar-digit positional**: Claude Code and OMP substitute such tokens when they render the command body.
+On a direct skill invocation (`Skill()`) or a natural-language request, read
+the surface token from the invocation or request.
 
 The only argument is an optional surface name (§2). Absent or unrecognised, run
 the full sweep.

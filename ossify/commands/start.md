@@ -4,7 +4,7 @@ argument-hint: "[project-name]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Skill
 ---
 
-Parse args from `$ARGUMENTS` via a trailing argument (no positional `$1`/`$2`/`$N`),
+Parse the argument text via the trailing argument (never write a dollar-digit positional here),
 then load the `ossify:start` skill body, which owns spec-core onboarding.
 
 ```bash

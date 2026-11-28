@@ -27,7 +27,7 @@ restated here.
 
 **Trigger phrases (description-match):**
 
-- `/adopt` (slash command — §8 for the `$ARGUMENTS` bridge)
+- `/adopt` (slash command — §8 for argument handling)
 - "adopt this project into ossify", "onboard a project that already has code"
 
 Call the `oss` dispatcher by name. The plugin loader puts `bin/` on `$PATH` on Claude Code, Codex and OMP, so `oss` resolves in every Bash call; a variable set in one call is gone in the next.
@@ -349,11 +349,10 @@ Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 
 ## 8. Slash-command interaction
 
-The `/adopt` command passes `$ARGUMENTS` to `bash -c` as a trailing argument —
-parse it in bash; never reference `$1`/`$2`/`$N`. On shim-less
-channels (`Skill()`, natural language),
-the argument arrives as a literal token in the invocation/request text; read
-it from there. The only argument
-is an optional project name, passed to `oss init`; when absent, ask before
-initializing. The command is Claude-Code-only; on Codex the skill body is the native
+The `/adopt` command's recipe passes the argument text to `bash -c` as a
+trailing argument. Parse it in bash; never write a dollar-digit positional in the command body. On a direct
+skill invocation (`Skill()`) or a natural-language request, read the literal
+argument token from the invocation or request.
+The only argument is an optional project name, passed to `oss init`; when absent,
+ask before initializing. The command is Claude-Code-only; on Codex the skill body is the native
 `adopt` skill.

@@ -156,7 +156,7 @@ D	commands/plan-spine.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell e
 D	commands/run-spine.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
 D	commands/start.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
 D	commands/work-item.md	1	#138	the $ARGUMENTS trailing-argument bridge; shell execution is covered by test-dispatcher.sh, renderer coverage is outside this ledger
-I	skills/doctor/SKILL.md	2	a single doctor call (interop_check's block went with its verb - §7 is performed by reading; rules_types' block went the same way - §6's type table is the reference's §3 prose now) and the surface-token placeholder assignment (the broken $ARGS parse became the family's prose-placeholder form - there is no parse logic left to cover; §12 owns $ARGUMENTS)
+I	skills/doctor/SKILL.md	2	a single doctor call (interop_check's block went with its verb - §7 is performed by reading; rules_types' block went the same way - §6's type table is the reference's §3 prose now) and the surface-token placeholder assignment (the broken $ARGS parse became the family's prose-placeholder form - there is no parse logic left to cover; §12 owns argument handling)
 O	skills/doctor/references/state-inspection.md	ls-files -z	tests/test-prose-contracts.sh	the §5 touch-surface sweep (#523): each declared repo's tracked-path corpus is fed to touch_check, whose OUTPUT is the finding - a surface that matches no tracked file is an ABSENCE from the accumulated hits, and every failure that would FAKE that absence (an unreadable repo, an unreadable registry, an empty corpus) is reported as itself instead Since 1.13.4 it also refuses a run whose state is not this directory's manifest-routed one (the gate §4 documents; #561), reads each surface's KIND from its roster so the re-point verb is determined rather than guessed, and removes its temp file (#558).
 I	skills/doctor/references/state-inspection.md	3	the reads the agent-performed half works from, now that doctor emits only its four gate lines: the four advisory counts, the `| type` guard that must precede them (jq's length answers on strings too, so a corrupt field returns a plausible number at rc 0), and the worktree_orphans call shapes one per repo key (#156). Each is a single read whose OUTPUT the prose interprets - the judgement is the prose
 I	skills/doctor/references/spec-validation.md	1	a spec_path resolve bound to an explicit state path
@@ -228,7 +228,7 @@ H	commands/start.md	4114525697-110
 H	commands/work-item.md	2041771454-114
 H	skills/adopt/SKILL.md	3508802419-191
 H	skills/challenge/references/adversaries.md	3245917599-1326
-H	skills/close/SKILL.md	1410923543-370
+H	skills/close/SKILL.md	2133271911-387
 H	skills/close/references/code-review.md	16902604-1788
 H	skills/close/references/cumulative-demo.md	1386295077-7995
 H	skills/close/references/fake-expiry.md	3542365026-715
@@ -241,7 +241,7 @@ H	skills/close/references/routing.md	261804248-259
 H	skills/close/references/spine-close.md	2050628757-51338
 H	skills/close/references/work-item-close.md	3257652677-12979
 H	commands/doctor.md	3524299347-111
-H	skills/doctor/SKILL.md	630905567-126
+H	skills/doctor/SKILL.md	352782175-120
 H	skills/doctor/references/budget-check.md	4087089281-1058
 H	skills/doctor/references/interop-check.md	1003299360-1052
 H	skills/doctor/references/spec-validation.md	3469818852-7018
@@ -255,7 +255,7 @@ H	skills/plan-release/references/real-use-findings.md	2699050376-489
 H	skills/plan-release/references/release-md-emission.md	3198314590-173
 H	skills/plan-release/references/rolling-wave.md	767614811-211
 H	skills/plan-release/references/spine-sequencing-dag.md	3469132072-141
-H	skills/plan-spine/SKILL.md	971121003-2634
+H	skills/plan-spine/SKILL.md	2651017845-2649
 H	skills/plan-spine/references/citation-foldin.md	3602525984-347
 H	skills/plan-spine/references/cross-repo.md	760526739-899
 H	skills/plan-spine/references/decomposition.md	904324617-642

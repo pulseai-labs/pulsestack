@@ -40,7 +40,7 @@ no work item — `plan-release` owns those.
 
 **Trigger phrases (description-match):**
 
-- `/start` (slash command — see §14 for the `$ARGUMENTS` trailing argument)
+- `/start` (slash command — see §14 for argument handling)
 - "start a new project", "onboard this project into ossify", "kick off a
   skeleton-first build", "let's spec this out before we build"
 
@@ -435,11 +435,10 @@ the skeleton spine pre-seeded from the cut.
 
 ## 14. Slash-command interaction
 
-The `/start` slash command (`commands/start.md`) passes `$ARGUMENTS` to `bash -c`
-as a trailing argument — on shim-less channels (`Skill()`,
-natural language), read the name from the invocation text.
-**Parse `$ARGUMENTS` in bash; never reference `$1`/`$2`/`$N`** — Claude Code
-substitutes positionals at render time and corrupts them.
+The `/start` recipe (`commands/start.md`) passes the argument text to
+`bash -c` as a trailing argument. **Parse it in bash; never write a dollar-digit positional**: Claude Code and OMP substitute such tokens when they render the command body.
+On a direct skill invocation (`Skill()`) or a natural-language request, read
+the name from the invocation or request.
 
 The only argument is an optional project name, passed to `oss init`. When it is
 absent, ask for it before initializing — the name is the project's identity in

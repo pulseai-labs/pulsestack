@@ -9,6 +9,10 @@ The 1.24.0 entry's parenthesis about adopt and a marked stub, added in 1.35.0, s
 Some versions have no entry. The GitHub releases tagged `ossify-v*` carry notes for the versions
 they cover.
 
+## 1.45.10
+
+Since 1.45.10 (#1263, ossify half), the host no longer substitutes user arguments into ossify's argument-handling instructions: Claude Code in native skill calls and slash commands, OMP in slash commands. On a native `Skill()` call with a flag (`r1.s2.w3 --pr`), close's routing block no longer renders its `awk` field reference as the flag, which made the scope `-1` and misrouted the close. The real slash-command placeholders and Bash bridges are unchanged; `/ossify:patch` documents the inline argument text it actually receives. `test-skill-bash-blocks.sh` check 4 now scans each rendered skill and command for argument tokens, and each kept placeholder must still be present.
+
 ## 1.45.9
 
 Since 1.45.9 (#1259), the `claude` adversary in a close-depth challenge omits the shared output schema's `$schema` declaration from `--json-schema`, so Claude Code accepts the schema and returns structured challenges. The shared template and the Codex and Devin recipes are unchanged.

@@ -60,7 +60,7 @@ here)** → `close`.
 
 **Trigger phrases (description-match, Mode A):**
 
-- `/work-item <handoff-path>` (slash command — see §11 for the `$ARGUMENTS` bridge)
+- `/work-item <handoff-path>` (slash command — see §11 for argument handling)
 - "execute work item r1.s2.w1", "implement the work item", "run the handoff at
   `<absolute path>`"
 
@@ -394,11 +394,11 @@ you here.
 
 ## 11. Slash-command interaction
 
-`/work-item <handoff-path>` (`commands/work-item.md`) passes `$ARGUMENTS` to `bash -c`
-as a trailing argument — on shim-less channels (`Skill()`,
-natural language), the handoff path arrives as a literal
-token in the invocation/request text. **Parse `$ARGUMENTS` in bash; never
-reference `$1`/`$2`/`$N`** — Claude Code substitutes positionals at render time.
+The `/work-item <handoff-path>` recipe (`commands/work-item.md`) passes the
+argument text to `bash -c` as a trailing argument. **Parse it in bash; never write a dollar-digit
+positional**: Claude Code and OMP substitute such tokens when they render the command body.
+On a direct skill invocation (`Skill()`) or a natural-language request, read
+the literal handoff path from the invocation or request.
 
 The only argument is the absolute handoff path. When it is missing, emit one line
 and stop:
