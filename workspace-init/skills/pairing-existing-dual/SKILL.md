@@ -30,7 +30,12 @@ These are validated by `"$wi_bin" skeleton_preflight_existing_dual "$ai_root" "$
 
 ## 3. Input collection
 
-Inputs (prompt the user OR read from `$ARGUMENTS` for the slash command — never positional `$1`/`$2` per the slash-command `$N` substitution bug; on shim-less channels (`Skill()`, natural language) nothing exports `$ARGUMENTS`, so read the values as literal tokens in the invocation/request text):
+For `/pair-existing-dual`, read the raw argument text after `Arguments:` in the
+command prompt. For a direct skill invocation or a natural-language request,
+read the value tokens from that invocation or request. Never use shell
+positional parameters `\$1`/`\$2`.
+
+Inputs (prompt when needed):
 
 - **existing AI workspace absolute path** (already populated; first `/pair-existing-dual` arg).
 - **existing canonical absolute path** (already a git repo; second `/pair-existing-dual` arg).

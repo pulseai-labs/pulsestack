@@ -1,5 +1,10 @@
 # workspace-init changelog
 
+## 0.10.11
+
+### Fixed
+- **Workspace skills read slash-command arguments from the prompt (#1220).** The init and both pairing skills no longer describe an environment-variable bridge; direct skill invocations and natural-language requests supply values as text.
+
 ## 0.10.10
 
 ### Fixed

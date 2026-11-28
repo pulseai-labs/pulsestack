@@ -63,10 +63,10 @@ Slash-command grammar:
 /init-workspace <name> [--wrapper <existing-dir>] --ai-dir-name <dir>
 ```
 
-Read the raw slash-command text from the `$ARGUMENTS` env-var bridge — never
-from `$1`/`$2`, per the slash-command `$N` substitution bug. On shim-less
-channels (`Skill()`, natural language) nothing exports `$ARGUMENTS`;
-read the name, `--wrapper` and `--ai-dir-name` tokens from the invocation/request text.
+For `/init-workspace`, read the raw argument text after `Arguments:` in the
+command prompt. For a direct skill invocation or a natural-language request,
+read the name, `--wrapper` and `--ai-dir-name` tokens from that invocation or
+request. Never use shell positional parameters `\$1`/`\$2`.
 Interpret exactly one positional project name plus the optional `--wrapper <existing-dir>`
 and `--ai-dir-name <dir>` pairs, in either order. Reject an unknown option, a duplicate
 `--wrapper` or `--ai-dir-name`, a missing/empty value for either, or more than one
